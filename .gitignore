@@ -1,0 +1,50 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Runtime storage
+.novexa/
+*.db
+*.db-shm
+*.db-wal
+
+# Go
+runtime/bin/
+runtime/tmp/
+runtime/coverage.out
+
+# Node / Dashboard
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/dist/
+dashboard/.turbo/
+
+# Build outputs
+dist/
+build/
+bin/
+
+# Cache
+.cache/
+.tmp/
+tmp/
+
+# Python helper files, if any
+__pycache__/
+*.pyc
+.venv/
+venv/
