@@ -25,6 +25,7 @@ logs/
 runtime/bin/
 runtime/tmp/
 runtime/coverage.out
+runtime/novexa
 
 # Node / Dashboard
 dashboard/node_modules/

@@ -525,14 +525,18 @@ Core rules:
 
 ## Current Status
 
-Planning phase.
+Sprint 1 (Runtime Skeleton) and Sprint 2 (Gateway API) are complete.
 
-Implementation has not started yet.
+The runtime now exposes an OpenAI-compatible local HTTP gateway at:
+
+```text
+http://127.0.0.1:8787/v1
+```
 
 The next step is:
 
 ```text
-Sprint 1: Runtime skeleton
+Sprint 3: Provider adapters
 ```
 
 ---

@@ -4,7 +4,7 @@
 //
 //   - version: prints the runtime version.
 //   - start:   loads configuration, prints startup information, runs a
-//              placeholder loop, and shuts down gracefully on SIGINT/SIGTERM.
+//     placeholder loop, and shuts down gracefully on SIGINT/SIGTERM.
 package cli
 
 import (
@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/novexa/novexa/runtime/internal/config"
+	"github.com/novexa/novexa/runtime/internal/gateway"
 	"github.com/novexa/novexa/runtime/internal/logger"
 )
 
@@ -110,21 +111,25 @@ func runStart(args []string) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+	srv := gateway.New(cfg, log)
+	srvErr := srv.Start()
 
-	for {
-		select {
-		case <-ctx.Done():
-			log.Info("Novexa Runtime shutting down gracefully")
-			// Give any future cleanup a moment to finish.
-			time.Sleep(100 * time.Millisecond)
-			log.Info("Novexa Runtime stopped")
-			return
-		case <-ticker.C:
-			log.Debug("placeholder runtime loop tick")
+	select {
+	case <-ctx.Done():
+	case err := <-srvErr:
+		if err != nil {
+			log.Error("gateway failed to start", err)
+			os.Exit(1)
 		}
 	}
+
+	log.Info("Novexa Runtime shutting down gracefully")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Error("gateway shutdown error", err)
+	}
+	log.Info("Novexa Runtime stopped")
 }
 
 func printStartupBanner(cfg *config.Config) {
