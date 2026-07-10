@@ -6,6 +6,7 @@ import (
 
 	"github.com/novexa/novexa/runtime/internal/api"
 	contextengine "github.com/novexa/novexa/runtime/internal/context"
+	"github.com/novexa/novexa/runtime/internal/profiles"
 	"github.com/novexa/novexa/runtime/internal/provider"
 )
 
@@ -20,10 +21,13 @@ const (
 
 // Report describes guard outcome.
 type Report struct {
-	Decision Decision `json:"decision"`
-	Warnings []string `json:"warnings,omitempty"`
-	Blocked  bool     `json:"blocked"`
-	Reason   string   `json:"reason,omitempty"`
+	Decision        Decision `json:"decision"`
+	Warnings        []string `json:"warnings,omitempty"`
+	Blocked         bool     `json:"blocked"`
+	Reason          string   `json:"reason,omitempty"`
+	AppliedProfile  bool     `json:"applied_profile,omitempty"`
+	ProfileID       string   `json:"profile_id,omitempty"`
+	AntiLoopLevel   string   `json:"anti_loop_level,omitempty"`
 }
 
 // Input is the Guard Engine request.
@@ -32,6 +36,7 @@ type Input struct {
 	ResponseFormat *api.ResponseFormat
 	RuntimeMode    string
 	ContextReport  *contextengine.Report
+	ModelProfile   *profiles.Profile
 }
 
 // Output is the Guard Engine result.
@@ -71,12 +76,30 @@ func (e *Engine) Check(in Input) Output {
 		warnings = append(warnings, "structured output validation enabled")
 	}
 
+	report := Report{Decision: DecisionAllow, Warnings: warnings}
+	if in.ModelProfile != nil {
+		report.AppliedProfile = true
+		report.ProfileID = in.ModelProfile.ID
+		report.AntiLoopLevel = in.ModelProfile.Guard.AntiLoop
+		if in.ModelProfile.Guard.AntiLoop == "aggressive" {
+			warnings = append(warnings, "profile recommends aggressive anti-loop settings")
+		}
+		if in.ModelProfile.Guard.RepetitionDetection {
+			warnings = append(warnings, "profile repetition detection enabled")
+		}
+		if in.ModelProfile.Guard.JSONRepair && (in.RuntimeMode == "structured" || (in.ResponseFormat != nil && in.ResponseFormat.Type != "")) {
+			warnings = append(warnings, "profile JSON repair enabled")
+		}
+	}
+
 	decision := DecisionAllow
 	if len(warnings) > 0 {
 		decision = DecisionWarn
 	}
+	report.Decision = decision
+	report.Warnings = warnings
 	return Output{
-		Report:   Report{Decision: decision, Warnings: warnings},
+		Report:   report,
 		Warnings: warnings,
 	}
 }

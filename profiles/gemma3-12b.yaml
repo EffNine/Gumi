@@ -1,0 +1,65 @@
+id: gemma3-12b
+name: Gemma 3 12B
+version: 1
+family: gemma
+size: 12b
+type: instruct
+
+aliases:
+  - gemma3:12b
+  - gemma3:latest
+
+models:
+  ollama:
+    - gemma3:12b
+    - gemma3:latest
+  lmstudio:
+    - gemma-3-12b
+    - gemma-3-12b-it
+  openai_compatible_local:
+    - gemma-3-12b
+
+capabilities:
+  chat: true
+  streaming: true
+  structured_output: medium
+  json_mode: medium
+  tool_calling: weak
+  vision: false
+  long_context: medium
+  coding: medium
+  reasoning: medium
+  creative_writing: medium
+
+defaults:
+  temperature: 0.4
+  top_p: 0.9
+  repeat_penalty: 1.1
+  max_tokens: 4096
+
+context:
+  strategy: hybrid
+  max_input_tokens: 20000
+  preserve_recent_messages: 8
+  compression: true
+
+prompt:
+  style: technical
+  instruction_strength: standard
+  json_instruction_style: explicit
+  system_prompt_style: direct
+  instructions:
+    - Provide clear, factual answers.
+    - For structured output, return only valid JSON with no markdown fences.
+    - Avoid repeating earlier sentences.
+
+guard:
+  anti_loop: standard
+  context_overflow: true
+  structured_output: true
+  json_repair: true
+  repetition_detection: true
+
+notes:
+  - Mid-size instruct model with good technical QA performance.
+  - Keep prompts explicit for reliable structured output.

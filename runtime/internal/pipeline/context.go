@@ -13,6 +13,7 @@ import (
 	contextengine "github.com/novexa/novexa/runtime/internal/context"
 	guardengine "github.com/novexa/novexa/runtime/internal/guard"
 	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
+	"github.com/novexa/novexa/runtime/internal/profiles"
 	"github.com/novexa/novexa/runtime/internal/provider"
 	repairengine "github.com/novexa/novexa/runtime/internal/repair"
 	validationengine "github.com/novexa/novexa/runtime/internal/validation"
@@ -101,9 +102,10 @@ type Context struct {
 	ValidationPassed bool                     `json:"validation_passed"`
 	RepairApplied    bool                     `json:"repair_applied"`
 
-	RequestedModel   string `json:"requested_model"`
-	SelectedProvider string `json:"selected_provider,omitempty"`
-	SelectedModel    string `json:"selected_model,omitempty"`
+	RequestedModel   string            `json:"requested_model"`
+	SelectedProvider string            `json:"selected_provider,omitempty"`
+	SelectedModel    string            `json:"selected_model,omitempty"`
+	ModelProfile     *profiles.Profile `json:"model_profile,omitempty"`
 
 	ProviderResponse *api.ChatCompletionResponse `json:"provider_response,omitempty"`
 	ProviderError    *provider.ProviderError     `json:"provider_error,omitempty"`

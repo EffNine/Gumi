@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/novexa/novexa/runtime/internal/profiles"
 )
 
 const (
@@ -35,6 +36,7 @@ type Input struct {
 	Strategy               string
 	MaxInputTokens         int
 	PreserveRecentMessages int
+	ModelProfile           *profiles.Profile
 }
 
 // Output is the Context Engine result.
@@ -93,10 +95,27 @@ func New() *Engine {
 // Prepare normalizes, deduplicates, and trims messages to fit a token budget.
 func (e *Engine) Prepare(in Input) Output {
 	strategy := resolveStrategy(in.Strategy, in.RuntimeMode)
+	maxInput := in.MaxInputTokens
+	preserveRecent := in.PreserveRecentMessages
+	if in.ModelProfile != nil {
+		if in.ModelProfile.Context.Strategy != "" && in.Strategy == "" {
+			strategy = resolveStrategy(in.ModelProfile.Context.Strategy, in.RuntimeMode)
+		}
+		if maxInput <= 0 && in.ModelProfile.Context.MaxInputTokens > 0 {
+			maxInput = in.ModelProfile.Context.MaxInputTokens
+		}
+		if in.ModelProfile.ContextLimit > 0 && maxInput <= 0 {
+			maxInput = in.ModelProfile.ContextLimit - defaultReservedOutput - defaultReservedSystem - defaultReservedMemory
+		}
+		if preserveRecent <= 0 && in.ModelProfile.Context.PreserveRecentMessages > 0 {
+			preserveRecent = in.ModelProfile.Context.PreserveRecentMessages
+		}
+	}
+
 	normalized, emptyRemoved := normalizeMessages(in.Messages)
 	before := EstimateMessages(normalized)
 
-	limit := in.MaxInputTokens
+	limit := maxInput
 	if limit <= 0 {
 		limit = defaultModelContextLimit - defaultReservedOutput - defaultReservedSystem - defaultReservedMemory
 	}
@@ -112,7 +131,7 @@ func (e *Engine) Prepare(in Input) Output {
 
 		if strategy == StrategyHybrid || strategy == StrategyTrim {
 			var trimmed int
-			final, trimmed = trimToBudget(final, limit, in.PreserveRecentMessages)
+			final, trimmed = trimToBudget(final, limit, preserveRecent)
 			itemsRemoved += trimmed
 			fallbackUsed = trimmed > 0
 		}

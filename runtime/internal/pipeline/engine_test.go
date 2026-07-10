@@ -20,6 +20,7 @@ type fakeAdapter struct {
 	status       provider.ProviderStatus
 	seenModel    string
 	seenMessages []api.Message
+	seenReq      api.ChatCompletionRequest
 	callCount    int
 }
 
@@ -45,6 +46,7 @@ func (f *fakeAdapter) Generate(ctx context.Context, req api.ChatCompletionReques
 	f.callCount++
 	f.seenModel = req.Model
 	f.seenMessages = append([]api.Message(nil), req.Messages...)
+	f.seenReq = req
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -349,6 +351,100 @@ func TestRunChatCompletionIncludesMetadataWhenRequested(t *testing.T) {
 	if result.Response.Novexa.Provider != "ollama" {
 		t.Fatalf("expected provider ollama, got %s", result.Response.Novexa.Provider)
 	}
+}
+
+func TestPipelineAppliesProfileDefaultsToProviderRequest(t *testing.T) {
+	cfg := config.DefaultConfig()
+	adapter := &fakeAdapter{
+		name:   "ollama",
+		models: []provider.ModelInfo{{Name: "qwen3:8b"}},
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_qwen", api.ChatCompletionRequest{
+		Model: "ollama:qwen3:8b",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.ModelProfile == nil || result.Context.ModelProfile.ID != "qwen3-8b" {
+		t.Fatalf("expected qwen3-8b profile, got %v", result.Context.ModelProfile)
+	}
+	assertEvent(t, result.Context, "model_profile_applied")
+	assertEvent(t, result.Context, "profile_defaults_applied")
+	if adapter.seenReq.Temperature == nil {
+		t.Fatal("expected profile temperature default to be applied")
+	}
+	if got := float64(*adapter.seenReq.Temperature); got < 0.39 || got > 0.41 {
+		t.Fatalf("expected temperature ~0.4, got %v", got)
+	}
+	if adapter.seenReq.TopP == nil {
+		t.Fatal("expected profile top_p default to be applied")
+	}
+	if got := float64(*adapter.seenReq.TopP); got < 0.89 || got > 0.91 {
+		t.Fatalf("expected top_p ~0.9, got %v", got)
+	}
+	if adapter.seenReq.MaxTokens == nil || *adapter.seenReq.MaxTokens != 4096 {
+		t.Fatalf("expected max_tokens 4096, got %v", adapter.seenReq.MaxTokens)
+	}
+}
+
+func TestPipelineEmitsProfileFallbackForUnknownModel(t *testing.T) {
+	cfg := config.DefaultConfig()
+	adapter := &fakeAdapter{
+		name:   "ollama",
+		models: []provider.ModelInfo{{Name: "unknown-model"}},
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_unknown", api.ChatCompletionRequest{
+		Model: "ollama:unknown-model",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.ModelProfile == nil || result.Context.ModelProfile.ID != "generic-local" {
+		t.Fatalf("expected generic-local fallback, got %v", result.Context.ModelProfile)
+	}
+	assertEvent(t, result.Context, "model_profile_fallback")
+}
+
+func TestPipelineAppliesProfilePromptInstructions(t *testing.T) {
+	cfg := config.DefaultConfig()
+	adapter := &fakeAdapter{
+		name:   "ollama",
+		models: []provider.ModelInfo{{Name: "qwen3:8b"}},
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_prompt", api.ChatCompletionRequest{
+		Model: "ollama:qwen3:8b",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.PromptPackage == nil {
+		t.Fatal("expected prompt package")
+	}
+	if len(result.Context.PromptPackage.ModelProfileInstructions) == 0 {
+		t.Fatalf("expected profile instructions in prompt package, got %v", result.Context.PromptPackage.ModelProfileInstructions)
+	}
+	assertEvent(t, result.Context, "profile_prompt_applied")
 }
 
 func assertEvent(t *testing.T, ctx *Context, event string) {

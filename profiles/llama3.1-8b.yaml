@@ -1,0 +1,66 @@
+id: llama3.1-8b
+name: Llama 3.1 8B
+version: 1
+family: llama
+size: 8b
+type: instruct
+
+aliases:
+  - llama3.1:8b
+  - llama3.1:latest
+
+models:
+  ollama:
+    - llama3.1:8b
+    - llama3.1:latest
+  lmstudio:
+    - llama-3.1-8b
+    - llama-3.1-8b-instruct
+  openai_compatible_local:
+    - llama-3.1-8b
+
+capabilities:
+  chat: true
+  streaming: true
+  structured_output: medium
+  json_mode: medium
+  tool_calling: weak
+  vision: false
+  long_context: medium
+  coding: medium
+  reasoning: medium
+  creative_writing: strong
+
+defaults:
+  temperature: 0.5
+  top_p: 0.9
+  repeat_penalty: 1.1
+  max_tokens: 4096
+
+context:
+  strategy: hybrid
+  max_input_tokens: 16000
+  preserve_recent_messages: 8
+  compression: true
+
+prompt:
+  style: general
+  instruction_strength: standard
+  json_instruction_style: explicit
+  system_prompt_style: direct
+  instructions:
+    - Answer in a natural, helpful tone.
+    - For JSON output, return only the requested JSON object without markdown fences.
+    - Be concise unless the user asks for detail.
+
+guard:
+  anti_loop: standard
+  context_overflow: true
+  structured_output: true
+  json_repair: true
+  repetition_detection: true
+
+notes:
+  - Strong general-purpose local model.
+  - May need stricter prompting for technical precision.
+  - Handles creative writing better than most small local models.

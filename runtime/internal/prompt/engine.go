@@ -7,6 +7,7 @@ import (
 
 	"github.com/novexa/novexa/runtime/internal/api"
 	contextengine "github.com/novexa/novexa/runtime/internal/context"
+	"github.com/novexa/novexa/runtime/internal/profiles"
 )
 
 // Input is the Prompt Engine request.
@@ -16,6 +17,7 @@ type Input struct {
 	ContextPackage contextengine.Package
 	ResponseFormat *api.ResponseFormat
 	ExistingSystem []string
+	ModelProfile   *profiles.Profile
 }
 
 // Output is the Prompt Engine result.
@@ -32,15 +34,17 @@ type Package struct {
 	DeveloperInstructions      []string      `json:"developer_instructions,omitempty"`
 	ContextBlock               string        `json:"context_block,omitempty"`
 	ResponseFormatInstructions string        `json:"response_format_instructions,omitempty"`
+	ModelProfileInstructions   []string      `json:"model_profile_instructions,omitempty"`
 	FinalMessages              []api.Message `json:"final_messages,omitempty"`
 }
 
 // Report describes what the Prompt Engine changed.
 type Report struct {
-	SystemPromptAdded     bool     `json:"system_prompt_added"`
-	ResponseFormatApplied bool     `json:"response_format_applied"`
-	FinalMessageCount     int      `json:"final_message_count"`
-	Warnings              []string `json:"warnings,omitempty"`
+	SystemPromptAdded           bool     `json:"system_prompt_added"`
+	ResponseFormatApplied       bool     `json:"response_format_applied"`
+	ProfileInstructionsApplied  bool     `json:"profile_instructions_applied"`
+	FinalMessageCount           int      `json:"final_message_count"`
+	Warnings                    []string `json:"warnings,omitempty"`
 }
 
 // Engine builds provider-ready message arrays.
@@ -56,6 +60,7 @@ func (e *Engine) Build(in Input) Output {
 	system := buildSystemPrompt(in)
 	contextBlock := buildContextBlock(in.ContextPackage)
 	formatInstructions := buildFormatInstructions(in.ResponseFormat)
+	profileInstructions := buildProfileInstructions(in.ModelProfile)
 	warnings := []string{}
 
 	parts := []string{system}
@@ -64,6 +69,9 @@ func (e *Engine) Build(in Input) Output {
 	}
 	if formatInstructions != "" {
 		parts = append(parts, formatInstructions)
+	}
+	if len(profileInstructions) > 0 {
+		parts = append(parts, strings.Join(profileInstructions, "\n"))
 	}
 	finalSystem := strings.Join(parts, "\n\n")
 
@@ -86,14 +94,16 @@ func (e *Engine) Build(in Input) Output {
 			DeveloperInstructions:      in.ExistingSystem,
 			ContextBlock:               contextBlock,
 			ResponseFormatInstructions: formatInstructions,
+			ModelProfileInstructions:   profileInstructions,
 			FinalMessages:              final,
 		},
 		FinalMessages: final,
 		Report: Report{
-			SystemPromptAdded:     systemAdded,
-			ResponseFormatApplied: formatInstructions != "",
-			FinalMessageCount:     len(final),
-			Warnings:              warnings,
+			SystemPromptAdded:          systemAdded,
+			ResponseFormatApplied:      formatInstructions != "",
+			ProfileInstructionsApplied: len(profileInstructions) > 0,
+			FinalMessageCount:          len(final),
+			Warnings:                 warnings,
 		},
 		Warnings: warnings,
 	}
@@ -115,6 +125,20 @@ func buildSystemPrompt(in Input) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+func buildProfileInstructions(p *profiles.Profile) []string {
+	if p == nil || len(p.Prompt.Instructions) == 0 {
+		return nil
+	}
+	var result []string
+	for _, line := range p.Prompt.Instructions {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			result = append(result, line)
+		}
+	}
+	return result
 }
 
 func buildContextBlock(pkg contextengine.Package) string {

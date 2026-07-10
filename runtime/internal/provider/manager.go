@@ -237,6 +237,14 @@ func (m *Manager) resolveAuto(ctx context.Context) (*ModelResolution, ProviderEr
 	}
 }
 
+// Adapter returns the configured adapter for a provider key, if any.
+func (m *Manager) Adapter(key string) (ProviderAdapter, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	adapter, ok := m.adapters[key]
+	return adapter, ok
+}
+
 // Generate delegates a chat completion to the provider selected by model ID.
 // It returns the provider response, the provider key that served it, and any
 // normalized error.

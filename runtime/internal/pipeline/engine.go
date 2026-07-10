@@ -12,6 +12,7 @@ import (
 	guardengine "github.com/novexa/novexa/runtime/internal/guard"
 	"github.com/novexa/novexa/runtime/internal/logger"
 	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
+	"github.com/novexa/novexa/runtime/internal/profiles"
 	"github.com/novexa/novexa/runtime/internal/provider"
 	repairengine "github.com/novexa/novexa/runtime/internal/repair"
 	"github.com/novexa/novexa/runtime/internal/telemetry"
@@ -25,15 +26,16 @@ const (
 
 // Engine orchestrates the request lifecycle for chat completions.
 type Engine struct {
-	cfg           *config.Config
-	manager       *provider.Manager
-	log           *logger.Logger
-	telemetry     *telemetry.Writer
-	contextEngine *contextengine.Engine
-	promptEngine  *promptengine.Engine
-	guardEngine   *guardengine.Engine
-	validation    *validationengine.Engine
-	repair        *repairengine.Engine
+	cfg             *config.Config
+	manager         *provider.Manager
+	log             *logger.Logger
+	telemetry       *telemetry.Writer
+	contextEngine   *contextengine.Engine
+	promptEngine    *promptengine.Engine
+	guardEngine     *guardengine.Engine
+	validation      *validationengine.Engine
+	repair          *repairengine.Engine
+	profileResolver *profiles.Resolver
 }
 
 // Result is returned to Gateway Engine after pipeline execution.
@@ -44,17 +46,22 @@ type Result struct {
 	Error        provider.ProviderError
 }
 
-// New creates a Pipeline Engine.
+// New creates a Pipeline Engine and loads built-in model profiles.
 func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Engine {
+	loader := profiles.NewDefaultLoader()
+	loaded, _ := loader.Load()
+	resolver := profiles.NewResolver(loaded.Profiles)
+
 	return &Engine{
-		cfg:           cfg,
-		manager:       manager,
-		log:           log,
-		contextEngine: contextengine.New(),
-		promptEngine:  promptengine.New(),
-		guardEngine:   guardengine.New(),
-		validation:    validationengine.New(),
-		repair:        repairengine.New(),
+		cfg:             cfg,
+		manager:         manager,
+		log:             log,
+		contextEngine:   contextengine.New(),
+		promptEngine:    promptengine.New(),
+		guardEngine:     guardengine.New(),
+		validation:      validationengine.New(),
+		repair:          repairengine.New(),
+		profileResolver: resolver,
 	}
 }
 
@@ -94,7 +101,7 @@ func (e *Engine) RunChatCompletion(ctx context.Context, requestID string, req ap
 	case ModeDirect:
 		return e.runDirect(ctx, pc)
 	case ModeStabilized, ModeStructured:
-		return e.runSkeleton(ctx, pc)
+		return e.runStabilized(ctx, pc)
 	case ModeAgent:
 		return e.fail(pc, provider.ProviderError{
 			Code:       provider.ProviderMisconfigured,
@@ -148,14 +155,19 @@ func (e *Engine) newContext(requestID string, req api.ChatCompletionRequest) *Co
 
 func (e *Engine) runDirect(ctx context.Context, pc *Context) Result {
 	pc.AddEvent("pipeline", "direct_mode_selected", SeverityInfo, "direct mode selected", nil)
+	if result := e.resolveProviderAndProfile(ctx, pc); result.Error.Code != "" {
+		return result
+	}
 	if result := e.applyGuard(pc); result.Error.Code != "" {
 		return result
 	}
-	return e.callProvider(ctx, pc)
+	return e.callProviderGenerate(ctx, pc)
 }
 
-func (e *Engine) runSkeleton(ctx context.Context, pc *Context) Result {
-	pc.AddEvent("profile", "model_profile_skipped", SeverityInfo, "model profile resolution is scheduled for Sprint 8", nil)
+func (e *Engine) runStabilized(ctx context.Context, pc *Context) Result {
+	if result := e.resolveProviderAndProfile(ctx, pc); result.Error.Code != "" {
+		return result
+	}
 	if pc.RuntimeMode == ModeStructured {
 		pc.AddEvent("guard", "structured_output_guard_enabled", SeverityInfo, "structured output guard and validation enabled", nil)
 	}
@@ -164,7 +176,42 @@ func (e *Engine) runSkeleton(ctx context.Context, pc *Context) Result {
 	if result := e.applyGuard(pc); result.Error.Code != "" {
 		return result
 	}
-	return e.callProvider(ctx, pc)
+	return e.callProviderGenerate(ctx, pc)
+}
+
+func (e *Engine) resolveProviderAndProfile(ctx context.Context, pc *Context) Result {
+	pc.AddEvent("provider", "provider_selection_started", SeverityInfo, "provider selection started", map[string]string{
+		"requested_model": pc.RequestedModel,
+	})
+
+	resolution, perr := e.manager.ResolveModel(ctx, pc.NormalizedRequest.Model)
+	if perr.Code != "" {
+		return e.fail(pc, perr, "provider selection failed")
+	}
+
+	pc.SelectedProvider = resolution.ProviderKey
+	pc.SelectedModel = resolution.ModelName
+	pc.AddEvent("provider", "provider_selected", SeverityInfo, "provider selected", map[string]string{
+		"provider": resolution.ProviderKey,
+		"model":    resolution.ModelName,
+	})
+
+	match := e.profileResolver.Resolve(resolution.ProviderKey, resolution.ModelName)
+	pc.ModelProfile = match.Profile
+	if match.IsFallback {
+		pc.AddEvent("profile", "model_profile_fallback", SeverityWarning, "no matching profile found; using generic fallback", map[string]string{
+			"profile_id": match.Profile.ID,
+			"model":      resolution.ModelName,
+			"reason":     match.Reason,
+		})
+	} else {
+		pc.AddEvent("profile", "model_profile_applied", SeverityInfo, "model profile applied", map[string]string{
+			"profile_id": match.Profile.ID,
+			"model":      resolution.ModelName,
+			"match_reason": match.Reason,
+		})
+	}
+	return Result{}
 }
 
 func (e *Engine) applyGuard(pc *Context) Result {
@@ -173,6 +220,7 @@ func (e *Engine) applyGuard(pc *Context) Result {
 		ResponseFormat: pc.NormalizedRequest.ResponseFormat,
 		RuntimeMode:    string(pc.RuntimeMode),
 		ContextReport:  pc.ContextReport,
+		ModelProfile:   pc.ModelProfile,
 	})
 	pc.GuardReport = &out.Report
 	pc.Warnings = append(pc.Warnings, out.Warnings...)
@@ -180,6 +228,12 @@ func (e *Engine) applyGuard(pc *Context) Result {
 		"decision": string(out.Report.Decision),
 		"blocked":  fmt.Sprintf("%t", out.Report.Blocked),
 	})
+	if pc.ModelProfile != nil {
+		pc.AddEvent("guard", "guard_profile_applied", SeverityInfo, "guard settings informed by model profile", map[string]string{
+			"profile_id": pc.ModelProfile.ID,
+			"anti_loop":  pc.ModelProfile.Guard.AntiLoop,
+		})
+	}
 	for _, warning := range out.Warnings {
 		pc.AddEvent("guard", "guard_warning", SeverityWarning, warning, nil)
 	}
@@ -206,6 +260,7 @@ func (e *Engine) prepareContext(pc *Context) {
 		Strategy:               strategy,
 		MaxInputTokens:         maxInputTokens,
 		PreserveRecentMessages: preserveRecent,
+		ModelProfile:           pc.ModelProfile,
 	})
 
 	pc.MessagesNormalized = out.NormalizedMessages
@@ -257,6 +312,7 @@ func (e *Engine) buildPrompt(pc *Context) {
 		ContextPackage: pkg,
 		ResponseFormat: pc.NormalizedRequest.ResponseFormat,
 		ExistingSystem: existingSystem,
+		ModelProfile:   pc.ModelProfile,
 	})
 
 	pc.PromptPackage = &out.Package
@@ -265,37 +321,41 @@ func (e *Engine) buildPrompt(pc *Context) {
 	pc.NormalizedRequest.Messages = out.FinalMessages
 
 	pc.AddEvent("prompt", "prompt_built", SeverityInfo, "Prompt Engine built provider-ready messages", map[string]string{
-		"system_prompt_added":     fmt.Sprintf("%t", out.Report.SystemPromptAdded),
-		"response_format_applied": fmt.Sprintf("%t", out.Report.ResponseFormatApplied),
-		"final_message_count":     fmt.Sprintf("%d", out.Report.FinalMessageCount),
+		"system_prompt_added":         fmt.Sprintf("%t", out.Report.SystemPromptAdded),
+		"response_format_applied":     fmt.Sprintf("%t", out.Report.ResponseFormatApplied),
+		"profile_instructions_applied": fmt.Sprintf("%t", out.Report.ProfileInstructionsApplied),
+		"final_message_count":         fmt.Sprintf("%d", out.Report.FinalMessageCount),
 	})
 	if out.Report.ResponseFormatApplied {
 		pc.AddEvent("prompt", "structured_prompt_applied", SeverityInfo, "structured output instructions applied", nil)
 	}
+	if out.Report.ProfileInstructionsApplied && pc.ModelProfile != nil {
+		pc.AddEvent("prompt", "profile_prompt_applied", SeverityInfo, "model profile prompt instructions applied", map[string]string{
+			"profile_id": pc.ModelProfile.ID,
+		})
+	}
 }
 
-func (e *Engine) callProvider(ctx context.Context, pc *Context) Result {
-	pc.AddEvent("provider", "provider_selection_started", SeverityInfo, "provider selection started", map[string]string{
-		"requested_model": pc.RequestedModel,
+func (e *Engine) callProviderGenerate(ctx context.Context, pc *Context) Result {
+	providerReq := pc.NormalizedRequest
+	providerReq.Model = pc.SelectedModel
+	e.applyProfileDefaults(pc, &providerReq)
+
+	pc.AddEvent("provider", "provider_request_started", SeverityInfo, "provider request started", map[string]string{
+		"provider": pc.SelectedProvider,
+		"model":    pc.SelectedModel,
 	})
 
-	resolution, perr := e.manager.ResolveModel(ctx, pc.NormalizedRequest.Model)
-	if perr.Code != "" {
-		return e.fail(pc, perr, "provider selection failed")
+	adapter, ok := e.manager.Adapter(pc.SelectedProvider)
+	if !ok {
+		return e.fail(pc, provider.ProviderError{
+			Code:       provider.ProviderMisconfigured,
+			Message:    fmt.Sprintf("provider %q is no longer available", pc.SelectedProvider),
+			Suggestion: "Restart Novexa or check provider configuration.",
+		}, "provider adapter missing after selection")
 	}
 
-	pc.SelectedProvider = resolution.ProviderKey
-	pc.SelectedModel = resolution.ModelName
-	pc.AddEvent("provider", "provider_selected", SeverityInfo, "provider selected", map[string]string{
-		"provider": resolution.ProviderKey,
-		"model":    resolution.ModelName,
-	})
-	pc.AddEvent("provider", "provider_request_started", SeverityInfo, "provider request started", nil)
-
-	providerReq := pc.NormalizedRequest
-	providerReq.Model = resolution.ModelName
-
-	resp, result := e.generateOnce(ctx, pc, resolution, providerReq)
+	resp, result := e.generateOnce(ctx, pc, adapter, providerReq)
 	if result.Error.Code != "" {
 		return result
 	}
@@ -312,7 +372,7 @@ func (e *Engine) callProvider(ctx context.Context, pc *Context) Result {
 	})
 	pc.AddEvent("response", "response_normalized", SeverityInfo, "provider response normalized", nil)
 
-	if result := e.validateRepairAndMaybeRetry(ctx, pc, resolution, providerReq); result.Error.Code != "" {
+	if result := e.validateRepairAndMaybeRetry(ctx, pc, adapter, providerReq); result.Error.Code != "" {
 		return result
 	}
 
@@ -341,21 +401,37 @@ func (e *Engine) callProvider(ctx context.Context, pc *Context) Result {
 	}
 }
 
-func (e *Engine) generateOnce(ctx context.Context, pc *Context, resolution *provider.ModelResolution, req api.ChatCompletionRequest) (*api.ChatCompletionResponse, Result) {
+func (e *Engine) applyProfileDefaults(pc *Context, req *api.ChatCompletionRequest) {
+	if pc.ModelProfile == nil {
+		return
+	}
+	beforeTemp := req.Temperature
+	beforeTopP := req.TopP
+	beforeMaxTokens := req.MaxTokens
+	profiles.ApplyDefaults(pc.ModelProfile, req)
+	pc.AddEvent("profile", "profile_defaults_applied", SeverityInfo, "applied model profile defaults", map[string]string{
+		"profile_id":  pc.ModelProfile.ID,
+		"temperature": fmt.Sprintf("%t", beforeTemp == nil && req.Temperature != nil),
+		"top_p":       fmt.Sprintf("%t", beforeTopP == nil && req.TopP != nil),
+		"max_tokens":  fmt.Sprintf("%t", beforeMaxTokens == nil && req.MaxTokens != nil),
+	})
+}
+
+func (e *Engine) generateOnce(ctx context.Context, pc *Context, adapter provider.ProviderAdapter, req api.ChatCompletionRequest) (*api.ChatCompletionResponse, Result) {
 	start := time.Now()
-	resp, err := resolution.Adapter.Generate(ctx, req)
+	resp, err := adapter.Generate(ctx, req)
 	pc.ProviderLatency += time.Since(start)
 	if err != nil {
 		var normalized provider.ProviderError
 		if !errors.As(err, &normalized) {
-			normalized = resolution.Adapter.NormalizeError(err)
+			normalized = adapter.NormalizeError(err)
 		}
 		return nil, e.fail(pc, normalized, "provider request failed")
 	}
 	return resp, Result{}
 }
 
-func (e *Engine) validateRepairAndMaybeRetry(ctx context.Context, pc *Context, resolution *provider.ModelResolution, providerReq api.ChatCompletionRequest) Result {
+func (e *Engine) validateRepairAndMaybeRetry(ctx context.Context, pc *Context, adapter provider.ProviderAdapter, providerReq api.ChatCompletionRequest) Result {
 	report := e.validation.Validate(validationengine.Input{
 		Response:       pc.FinalResponse,
 		ResponseFormat: pc.NormalizedRequest.ResponseFormat,
@@ -421,7 +497,7 @@ func (e *Engine) validateRepairAndMaybeRetry(ctx context.Context, pc *Context, r
 		})
 		retryReq := providerReq
 		retryReq.Messages = prependRetryInstruction(providerReq.Messages)
-		resp, result := e.generateOnce(ctx, pc, resolution, retryReq)
+		resp, result := e.generateOnce(ctx, pc, adapter, retryReq)
 		if result.Error.Code != "" {
 			return result
 		}
