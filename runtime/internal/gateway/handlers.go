@@ -47,8 +47,8 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(list)
 }
 
-// handleChatCompletions delegates to provider adapters when possible, and falls
-// back to a placeholder only for local:auto when no provider is available.
+// handleChatCompletions validates the HTTP request shape and delegates request
+// execution to Pipeline Engine.
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	reqID := requestIDFromContext(r.Context())
 
@@ -75,29 +75,23 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	mode := s.cfg.Runtime.Mode
-	if req.Novexa != nil && req.Novexa.Mode != "" {
-		mode = req.Novexa.Mode
-	}
-
-	// Reject streaming requests explicitly; adapters do not implement streaming
-	// in Sprint 3.
-	if req.Stream {
-		s.writeError(w, http.StatusBadRequest, api.NewRequestError("STREAMING_NOT_SUPPORTED", "streaming chat completions are not supported in Sprint 3", reqID))
+	result := s.pipeline.RunChatCompletion(r.Context(), reqID, req)
+	if result.Error.Code != "" {
+		s.writeProviderError(w, result.Error, reqID)
 		return
 	}
 
-	resp, providerName, perr := s.manager.Generate(r.Context(), req)
-	if perr.Code != "" {
-		s.writeProviderError(w, perr, reqID)
-		return
+	if result.ProviderName != "" {
+		w.Header().Set("X-Novexa-Provider", result.ProviderName)
 	}
-
-	w.Header().Set("X-Novexa-Provider", providerName)
-	w.Header().Set("X-Novexa-Model", resp.Model)
-	w.Header().Set("X-Novexa-Runtime-Mode", mode)
+	if result.Response != nil {
+		w.Header().Set("X-Novexa-Model", result.Response.Model)
+	}
+	if result.Context != nil {
+		w.Header().Set("X-Novexa-Runtime-Mode", string(result.Context.RuntimeMode))
+	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(result.Response)
 }
 
 // writeProviderError converts a ProviderError into an OpenAI-compatible error
@@ -111,6 +105,8 @@ func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.Provide
 		status = http.StatusNotFound
 	case provider.ProviderMisconfigured:
 		status = http.StatusBadRequest
+	case provider.StreamingUnsupported:
+		status = http.StatusBadRequest
 	case provider.ProviderAuthError:
 		status = http.StatusUnauthorized
 	}
@@ -120,7 +116,7 @@ func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.Provide
 			Code:       string(perr.Code),
 			Message:    perr.Message,
 			Type:       "runtime_error",
-			Engine:     "gateway",
+			Engine:     "pipeline",
 			Retryable:  perr.Code == provider.ProviderUnavailable || perr.Code == provider.ProviderTimeout,
 			Suggestion: perr.Suggestion,
 			RequestID:  reqID,
@@ -129,4 +125,3 @@ func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.Provide
 
 	s.writeError(w, status, errResp)
 }
-

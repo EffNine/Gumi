@@ -1,8 +1,7 @@
 // Package gateway exposes the Novexa HTTP API.
 //
-// It is intentionally thin in Sprint 2: it handles routing, middleware, request
-// serialization, and placeholder responses. Real provider calls will be added
-// in Sprint 3 via the Pipeline Engine.
+// The gateway stays intentionally thin: it handles routing, middleware, and
+// request serialization, then forwards inference requests to Pipeline Engine.
 package gateway
 
 import (
@@ -14,16 +13,18 @@ import (
 
 	"github.com/novexa/novexa/runtime/internal/config"
 	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/novexa/novexa/runtime/internal/pipeline"
 	"github.com/novexa/novexa/runtime/internal/provider"
 )
 
 // Server wraps the Novexa HTTP gateway.
 type Server struct {
-	cfg     *config.Config
-	log     *logger.Logger
-	manager *provider.Manager
-	server  *http.Server
-	addr    string
+	cfg      *config.Config
+	log      *logger.Logger
+	manager  *provider.Manager
+	pipeline *pipeline.Engine
+	server   *http.Server
+	addr     string
 }
 
 // New creates a gateway server from configuration and logger.
@@ -37,10 +38,11 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 	}
 
 	s := &Server{
-		cfg:     cfg,
-		log:     log,
-		manager: mgr,
-		addr:    net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
+		cfg:      cfg,
+		log:      log,
+		manager:  mgr,
+		pipeline: pipeline.New(cfg, mgr, log),
+		addr:     net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
 		server: &http.Server{
 			Addr:              net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
 			Handler:           mux,

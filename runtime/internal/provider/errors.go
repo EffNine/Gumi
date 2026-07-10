@@ -23,6 +23,8 @@ const (
 	ProviderBadResponse ProviderErrorCode = "PROVIDER_BAD_RESPONSE"
 	// ProviderAuthError means the provider rejected authentication.
 	ProviderAuthError ProviderErrorCode = "PROVIDER_AUTH_ERROR"
+	// StreamingUnsupported means the selected runtime/provider path cannot stream.
+	StreamingUnsupported ProviderErrorCode = "STREAMING_UNSUPPORTED"
 	// ProviderMisconfigured means the adapter configuration is invalid.
 	ProviderMisconfigured ProviderErrorCode = "PROVIDER_MISCONFIGURED"
 	// ProviderUnknownError is a catch-all for unrecognized failures.

@@ -179,6 +179,38 @@ func TestChatCompletionsSuccessWithMockProvider(t *testing.T) {
 	if rr.Header().Get("X-Novexa-Provider") != "ollama" {
 		t.Errorf("expected ollama provider header, got %s", rr.Header().Get("X-Novexa-Provider"))
 	}
+	if rr.Header().Get("X-Novexa-Runtime-Mode") != "stabilized" {
+		t.Errorf("expected stabilized runtime mode header, got %s", rr.Header().Get("X-Novexa-Runtime-Mode"))
+	}
+}
+
+func TestChatCompletionsUsesPipelineModeResolution(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Auth.Mode = "disabled"
+	cfg.Runtime.Host = "127.0.0.1"
+	cfg.Runtime.Port = 0
+
+	mock := newOllamaMockServer(t)
+	defer mock.Close()
+
+	settings := cfg.Providers["ollama"]
+	settings.URL = mock.URL
+	cfg.Providers["ollama"] = settings
+
+	srv := testServerWithConfig(t, cfg)
+
+	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Return JSON"}],"response_format":{"type":"json_object"}}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if rr.Header().Get("X-Novexa-Runtime-Mode") != "structured" {
+		t.Errorf("expected structured mode resolved by pipeline, got %s", rr.Header().Get("X-Novexa-Runtime-Mode"))
+	}
 }
 
 func newOllamaMockServer(t *testing.T) *httptest.Server {
@@ -492,8 +524,8 @@ func TestStreamingRejected(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatalf("failed to decode error response: %v", err)
 	}
-	if body.Error.Code != "STREAMING_NOT_SUPPORTED" {
-		t.Errorf("expected STREAMING_NOT_SUPPORTED, got %s", body.Error.Code)
+	if body.Error.Code != "STREAMING_UNSUPPORTED" {
+		t.Errorf("expected STREAMING_UNSUPPORTED, got %s", body.Error.Code)
 	}
 }
 
