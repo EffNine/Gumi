@@ -9,64 +9,64 @@ import "os"
 
 // Config is the top-level runtime configuration.
 type Config struct {
-	Runtime   RuntimeConfig
-	Dashboard DashboardConfig
-	Auth      AuthConfig
-	Provider  ProviderConfig
-	Providers map[string]ProviderSettings
-	Storage   StorageConfig
-	Telemetry TelemetryConfig
+	Runtime   RuntimeConfig               `json:"runtime" yaml:"runtime"`
+	Dashboard DashboardConfig             `json:"dashboard" yaml:"dashboard"`
+	Auth      AuthConfig                  `json:"auth" yaml:"auth"`
+	Provider  ProviderConfig              `json:"provider" yaml:"provider"`
+	Providers map[string]ProviderSettings `json:"providers" yaml:"providers"`
+	Storage   StorageConfig               `json:"storage" yaml:"storage"`
+	Telemetry TelemetryConfig             `json:"telemetry" yaml:"telemetry"`
 }
 
 // RuntimeConfig controls the core API server behaviour.
 type RuntimeConfig struct {
-	Name        string
-	Mode        string
-	Host        string
-	Port        int
-	Environment string
-	LogLevel    string
+	Name        string `json:"name" yaml:"name"`
+	Mode        string `json:"mode" yaml:"mode"`
+	Host        string `json:"host" yaml:"host"`
+	Port        int    `json:"port" yaml:"port"`
+	Environment string `json:"environment" yaml:"environment"`
+	LogLevel    string `json:"log_level" yaml:"log_level"`
 }
 
 // DashboardConfig controls the local dashboard.
 type DashboardConfig struct {
-	Enabled bool
-	Host    string
-	Port    int
+	Enabled bool   `json:"enabled" yaml:"enabled"`
+	Host    string `json:"host" yaml:"host"`
+	Port    int    `json:"port" yaml:"port"`
 }
 
 // AuthConfig controls authentication mode.
 type AuthConfig struct {
-	Mode     string
-	LocalKey string
+	Mode     string `json:"mode" yaml:"mode"`
+	LocalKey string `json:"local_key" yaml:"local_key"`
 }
 
 // ProviderConfig selects the active provider.
 type ProviderConfig struct {
-	Default string
+	Default string `json:"default" yaml:"default"`
 }
 
 // ProviderSettings holds per-provider connection settings.
 type ProviderSettings struct {
-	Enabled       bool
-	URL           string
-	DefaultModel  string
-	TimeoutSeconds int
+	Enabled        bool   `json:"enabled" yaml:"enabled"`
+	URL            string `json:"url" yaml:"url"`
+	DefaultModel   string `json:"default_model" yaml:"default_model"`
+	TimeoutSeconds int    `json:"timeout_seconds" yaml:"timeout_seconds"`
 }
 
 // StorageConfig controls local SQLite storage location and retention.
 type StorageConfig struct {
-	DBPath     string
-	RetainDays int
+	DBPath     string `json:"database_path" yaml:"database_path"`
+	RetainDays int    `json:"retain_days" yaml:"retain_days"`
 }
 
 // TelemetryConfig controls local telemetry and logging.
 type TelemetryConfig struct {
-	Local         bool
-	External      bool
-	LogPrompts    bool
-	LogResponses  bool
-	RetainDays    int
+	Local        bool `json:"local" yaml:"local"`
+	External     bool `json:"external" yaml:"external"`
+	LogPrompts   bool `json:"log_prompts" yaml:"log_prompts"`
+	LogResponses bool `json:"log_responses" yaml:"log_responses"`
+	RetainDays   int  `json:"retain_days" yaml:"retain_days"`
 }
 
 // DefaultConfig returns the safe local defaults defined by the architecture.

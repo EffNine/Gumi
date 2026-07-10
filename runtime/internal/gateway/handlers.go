@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/novexa/novexa/runtime/internal/api"
@@ -277,4 +278,91 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+type configResponse struct {
+	Runtime   any `json:"runtime"`
+	Dashboard any `json:"dashboard"`
+	Auth      any `json:"auth"`
+	Provider  any `json:"provider"`
+	Providers any `json:"providers"`
+	Storage   any `json:"storage"`
+	Telemetry any `json:"telemetry"`
+}
+
+// handleConfig exposes the resolved local configuration with secrets redacted.
+func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
+	providers := make(map[string]any, len(s.cfg.Providers))
+	for name, settings := range s.cfg.Providers {
+		providers[name] = map[string]any{
+			"enabled": settings.Enabled, "url": settings.URL,
+			"default_model": settings.DefaultModel, "timeout_seconds": settings.TimeoutSeconds,
+		}
+	}
+	resp := configResponse{
+		Runtime: s.cfg.Runtime, Dashboard: s.cfg.Dashboard,
+		Auth:     map[string]any{"mode": s.cfg.Auth.Mode, "local_key": "***REDACTED***"},
+		Provider: s.cfg.Provider, Providers: providers,
+		Storage: s.cfg.Storage, Telemetry: s.cfg.Telemetry,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+type doctorCheck struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	Message    string `json:"message"`
+	Suggestion string `json:"suggestion,omitempty"`
+}
+
+type doctorResponse struct {
+	Status string        `json:"status"`
+	Checks []doctorCheck `json:"checks"`
+}
+
+// handleDoctor runs lightweight checks without changing runtime state.
+func (s *Server) handleDoctor(w http.ResponseWriter, r *http.Request) {
+	checks := []doctorCheck{
+		{Name: "runtime_config", Status: "ok", Message: "Runtime configuration is loaded."},
+		{Name: "telemetry_storage", Status: s.telemetry.StorageStatus(), Message: "Local telemetry storage is available."},
+	}
+	overall := "ok"
+	for _, name := range s.manager.ListProviders() {
+		status, err := s.manager.HealthCheck(r.Context(), name)
+		check := doctorCheck{Name: "provider_" + name, Status: string(status), Message: fmt.Sprintf("Provider %s is reachable.", name)}
+		if err != nil {
+			check.Status = "warning"
+			check.Message = fmt.Sprintf("Provider %s is not reachable.", name)
+			check.Suggestion = fmt.Sprintf("Start %s or update its local URL in novexa.yaml.", name)
+			overall = "warning"
+		}
+		checks = append(checks, check)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(doctorResponse{Status: overall, Checks: checks})
+}
+
+type profileSummary struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Family       string   `json:"family"`
+	Size         string   `json:"size"`
+	ContextLimit int      `json:"context_limit"`
+	Aliases      []string `json:"aliases,omitempty"`
+	Notes        []string `json:"notes,omitempty"`
+}
+
+// handleProfiles returns non-sensitive model profile metadata.
+func (s *Server) handleProfiles(w http.ResponseWriter, r *http.Request) {
+	data := make([]profileSummary, 0, len(s.profiles))
+	for _, p := range s.profiles {
+		if p == nil {
+			continue
+		}
+		data = append(data, profileSummary{ID: p.ID, Name: p.Name, Family: p.Family, Size: p.Size, ContextLimit: p.ContextLimit, Aliases: p.Aliases, Notes: p.Notes})
+	}
+	sort.Slice(data, func(i, j int) bool { return data[i].ID < data[j].ID })
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"object": "novexa.profiles", "data": data})
 }

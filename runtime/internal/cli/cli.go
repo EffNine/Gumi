@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/novexa/novexa/runtime/internal/config"
+	"github.com/novexa/novexa/runtime/internal/dashboard"
 	"github.com/novexa/novexa/runtime/internal/gateway"
 	"github.com/novexa/novexa/runtime/internal/logger"
 )
@@ -36,6 +37,15 @@ func Execute() {
 		runVersion(os.Args[2:])
 	case "start":
 		runStart(os.Args[2:])
+	case "status", "doctor", "providers", "models", "benchmark", "logs":
+		runUtilityCommand(os.Args[1], os.Args[2:])
+	case "config":
+		if len(os.Args) >= 3 && os.Args[2] == "show" {
+			runConfigShow(os.Args[3:])
+			return
+		}
+		fmt.Fprintln(os.Stderr, "usage: novexa config show [--json]")
+		os.Exit(1)
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -51,6 +61,13 @@ func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  novexa version")
 	fmt.Println("  novexa start [flags]")
+	fmt.Println("  novexa status [--json]")
+	fmt.Println("  novexa doctor [--json]")
+	fmt.Println("  novexa config show [--json]")
+	fmt.Println("  novexa providers [--json]")
+	fmt.Println("  novexa models [--json]")
+	fmt.Println("  novexa benchmark [--json]")
+	fmt.Println("  novexa logs [--tail int]")
 	fmt.Println()
 	fmt.Println("Flags for start:")
 	fmt.Println("  --config string   Path to configuration file")
@@ -68,11 +85,19 @@ func runStart(args []string) {
 
 	var configPath string
 	var portOverride int
+	var dashboardPortOverride int
+	var providerOverride string
+	var modelOverride string
+	var modeOverride string
 	var verbose bool
 	var quiet bool
 
 	fs.StringVar(&configPath, "config", "", "path to configuration file")
 	fs.IntVar(&portOverride, "port", 0, "override API port")
+	fs.IntVar(&dashboardPortOverride, "dashboard-port", 0, "override dashboard port")
+	fs.StringVar(&providerOverride, "provider", "", "override default provider")
+	fs.StringVar(&modelOverride, "model", "", "override default model")
+	fs.StringVar(&modeOverride, "mode", "", "override runtime mode")
 	fs.BoolVar(&verbose, "verbose", false, "enable debug logging")
 	fs.BoolVar(&quiet, "quiet", false, "suppress non-error output")
 
@@ -97,6 +122,24 @@ func runStart(args []string) {
 	if portOverride > 0 {
 		cfg.Runtime.Port = portOverride
 	}
+	if dashboardPortOverride > 0 {
+		cfg.Dashboard.Port = dashboardPortOverride
+	}
+	if modeOverride != "" {
+		cfg.Runtime.Mode = modeOverride
+	}
+	if providerOverride != "" {
+		cfg.Provider.Default = providerOverride
+	}
+	if modelOverride != "" {
+		settings, ok := cfg.Providers[cfg.Provider.Default]
+		if !ok {
+			fmt.Fprintf(os.Stderr, "provider %q is not configured\n", cfg.Provider.Default)
+			os.Exit(1)
+		}
+		settings.DefaultModel = modelOverride
+		cfg.Providers[cfg.Provider.Default] = settings
+	}
 
 	log := logger.New(cfg.Runtime.LogLevel)
 
@@ -113,6 +156,12 @@ func runStart(args []string) {
 
 	srv := gateway.New(cfg, log)
 	srvErr := srv.Start()
+	var dashboardSrv *dashboard.Server
+	var dashboardErr <-chan error
+	if cfg.Dashboard.Enabled {
+		dashboardSrv = dashboard.New(cfg, log)
+		dashboardErr = dashboardSrv.Start()
+	}
 
 	select {
 	case <-ctx.Done():
@@ -121,6 +170,10 @@ func runStart(args []string) {
 			log.Error("gateway failed to start", err)
 			os.Exit(1)
 		}
+	case err := <-dashboardErr:
+		if err != nil {
+			log.Error("dashboard failed to start", err)
+		}
 	}
 
 	log.Info("Novexa Runtime shutting down gracefully")
@@ -128,6 +181,11 @@ func runStart(args []string) {
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Error("gateway shutdown error", err)
+	}
+	if dashboardSrv != nil {
+		if err := dashboardSrv.Shutdown(shutdownCtx); err != nil {
+			log.Error("dashboard shutdown error", err)
+		}
 	}
 	log.Info("Novexa Runtime stopped")
 }

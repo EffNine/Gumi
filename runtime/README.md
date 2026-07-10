@@ -3,7 +3,7 @@
 This directory contains the Novexa Runtime, a local-first intelligence layer
 that sits between AI applications and local inference engines.
 
-## Sprint 3: Provider Adapters
+## Sprint 9: CLI and Dashboard
 
 The runtime now connects to local inference providers through thin adapters:
 
@@ -20,8 +20,8 @@ The runtime now connects to local inference providers through thin adapters:
 - Standard Novexa JSON error format.
 - Graceful shutdown on `Ctrl+C` (SIGINT/SIGTERM).
 
-Streaming, the Pipeline Engine, Context/Prompt/Validation engines, telemetry,
-and the dashboard will be added in subsequent sprints.
+The runtime now includes the intelligence pipeline, local telemetry, model
+profiles, diagnostics CLI, and a privacy-first local dashboard.
 
 ## Project Layout
 
@@ -47,10 +47,19 @@ From inside `runtime/`:
 go run ./cmd/novexa version
 go run ./cmd/novexa start
 go run ./cmd/novexa start --port 8787
+go run ./cmd/novexa status
+go run ./cmd/novexa doctor
+go run ./cmd/novexa providers
+go run ./cmd/novexa models
+go run ./cmd/novexa config show
+go run ./cmd/novexa benchmark
 ```
 
 `go run ./cmd/novexa start` starts the HTTP gateway and runs until it receives
 `Ctrl+C`, at which point it shuts down gracefully.
+
+The API is served at `http://127.0.0.1:8787/v1`. When `dashboard/dist` has
+been built, the dashboard is served at `http://127.0.0.1:8788`.
 
 ## Testing
 

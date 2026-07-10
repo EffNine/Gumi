@@ -14,6 +14,7 @@ import (
 	"github.com/novexa/novexa/runtime/internal/config"
 	"github.com/novexa/novexa/runtime/internal/logger"
 	"github.com/novexa/novexa/runtime/internal/pipeline"
+	"github.com/novexa/novexa/runtime/internal/profiles"
 	"github.com/novexa/novexa/runtime/internal/provider"
 	"github.com/novexa/novexa/runtime/internal/telemetry"
 )
@@ -25,6 +26,7 @@ type Server struct {
 	manager   *provider.Manager
 	pipeline  *pipeline.Engine
 	telemetry *telemetry.Writer
+	profiles  []*profiles.Profile
 	server    *http.Server
 	addr      string
 }
@@ -52,6 +54,7 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 
 	mgr.Telemetry = tw
 
+	loadedProfiles, _ := profiles.NewDefaultLoader().Load()
 	pipe := pipeline.New(cfg, mgr, log)
 	pipe.SetTelemetry(tw)
 
@@ -61,6 +64,7 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 		manager:   mgr,
 		pipeline:  pipe,
 		telemetry: tw,
+		profiles:  loadedProfiles.Profiles,
 		addr:      net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
 		server: &http.Server{
 			Addr:              net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),

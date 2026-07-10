@@ -779,3 +779,58 @@ func TestProviderErrorRecordedInTelemetry(t *testing.T) {
 		t.Errorf("expected PROVIDER_UNAVAILABLE, got %s", recent.Data[0].ErrorCode)
 	}
 }
+
+func TestConfigEndpointRedactsLocalKey(t *testing.T) {
+	srv, cfg, _ := testServer(t, "local")
+	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/config", nil)
+	req.Header.Set("Authorization", "Bearer "+cfg.Auth.LocalKey)
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if strings.Contains(rr.Body.String(), cfg.Auth.LocalKey) {
+		t.Fatal("config endpoint leaked local API key")
+	}
+	if !strings.Contains(rr.Body.String(), "***REDACTED***") {
+		t.Fatal("expected redacted marker")
+	}
+}
+
+func TestDoctorEndpointReturnsChecks(t *testing.T) {
+	srv, cfg, _ := testServer(t, "local")
+	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/doctor", nil)
+	req.Header.Set("Authorization", "Bearer "+cfg.Auth.LocalKey)
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var body doctorResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Checks) < 2 {
+		t.Fatalf("expected diagnostic checks, got %d", len(body.Checks))
+	}
+}
+
+func TestProfilesEndpointReturnsLoadedProfiles(t *testing.T) {
+	srv, cfg, _ := testServer(t, "local")
+	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/profiles", nil)
+	req.Header.Set("Authorization", "Bearer "+cfg.Auth.LocalKey)
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var body struct {
+		Data []profileSummary `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Data) == 0 {
+		t.Fatal("expected at least generic profile")
+	}
+}
