@@ -12,12 +12,13 @@ import (
 )
 
 type fakeAdapter struct {
-	name      string
-	models    []provider.ModelInfo
-	response  *api.ChatCompletionResponse
-	err       error
-	status    provider.ProviderStatus
-	seenModel string
+	name         string
+	models       []provider.ModelInfo
+	response     *api.ChatCompletionResponse
+	err          error
+	status       provider.ProviderStatus
+	seenModel    string
+	seenMessages []api.Message
 }
 
 func (f *fakeAdapter) Name() string { return f.name }
@@ -40,6 +41,7 @@ func (f *fakeAdapter) ListModels(ctx context.Context) ([]provider.ModelInfo, err
 
 func (f *fakeAdapter) Generate(ctx context.Context, req api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
 	f.seenModel = req.Model
+	f.seenMessages = append([]api.Message(nil), req.Messages...)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -110,10 +112,11 @@ func TestRunChatCompletionDirectMode(t *testing.T) {
 	assertEvent(t, result.Context, "pipeline_completed")
 }
 
-func TestRunChatCompletionStabilizedSkeleton(t *testing.T) {
+func TestRunChatCompletionStabilizedBuildsContextAndPrompt(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Runtime.Mode = string(ModeStabilized)
-	engine := testEngine(&fakeAdapter{name: "ollama"}, cfg)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
 
 	result := engine.RunChatCompletion(context.Background(), "req_stable", api.ChatCompletionRequest{
 		Model: "local:auto",
@@ -126,8 +129,17 @@ func TestRunChatCompletionStabilizedSkeleton(t *testing.T) {
 	if result.Error.Code != "" {
 		t.Fatalf("unexpected pipeline error: %v", result.Error)
 	}
-	assertEvent(t, result.Context, "context_skipped")
-	assertEvent(t, result.Context, "prompt_skipped")
+	assertEvent(t, result.Context, "context_prepared")
+	assertEvent(t, result.Context, "prompt_built")
+	if result.Context.ContextPackage == nil {
+		t.Fatal("expected context package")
+	}
+	if result.Context.PromptPackage == nil {
+		t.Fatal("expected prompt package")
+	}
+	if len(adapter.seenMessages) == 0 || adapter.seenMessages[0].Role != "system" {
+		t.Fatalf("expected provider request to include built system prompt, got %#v", adapter.seenMessages)
+	}
 }
 
 func TestRunChatCompletionStructuredModeFromResponseFormat(t *testing.T) {
@@ -149,6 +161,7 @@ func TestRunChatCompletionStructuredModeFromResponseFormat(t *testing.T) {
 		t.Fatalf("expected structured mode, got %s", result.Context.RuntimeMode)
 	}
 	assertEvent(t, result.Context, "structured_mode_skeleton")
+	assertEvent(t, result.Context, "structured_prompt_applied")
 }
 
 func TestRunChatCompletionStreamingUnsupported(t *testing.T) {

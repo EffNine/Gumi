@@ -127,7 +127,7 @@ func (s *Server) recordRequestTelemetry(ctx context.Context, reqID string, start
 		record.RetryCount = result.Context.Retry.Attempt - 1
 		record.ValidationPassed = true
 		record.RepairApplied = false
-		record.ContextCompressed = false
+		record.ContextCompressed = result.Context.ContextCompressed
 		if result.Context.SelectedModel != "" {
 			record.Model = result.Context.SelectedModel
 		}
@@ -193,7 +193,7 @@ func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.Provide
 
 // telemetryRecentResponse is the payload for GET /v1/novexa/telemetry/recent.
 type telemetryRecentResponse struct {
-	Object string                  `json:"object"`
+	Object string                    `json:"object"`
 	Data   []telemetry.RecentRequest `json:"data"`
 }
 
@@ -232,9 +232,9 @@ type statusResponse struct {
 		Mode    string `json:"mode"`
 		APIURL  string `json:"api_url"`
 	} `json:"runtime"`
-	Providers      []statusProvider `json:"providers,omitempty"`
-	StorageStatus  string           `json:"storage_status"`
-	TelemetryEnabled bool           `json:"telemetry_enabled"`
+	Providers        []statusProvider `json:"providers,omitempty"`
+	StorageStatus    string           `json:"storage_status"`
+	TelemetryEnabled bool             `json:"telemetry_enabled"`
 }
 
 // handleStatus returns runtime status and provider summary.

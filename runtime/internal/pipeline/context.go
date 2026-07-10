@@ -10,6 +10,8 @@ import (
 
 	"github.com/novexa/novexa/runtime/internal/api"
 	"github.com/novexa/novexa/runtime/internal/config"
+	contextengine "github.com/novexa/novexa/runtime/internal/context"
+	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
 	"github.com/novexa/novexa/runtime/internal/provider"
 )
 
@@ -78,6 +80,17 @@ type Context struct {
 	IncomingRequest   api.ChatCompletionRequest `json:"incoming_request"`
 	NormalizedRequest api.ChatCompletionRequest `json:"normalized_request"`
 	ConfigSnapshot    *config.Config            `json:"-"`
+
+	MessagesOriginal   []api.Message `json:"messages_original,omitempty"`
+	MessagesNormalized []api.Message `json:"messages_normalized,omitempty"`
+	MessagesCompressed []api.Message `json:"messages_compressed,omitempty"`
+
+	ContextPackage    *contextengine.Package `json:"context_package,omitempty"`
+	ContextReport     *contextengine.Report  `json:"context_report,omitempty"`
+	ContextCompressed bool                   `json:"context_compressed"`
+
+	PromptPackage *promptengine.Package `json:"prompt_package,omitempty"`
+	PromptReport  *promptengine.Report  `json:"prompt_report,omitempty"`
 
 	RequestedModel   string `json:"requested_model"`
 	SelectedProvider string `json:"selected_provider,omitempty"`
