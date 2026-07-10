@@ -25,6 +25,12 @@ const (
 	ProviderAuthError ProviderErrorCode = "PROVIDER_AUTH_ERROR"
 	// StreamingUnsupported means the selected runtime/provider path cannot stream.
 	StreamingUnsupported ProviderErrorCode = "STREAMING_UNSUPPORTED"
+	// EmptyPrompt means the prompt is empty after runtime normalization.
+	EmptyPrompt ProviderErrorCode = "EMPTY_PROMPT"
+	// ContextLimitExceeded means the prepared context still exceeds its budget.
+	ContextLimitExceeded ProviderErrorCode = "CONTEXT_LIMIT_EXCEEDED"
+	// ValidationFailed means model output failed validation and could not be repaired.
+	ValidationFailed ProviderErrorCode = "VALIDATION_FAILED"
 	// ProviderMisconfigured means the adapter configuration is invalid.
 	ProviderMisconfigured ProviderErrorCode = "PROVIDER_MISCONFIGURED"
 	// ProviderUnknownError is a catch-all for unrecognized failures.

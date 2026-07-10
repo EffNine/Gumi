@@ -9,10 +9,13 @@ import (
 	"github.com/novexa/novexa/runtime/internal/api"
 	"github.com/novexa/novexa/runtime/internal/config"
 	contextengine "github.com/novexa/novexa/runtime/internal/context"
+	guardengine "github.com/novexa/novexa/runtime/internal/guard"
 	"github.com/novexa/novexa/runtime/internal/logger"
 	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
 	"github.com/novexa/novexa/runtime/internal/provider"
+	repairengine "github.com/novexa/novexa/runtime/internal/repair"
 	"github.com/novexa/novexa/runtime/internal/telemetry"
+	validationengine "github.com/novexa/novexa/runtime/internal/validation"
 )
 
 const (
@@ -28,6 +31,9 @@ type Engine struct {
 	telemetry     *telemetry.Writer
 	contextEngine *contextengine.Engine
 	promptEngine  *promptengine.Engine
+	guardEngine   *guardengine.Engine
+	validation    *validationengine.Engine
+	repair        *repairengine.Engine
 }
 
 // Result is returned to Gateway Engine after pipeline execution.
@@ -46,6 +52,9 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 		log:           log,
 		contextEngine: contextengine.New(),
 		promptEngine:  promptengine.New(),
+		guardEngine:   guardengine.New(),
+		validation:    validationengine.New(),
+		repair:        repairengine.New(),
 	}
 }
 
@@ -139,17 +148,45 @@ func (e *Engine) newContext(requestID string, req api.ChatCompletionRequest) *Co
 
 func (e *Engine) runDirect(ctx context.Context, pc *Context) Result {
 	pc.AddEvent("pipeline", "direct_mode_selected", SeverityInfo, "direct mode selected", nil)
+	if result := e.applyGuard(pc); result.Error.Code != "" {
+		return result
+	}
 	return e.callProvider(ctx, pc)
 }
 
 func (e *Engine) runSkeleton(ctx context.Context, pc *Context) Result {
 	pc.AddEvent("profile", "model_profile_skipped", SeverityInfo, "model profile resolution is scheduled for Sprint 8", nil)
 	if pc.RuntimeMode == ModeStructured {
-		pc.AddEvent("guard", "structured_mode_skeleton", SeverityInfo, "Structured mode skeleton active; validation and repair start in Sprint 7", nil)
+		pc.AddEvent("guard", "structured_output_guard_enabled", SeverityInfo, "structured output guard and validation enabled", nil)
 	}
 	e.prepareContext(pc)
 	e.buildPrompt(pc)
+	if result := e.applyGuard(pc); result.Error.Code != "" {
+		return result
+	}
 	return e.callProvider(ctx, pc)
+}
+
+func (e *Engine) applyGuard(pc *Context) Result {
+	out := e.guardEngine.Check(guardengine.Input{
+		Messages:       pc.NormalizedRequest.Messages,
+		ResponseFormat: pc.NormalizedRequest.ResponseFormat,
+		RuntimeMode:    string(pc.RuntimeMode),
+		ContextReport:  pc.ContextReport,
+	})
+	pc.GuardReport = &out.Report
+	pc.Warnings = append(pc.Warnings, out.Warnings...)
+	pc.AddEvent("guard", "guard_completed", SeverityInfo, "Guard Engine completed pre-generation checks", map[string]string{
+		"decision": string(out.Report.Decision),
+		"blocked":  fmt.Sprintf("%t", out.Report.Blocked),
+	})
+	for _, warning := range out.Warnings {
+		pc.AddEvent("guard", "guard_warning", SeverityWarning, warning, nil)
+	}
+	if out.Error.Code != "" {
+		return e.fail(pc, out.Error, "guard blocked request")
+	}
+	return Result{}
 }
 
 func (e *Engine) prepareContext(pc *Context) {
@@ -258,15 +295,9 @@ func (e *Engine) callProvider(ctx context.Context, pc *Context) Result {
 	providerReq := pc.NormalizedRequest
 	providerReq.Model = resolution.ModelName
 
-	start := time.Now()
-	resp, err := resolution.Adapter.Generate(ctx, providerReq)
-	pc.ProviderLatency = time.Since(start)
-	if err != nil {
-		var normalized provider.ProviderError
-		if !errors.As(err, &normalized) {
-			normalized = resolution.Adapter.NormalizeError(err)
-		}
-		return e.fail(pc, normalized, "provider request failed")
+	resp, result := e.generateOnce(ctx, pc, resolution, providerReq)
+	if result.Error.Code != "" {
+		return result
 	}
 
 	pc.ProviderResponse = resp
@@ -280,9 +311,11 @@ func (e *Engine) callProvider(ctx context.Context, pc *Context) Result {
 		"latency_ms": fmt.Sprintf("%d", pc.ProviderLatency.Milliseconds()),
 	})
 	pc.AddEvent("response", "response_normalized", SeverityInfo, "provider response normalized", nil)
-	pc.AddEvent("validation", "validation_completed", SeverityInfo, "Validation Engine skeleton placeholder", map[string]string{
-		"passed": "true",
-	})
+
+	if result := e.validateRepairAndMaybeRetry(ctx, pc, resolution, providerReq); result.Error.Code != "" {
+		return result
+	}
+
 	pc.AddEvent("telemetry", "telemetry_recorded", SeverityInfo, "telemetry recorded", nil)
 	pc.AddEvent("pipeline", "pipeline_completed", SeverityInfo, "pipeline completed successfully", nil)
 
@@ -294,8 +327,8 @@ func (e *Engine) callProvider(ctx context.Context, pc *Context) Result {
 			Provider:          pc.SelectedProvider,
 			RuntimeMode:       string(pc.RuntimeMode),
 			ContextCompressed: pc.ContextCompressed,
-			ValidationPassed:  true,
-			RepairApplied:     false,
+			ValidationPassed:  pc.ValidationPassed,
+			RepairApplied:     pc.RepairApplied,
 			RetryCount:        pc.Retry.Attempt - 1,
 			LatencyMs:         pc.ProviderLatency.Milliseconds(),
 		}
@@ -306,6 +339,150 @@ func (e *Engine) callProvider(ctx context.Context, pc *Context) Result {
 		Context:      pc,
 		ProviderName: pc.SelectedProvider,
 	}
+}
+
+func (e *Engine) generateOnce(ctx context.Context, pc *Context, resolution *provider.ModelResolution, req api.ChatCompletionRequest) (*api.ChatCompletionResponse, Result) {
+	start := time.Now()
+	resp, err := resolution.Adapter.Generate(ctx, req)
+	pc.ProviderLatency += time.Since(start)
+	if err != nil {
+		var normalized provider.ProviderError
+		if !errors.As(err, &normalized) {
+			normalized = resolution.Adapter.NormalizeError(err)
+		}
+		return nil, e.fail(pc, normalized, "provider request failed")
+	}
+	return resp, Result{}
+}
+
+func (e *Engine) validateRepairAndMaybeRetry(ctx context.Context, pc *Context, resolution *provider.ModelResolution, providerReq api.ChatCompletionRequest) Result {
+	report := e.validation.Validate(validationengine.Input{
+		Response:       pc.FinalResponse,
+		ResponseFormat: pc.NormalizedRequest.ResponseFormat,
+		RuntimeMode:    string(pc.RuntimeMode),
+	})
+	pc.ValidationReport = &report
+	pc.ValidationPassed = report.Passed
+	pc.AddEvent("validation", "validation_completed", severityForValidation(report), "Validation Engine completed response checks", map[string]string{
+		"passed":   fmt.Sprintf("%t", report.Passed),
+		"severity": report.Severity,
+		"issues":   fmt.Sprintf("%d", len(report.Issues)),
+	})
+	for _, issue := range report.Issues {
+		pc.AddEvent("validation", string(issue.Code), SeverityWarning, issue.Message, map[string]string{
+			"location": issue.Location,
+		})
+	}
+	if report.Passed {
+		return Result{}
+	}
+
+	repairReport := e.repair.Repair(pc.FinalResponse, report)
+	pc.RepairReport = &repairReport
+	pc.RepairApplied = repairReport.Success
+	pc.AddEvent("repair", "repair_completed", SeverityInfo, "Repair Engine completed response repair attempt", map[string]string{
+		"attempted":        fmt.Sprintf("%t", repairReport.Attempted),
+		"success":          fmt.Sprintf("%t", repairReport.Success),
+		"strategy":         repairReport.Strategy,
+		"retry_requested":  fmt.Sprintf("%t", repairReport.RetryRequested),
+		"changes_applied":  fmt.Sprintf("%d", len(repairReport.Changes)),
+		"remaining_issues": fmt.Sprintf("%d", len(repairReport.RemainingIssues)),
+	})
+
+	if repairReport.Success {
+		second := e.validation.Validate(validationengine.Input{
+			Response:       pc.FinalResponse,
+			ResponseFormat: pc.NormalizedRequest.ResponseFormat,
+			RuntimeMode:    string(pc.RuntimeMode),
+		})
+		pc.ValidationReport = &second
+		pc.ValidationPassed = second.Passed
+		pc.AddEvent("validation", "validation_completed_after_repair", severityForValidation(second), "Validation Engine checked repaired response", map[string]string{
+			"passed": fmt.Sprintf("%t", second.Passed),
+		})
+		if second.Passed {
+			return Result{}
+		}
+		report = second
+	}
+
+	if (repairReport.RetryRequested || shouldRetryValidation(report, pc)) && pc.Retry.Attempt < pc.Retry.MaxAttempts {
+		pc.Retry.RetryReason = "validation_failed"
+		pc.Retry.RetryHistory = append(pc.Retry.RetryHistory, RetryRecord{
+			Attempt:   pc.Retry.Attempt,
+			Reason:    "validation_failed",
+			Strategy:  "stricter_structured_prompt",
+			Result:    "retrying",
+			Timestamp: time.Now().UTC(),
+		})
+		pc.Retry.Attempt++
+		pc.AddEvent("pipeline", "retry_requested", SeverityWarning, "validation failed; retrying with stricter prompt", map[string]string{
+			"attempt": fmt.Sprintf("%d", pc.Retry.Attempt),
+		})
+		retryReq := providerReq
+		retryReq.Messages = prependRetryInstruction(providerReq.Messages)
+		resp, result := e.generateOnce(ctx, pc, resolution, retryReq)
+		if result.Error.Code != "" {
+			return result
+		}
+		pc.ProviderResponse = resp
+		pc.FinalResponse = resp
+		if resp != nil {
+			pc.SelectedModel = resp.Model
+		}
+		retryReport := e.validation.Validate(validationengine.Input{
+			Response:       pc.FinalResponse,
+			ResponseFormat: pc.NormalizedRequest.ResponseFormat,
+			RuntimeMode:    string(pc.RuntimeMode),
+		})
+		pc.ValidationReport = &retryReport
+		pc.ValidationPassed = retryReport.Passed
+		pc.AddEvent("validation", "validation_completed_after_retry", severityForValidation(retryReport), "Validation Engine checked retried response", map[string]string{
+			"passed": fmt.Sprintf("%t", retryReport.Passed),
+		})
+		if retryReport.Passed {
+			pc.Retry.RetryHistory = append(pc.Retry.RetryHistory, RetryRecord{
+				Attempt:   pc.Retry.Attempt,
+				Reason:    "validation_failed",
+				Strategy:  "stricter_structured_prompt",
+				Result:    "success",
+				Timestamp: time.Now().UTC(),
+			})
+			return Result{}
+		}
+		report = retryReport
+	}
+
+	return e.fail(pc, provider.ProviderError{
+		Code:       provider.ValidationFailed,
+		Message:    "model output failed validation and could not be repaired",
+		Suggestion: "Try a clearer prompt, structured response_format, or a more capable local model.",
+	}, "validation failed")
+}
+
+func severityForValidation(report validationengine.Report) Severity {
+	if report.Passed {
+		return SeverityInfo
+	}
+	if report.Severity == "error" {
+		return SeverityError
+	}
+	return SeverityWarning
+}
+
+func shouldRetryValidation(report validationengine.Report, pc *Context) bool {
+	return pc.RuntimeMode == ModeStructured && !report.Passed
+}
+
+func prependRetryInstruction(messages []api.Message) []api.Message {
+	instruction := api.Message{
+		Role:    "system",
+		Content: "Retry because the previous output failed validation. Return only valid JSON if JSON was requested. Do not include markdown fences, repeated text, or explanatory prose.",
+	}
+	out := make([]api.Message, 0, len(messages)+1)
+	out = append(out, instruction)
+	out = append(out, messages...)
+	return out
 }
 
 func (e *Engine) fail(pc *Context, perr provider.ProviderError, message string) Result {

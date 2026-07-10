@@ -15,10 +15,12 @@ type fakeAdapter struct {
 	name         string
 	models       []provider.ModelInfo
 	response     *api.ChatCompletionResponse
+	responses    []*api.ChatCompletionResponse
 	err          error
 	status       provider.ProviderStatus
 	seenModel    string
 	seenMessages []api.Message
+	callCount    int
 }
 
 func (f *fakeAdapter) Name() string { return f.name }
@@ -40,10 +42,18 @@ func (f *fakeAdapter) ListModels(ctx context.Context) ([]provider.ModelInfo, err
 }
 
 func (f *fakeAdapter) Generate(ctx context.Context, req api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
+	f.callCount++
 	f.seenModel = req.Model
 	f.seenMessages = append([]api.Message(nil), req.Messages...)
 	if f.err != nil {
 		return nil, f.err
+	}
+	if len(f.responses) > 0 {
+		idx := f.callCount - 1
+		if idx >= len(f.responses) {
+			idx = len(f.responses) - 1
+		}
+		return f.responses[idx], nil
 	}
 	if f.response != nil {
 		return f.response, nil
@@ -143,7 +153,7 @@ func TestRunChatCompletionStabilizedBuildsContextAndPrompt(t *testing.T) {
 }
 
 func TestRunChatCompletionStructuredModeFromResponseFormat(t *testing.T) {
-	engine := testEngine(&fakeAdapter{name: "ollama"}, config.DefaultConfig())
+	engine := testEngine(&fakeAdapter{name: "ollama", response: response(`{"ok":true}`)}, config.DefaultConfig())
 
 	result := engine.RunChatCompletion(context.Background(), "req_structured", api.ChatCompletionRequest{
 		Model: "local:auto",
@@ -160,7 +170,7 @@ func TestRunChatCompletionStructuredModeFromResponseFormat(t *testing.T) {
 	if result.Context.RuntimeMode != ModeStructured {
 		t.Fatalf("expected structured mode, got %s", result.Context.RuntimeMode)
 	}
-	assertEvent(t, result.Context, "structured_mode_skeleton")
+	assertEvent(t, result.Context, "structured_output_guard_enabled")
 	assertEvent(t, result.Context, "structured_prompt_applied")
 }
 
@@ -180,6 +190,113 @@ func TestRunChatCompletionStreamingUnsupported(t *testing.T) {
 		t.Fatalf("expected streaming unsupported, got %s", result.Error.Code)
 	}
 	assertEvent(t, result.Context, "pipeline_failed")
+}
+
+func TestRunChatCompletionGuardBlocksEmptyPrompt(t *testing.T) {
+	engine := testEngine(&fakeAdapter{name: "ollama"}, config.DefaultConfig())
+
+	result := engine.RunChatCompletion(context.Background(), "req_empty", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "   ",
+		}},
+	})
+
+	if result.Error.Code != provider.EmptyPrompt {
+		t.Fatalf("expected empty prompt, got %s", result.Error.Code)
+	}
+	assertEvent(t, result.Context, "guard_completed")
+	assertEvent(t, result.Context, "pipeline_failed")
+}
+
+func TestRunChatCompletionRepairsFencedJSON(t *testing.T) {
+	engine := testEngine(&fakeAdapter{
+		name:     "ollama",
+		response: response("```json\n{\"ok\":true}\n```"),
+	}, config.DefaultConfig())
+
+	result := engine.RunChatCompletion(context.Background(), "req_json_repair", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Return JSON",
+		}},
+		ResponseFormat: &api.ResponseFormat{Type: "json_object"},
+		Novexa: &api.NovexaExtensions{
+			Telemetry: &api.TelemetryExtension{IncludeMetadata: true},
+		},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected error: %v", result.Error)
+	}
+	content, _ := result.Response.Choices[0].Message.Content.(string)
+	if content != "{\"ok\":true}" {
+		t.Fatalf("expected repaired JSON, got %q", content)
+	}
+	if !result.Context.RepairApplied {
+		t.Fatal("expected repair applied")
+	}
+	if result.Response.Novexa == nil || !result.Response.Novexa.RepairApplied {
+		t.Fatal("expected Novexa metadata repair_applied=true")
+	}
+	assertEvent(t, result.Context, "repair_completed")
+	assertEvent(t, result.Context, "validation_completed_after_repair")
+}
+
+func TestRunChatCompletionRetriesInvalidStructuredOutput(t *testing.T) {
+	engine := testEngine(&fakeAdapter{
+		name: "ollama",
+		responses: []*api.ChatCompletionResponse{
+			response("not json"),
+			response("{\"ok\":true}"),
+		},
+	}, config.DefaultConfig())
+
+	result := engine.RunChatCompletion(context.Background(), "req_retry", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Return JSON",
+		}},
+		ResponseFormat: &api.ResponseFormat{Type: "json_object"},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected error: %v", result.Error)
+	}
+	if result.Context.Retry.Attempt != 2 {
+		t.Fatalf("expected second attempt, got %d", result.Context.Retry.Attempt)
+	}
+	assertEvent(t, result.Context, "retry_requested")
+	assertEvent(t, result.Context, "validation_completed_after_retry")
+}
+
+func TestRunChatCompletionRepairsRepeatedLines(t *testing.T) {
+	engine := testEngine(&fakeAdapter{
+		name:     "ollama",
+		response: response("same\nsame\nsame\nsame"),
+	}, config.DefaultConfig())
+
+	result := engine.RunChatCompletion(context.Background(), "req_repeat", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Say same twice",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected error: %v", result.Error)
+	}
+	content, _ := result.Response.Choices[0].Message.Content.(string)
+	if content != "same\nsame" {
+		t.Fatalf("expected repeated output cleaned, got %q", content)
+	}
+	if !result.Context.RepairApplied {
+		t.Fatal("expected repair applied")
+	}
 }
 
 func TestRunChatCompletionProviderFailure(t *testing.T) {
@@ -242,4 +359,18 @@ func assertEvent(t *testing.T, ctx *Context, event string) {
 		}
 	}
 	t.Fatalf("expected event %q in %#v", event, ctx.Events)
+}
+
+func response(content string) *api.ChatCompletionResponse {
+	return &api.ChatCompletionResponse{
+		ID:      "chatcmpl_fake",
+		Object:  "chat.completion",
+		Created: time.Now().Unix(),
+		Model:   "fake-model",
+		Choices: []api.Choice{{
+			Index:        0,
+			Message:      api.Message{Role: "assistant", Content: content},
+			FinishReason: "stop",
+		}},
+	}
 }

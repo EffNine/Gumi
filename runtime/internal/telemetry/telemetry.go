@@ -295,16 +295,16 @@ func (w *Writer) RecordProviderHealth(ctx context.Context, name string, status p
 
 // RecentRequest is the public metadata returned by the recent telemetry API.
 type RecentRequest struct {
-	ID              string `json:"id"`
-	CreatedAt       string `json:"created_at"`
-	RuntimeMode     string `json:"runtime_mode"`
-	Provider        string `json:"provider"`
-	Model           string `json:"model"`
-	Status          string `json:"status"`
-	LatencyMs       int64  `json:"latency_ms"`
-	ErrorCode       string `json:"error_code,omitempty"`
-	RepairApplied   bool   `json:"repair_applied"`
-	RetryCount      int    `json:"retry_count"`
+	ID            string `json:"id"`
+	CreatedAt     string `json:"created_at"`
+	RuntimeMode   string `json:"runtime_mode"`
+	Provider      string `json:"provider"`
+	Model         string `json:"model"`
+	Status        string `json:"status"`
+	LatencyMs     int64  `json:"latency_ms"`
+	ErrorCode     string `json:"error_code,omitempty"`
+	RepairApplied bool   `json:"repair_applied"`
+	RetryCount    int    `json:"retry_count"`
 }
 
 // RecentRequests returns the most recent request metadata, newest first.
@@ -400,6 +400,12 @@ func providerErrorType(code provider.ProviderErrorCode) string {
 		return "provider_error"
 	case provider.ProviderAuthError:
 		return "auth_error"
+	case provider.EmptyPrompt:
+		return "request_error"
+	case provider.ContextLimitExceeded:
+		return "context_error"
+	case provider.ValidationFailed:
+		return "validation_error"
 	case provider.ProviderMisconfigured:
 		return "config_error"
 	default:

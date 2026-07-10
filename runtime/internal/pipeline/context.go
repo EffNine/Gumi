@@ -11,8 +11,11 @@ import (
 	"github.com/novexa/novexa/runtime/internal/api"
 	"github.com/novexa/novexa/runtime/internal/config"
 	contextengine "github.com/novexa/novexa/runtime/internal/context"
+	guardengine "github.com/novexa/novexa/runtime/internal/guard"
 	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
 	"github.com/novexa/novexa/runtime/internal/provider"
+	repairengine "github.com/novexa/novexa/runtime/internal/repair"
+	validationengine "github.com/novexa/novexa/runtime/internal/validation"
 )
 
 // Severity describes the importance of a pipeline event.
@@ -91,6 +94,12 @@ type Context struct {
 
 	PromptPackage *promptengine.Package `json:"prompt_package,omitempty"`
 	PromptReport  *promptengine.Report  `json:"prompt_report,omitempty"`
+
+	GuardReport      *guardengine.Report      `json:"guard_report,omitempty"`
+	ValidationReport *validationengine.Report `json:"validation_report,omitempty"`
+	RepairReport     *repairengine.Report     `json:"repair_report,omitempty"`
+	ValidationPassed bool                     `json:"validation_passed"`
+	RepairApplied    bool                     `json:"repair_applied"`
 
 	RequestedModel   string `json:"requested_model"`
 	SelectedProvider string `json:"selected_provider,omitempty"`

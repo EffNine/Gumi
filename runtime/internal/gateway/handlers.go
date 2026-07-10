@@ -125,8 +125,8 @@ func (s *Server) recordRequestTelemetry(ctx context.Context, reqID string, start
 		record.SessionID = result.Context.SessionID
 		record.ProviderLatencyMs = result.Context.ProviderLatency.Milliseconds()
 		record.RetryCount = result.Context.Retry.Attempt - 1
-		record.ValidationPassed = true
-		record.RepairApplied = false
+		record.ValidationPassed = result.Context.ValidationPassed
+		record.RepairApplied = result.Context.RepairApplied
 		record.ContextCompressed = result.Context.ContextCompressed
 		if result.Context.SelectedModel != "" {
 			record.Model = result.Context.SelectedModel
@@ -172,6 +172,12 @@ func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.Provide
 		status = http.StatusBadRequest
 	case provider.StreamingUnsupported:
 		status = http.StatusBadRequest
+	case provider.EmptyPrompt:
+		status = http.StatusBadRequest
+	case provider.ContextLimitExceeded:
+		status = http.StatusBadRequest
+	case provider.ValidationFailed:
+		status = http.StatusUnprocessableEntity
 	case provider.ProviderAuthError:
 		status = http.StatusUnauthorized
 	}

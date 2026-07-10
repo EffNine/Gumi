@@ -225,11 +225,24 @@ func newOllamaMockServer(t *testing.T) *httptest.Server {
 				"models": []map[string]interface{}{{"name": "llama3"}},
 			})
 		case "/api/chat":
+			var payload struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			content := "hello from mock ollama"
+			for _, msg := range payload.Messages {
+				if strings.Contains(msg.Content, "Return JSON") {
+					content = `{"ok":true}`
+					break
+				}
+			}
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"model": "llama3",
 				"message": map[string]interface{}{
 					"role":    "assistant",
-					"content": "hello from mock ollama",
+					"content": content,
 				},
 				"done": true,
 			})
@@ -604,16 +617,16 @@ func TestTelemetryRecentReturnsRequestMetadata(t *testing.T) {
 	var body struct {
 		Object string `json:"object"`
 		Data   []struct {
-			ID          string `json:"id"`
-			CreatedAt   string `json:"created_at"`
-			RuntimeMode string `json:"runtime_mode"`
-			Provider    string `json:"provider"`
-			Model       string `json:"model"`
-			Status      string `json:"status"`
-			LatencyMs   int64  `json:"latency_ms"`
-			ErrorCode   string `json:"error_code"`
-			RepairApplied bool `json:"repair_applied"`
-			RetryCount  int    `json:"retry_count"`
+			ID            string `json:"id"`
+			CreatedAt     string `json:"created_at"`
+			RuntimeMode   string `json:"runtime_mode"`
+			Provider      string `json:"provider"`
+			Model         string `json:"model"`
+			Status        string `json:"status"`
+			LatencyMs     int64  `json:"latency_ms"`
+			ErrorCode     string `json:"error_code"`
+			RepairApplied bool   `json:"repair_applied"`
+			RetryCount    int    `json:"retry_count"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
