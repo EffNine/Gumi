@@ -3,15 +3,15 @@
 This directory contains the Novexa Runtime, a local-first intelligence layer
 that sits between AI applications and local inference engines.
 
-## Sprint 9: CLI and Dashboard
+## Sprint 10: Packaging and Release
 
-The runtime now connects to local inference providers through thin adapters:
+The runtime now ships as an installable 0.1.0 alpha release. It connects to
+local inference providers through thin adapters and includes:
 
 - `GET /health` — runtime health (independent of provider state).
 - `GET /v1/models` — merged list of `local:auto` and discovered provider models.
 - `POST /v1/chat/completions` — delegates to Ollama, LM Studio, or an
-  OpenAI-compatible local server; falls back to a placeholder only for
-  `local:auto` when no provider is available.
+  OpenAI-compatible local server.
 - Supported local providers: `ollama`, `lmstudio`, `openai-compatible-local`.
 - Provider health checks, model discovery, and normalized provider errors.
 - Provider timeout handling with a 60-second default.
@@ -20,8 +20,31 @@ The runtime now connects to local inference providers through thin adapters:
 - Standard Novexa JSON error format.
 - Graceful shutdown on `Ctrl+C` (SIGINT/SIGTERM).
 
-The runtime now includes the intelligence pipeline, local telemetry, model
+The runtime also includes the intelligence pipeline, local telemetry, model
 profiles, diagnostics CLI, and a privacy-first local dashboard.
+
+### Building a release binary
+
+From the repository root:
+
+```bash
+make build
+```
+
+This rebuilds `dashboard/dist` and produces a `novexa` binary with release
+metadata injected via ldflags.
+
+### Cross-platform release archives
+
+From the repository root:
+
+```bash
+make release
+make check-release
+```
+
+The archives are written to `dist/releases/` and include the binary, dashboard,
+starter profiles, README, LICENSE, CHANGELOG, and example config.
 
 ## Project Layout
 
@@ -69,8 +92,9 @@ go test ./...
 
 ## Configuration
 
-Sprint 2 continues to use hard-coded safe defaults. YAML config loading will be
-added in a future sprint as described in `docs/05-configuration-specification.md`.
+The 0.1.0 alpha release continues to use hard-coded safe defaults. YAML config
+loading will be added in a release after the alpha. `novexa.example.yaml` at the
+repository root documents the planned configuration format.
 
 Default local API:
 

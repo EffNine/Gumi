@@ -21,13 +21,13 @@ const (
 
 // Report describes guard outcome.
 type Report struct {
-	Decision        Decision `json:"decision"`
-	Warnings        []string `json:"warnings,omitempty"`
-	Blocked         bool     `json:"blocked"`
-	Reason          string   `json:"reason,omitempty"`
-	AppliedProfile  bool     `json:"applied_profile,omitempty"`
-	ProfileID       string   `json:"profile_id,omitempty"`
-	AntiLoopLevel   string   `json:"anti_loop_level,omitempty"`
+	Decision       Decision `json:"decision"`
+	Warnings       []string `json:"warnings,omitempty"`
+	Blocked        bool     `json:"blocked"`
+	Reason         string   `json:"reason,omitempty"`
+	AppliedProfile bool     `json:"applied_profile,omitempty"`
+	ProfileID      string   `json:"profile_id,omitempty"`
+	AntiLoopLevel  string   `json:"anti_loop_level,omitempty"`
 }
 
 // Input is the Guard Engine request.

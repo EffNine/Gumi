@@ -10,27 +10,27 @@ import (
 
 // Profile describes model-specific behaviour for one local model family.
 type Profile struct {
-	ID          string          `yaml:"id"`
-	Name        string          `yaml:"name,omitempty"`
-	Version     int             `yaml:"version,omitempty"`
-	Family      string          `yaml:"family,omitempty"`
-	Size        string          `yaml:"size,omitempty"`
-	Type        string          `yaml:"type,omitempty"`
-	Aliases     []string        `yaml:"aliases,omitempty"`
-	Models      map[string][]string `yaml:"models,omitempty"`
-	ContextLimit int            `yaml:"context_limit,omitempty"`
-	Capabilities Capabilities   `yaml:"capabilities,omitempty"`
-	Defaults    Defaults        `yaml:"defaults,omitempty"`
-	Context     ContextSettings `yaml:"context,omitempty"`
-	Prompt      PromptSettings  `yaml:"prompt,omitempty"`
-	Guard       GuardSettings   `yaml:"guard,omitempty"`
-	Notes       []string        `yaml:"notes,omitempty"`
+	ID           string              `yaml:"id"`
+	Name         string              `yaml:"name,omitempty"`
+	Version      int                 `yaml:"version,omitempty"`
+	Family       string              `yaml:"family,omitempty"`
+	Size         string              `yaml:"size,omitempty"`
+	Type         string              `yaml:"type,omitempty"`
+	Aliases      []string            `yaml:"aliases,omitempty"`
+	Models       map[string][]string `yaml:"models,omitempty"`
+	ContextLimit int                 `yaml:"context_limit,omitempty"`
+	Capabilities Capabilities        `yaml:"capabilities,omitempty"`
+	Defaults     Defaults            `yaml:"defaults,omitempty"`
+	Context      ContextSettings     `yaml:"context,omitempty"`
+	Prompt       PromptSettings      `yaml:"prompt,omitempty"`
+	Guard        GuardSettings       `yaml:"guard,omitempty"`
+	Notes        []string            `yaml:"notes,omitempty"`
 }
 
 // Capabilities describes what a model is expected to handle well.
 type Capabilities struct {
-	Chat            bool   `yaml:"chat,omitempty"`
-	Streaming       bool   `yaml:"streaming,omitempty"`
+	Chat             bool   `yaml:"chat,omitempty"`
+	Streaming        bool   `yaml:"streaming,omitempty"`
 	StructuredOutput string `yaml:"structured_output,omitempty"`
 	JSONMode         string `yaml:"json_mode,omitempty"`
 	ToolCalling      string `yaml:"tool_calling,omitempty"`

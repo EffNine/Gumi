@@ -6,6 +6,15 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Local Claude / agent artifacts
+.claude/
+.remember/
+
+# Playwright / browser test artifacts
+test-results/
+playwright-report/
+*.webm
+
 # Environment
 .env
 .env.*
@@ -33,11 +42,17 @@ dashboard/.next/
 dashboard/out/
 dashboard/dist/
 dashboard/.turbo/
+dashboard/tsconfig.app.tsbuildinfo
+dashboard/tsconfig.node.tsbuildinfo
+dashboard/vite.config.d.ts
+dashboard/vite.config.js
 
 # Build outputs
 dist/
 build/
 bin/
+novexa
+novexa.exe
 
 # Cache
 .cache/

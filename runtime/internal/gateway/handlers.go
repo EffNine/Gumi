@@ -12,11 +12,13 @@ import (
 	"github.com/novexa/novexa/runtime/internal/pipeline"
 	"github.com/novexa/novexa/runtime/internal/provider"
 	"github.com/novexa/novexa/runtime/internal/telemetry"
+	"github.com/novexa/novexa/runtime/internal/version"
 )
 
-// Version is injected by the CLI package via the Server. It mirrors cli.Version
-// but avoids a direct import cycle.
-const Version = "0.1.0"
+// Version is the runtime version exposed by the gateway. It mirrors
+// version.Version so health and status endpoints report the same release
+// metadata as the CLI, without introducing a dependency cycle.
+var Version = version.Version
 
 // healthResponse is the payload for GET /health.
 type healthResponse struct {

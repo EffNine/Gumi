@@ -11,8 +11,8 @@ import (
 	contextengine "github.com/novexa/novexa/runtime/internal/context"
 	guardengine "github.com/novexa/novexa/runtime/internal/guard"
 	"github.com/novexa/novexa/runtime/internal/logger"
-	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
 	"github.com/novexa/novexa/runtime/internal/profiles"
+	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
 	"github.com/novexa/novexa/runtime/internal/provider"
 	repairengine "github.com/novexa/novexa/runtime/internal/repair"
 	"github.com/novexa/novexa/runtime/internal/telemetry"
@@ -206,8 +206,8 @@ func (e *Engine) resolveProviderAndProfile(ctx context.Context, pc *Context) Res
 		})
 	} else {
 		pc.AddEvent("profile", "model_profile_applied", SeverityInfo, "model profile applied", map[string]string{
-			"profile_id": match.Profile.ID,
-			"model":      resolution.ModelName,
+			"profile_id":   match.Profile.ID,
+			"model":        resolution.ModelName,
 			"match_reason": match.Reason,
 		})
 	}
@@ -321,10 +321,10 @@ func (e *Engine) buildPrompt(pc *Context) {
 	pc.NormalizedRequest.Messages = out.FinalMessages
 
 	pc.AddEvent("prompt", "prompt_built", SeverityInfo, "Prompt Engine built provider-ready messages", map[string]string{
-		"system_prompt_added":         fmt.Sprintf("%t", out.Report.SystemPromptAdded),
-		"response_format_applied":     fmt.Sprintf("%t", out.Report.ResponseFormatApplied),
+		"system_prompt_added":          fmt.Sprintf("%t", out.Report.SystemPromptAdded),
+		"response_format_applied":      fmt.Sprintf("%t", out.Report.ResponseFormatApplied),
 		"profile_instructions_applied": fmt.Sprintf("%t", out.Report.ProfileInstructionsApplied),
-		"final_message_count":         fmt.Sprintf("%d", out.Report.FinalMessageCount),
+		"final_message_count":          fmt.Sprintf("%d", out.Report.FinalMessageCount),
 	})
 	if out.Report.ResponseFormatApplied {
 		pc.AddEvent("prompt", "structured_prompt_applied", SeverityInfo, "structured output instructions applied", nil)

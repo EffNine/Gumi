@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    name: Runtime checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: runtime/go.mod
+
+      - name: gofmt
+        run: |
+          cd runtime
+          gofmt -w .
+          git diff --exit-code
+
+      - name: go vet
+        run: |
+          cd runtime
+          go vet ./...
+
+      - name: go test
+        run: |
+          cd runtime
+          go test ./...
+
+      - name: Build runtime binary
+        run: |
+          cd runtime
+          go build ./cmd/novexa
+
+  dashboard:
+    name: Dashboard build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install and build
+        run: |
+          cd dashboard
+          npm ci
+          npm run build
+
+  diff-check:
+    name: git diff --check
+    runs-on: ubuntu-latest
+    needs: [runtime, dashboard]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check merge conflicts and whitespace
+        run: git diff --check

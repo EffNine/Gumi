@@ -40,11 +40,11 @@ type Package struct {
 
 // Report describes what the Prompt Engine changed.
 type Report struct {
-	SystemPromptAdded           bool     `json:"system_prompt_added"`
-	ResponseFormatApplied       bool     `json:"response_format_applied"`
-	ProfileInstructionsApplied  bool     `json:"profile_instructions_applied"`
-	FinalMessageCount           int      `json:"final_message_count"`
-	Warnings                    []string `json:"warnings,omitempty"`
+	SystemPromptAdded          bool     `json:"system_prompt_added"`
+	ResponseFormatApplied      bool     `json:"response_format_applied"`
+	ProfileInstructionsApplied bool     `json:"profile_instructions_applied"`
+	FinalMessageCount          int      `json:"final_message_count"`
+	Warnings                   []string `json:"warnings,omitempty"`
 }
 
 // Engine builds provider-ready message arrays.
@@ -103,7 +103,7 @@ func (e *Engine) Build(in Input) Output {
 			ResponseFormatApplied:      formatInstructions != "",
 			ProfileInstructionsApplied: len(profileInstructions) > 0,
 			FinalMessageCount:          len(final),
-			Warnings:                 warnings,
+			Warnings:                   warnings,
 		},
 		Warnings: warnings,
 	}

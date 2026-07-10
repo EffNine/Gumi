@@ -97,15 +97,15 @@ func TestRecordRequestDoesNotStorePromptsByDefault(t *testing.T) {
 	}
 
 	w.RecordRequest(context.Background(), RequestRecord{
-		RequestID:         "req_privacy",
-		CreatedAt:         time.Now(),
-		WorkspaceID:       "default",
-		RuntimeMode:       "stabilized",
-		Status:            "success",
-		PromptLogged:      false,
-		ResponseLogged:    false,
-		PromptPreview:     ExtractContentPreview(req, false),
-		ResponsePreview:   ExtractResponsePreview(&api.ChatCompletionResponse{Choices: []api.Choice{{Message: api.Message{Role: "assistant", Content: "secret response"}}}}, false),
+		RequestID:       "req_privacy",
+		CreatedAt:       time.Now(),
+		WorkspaceID:     "default",
+		RuntimeMode:     "stabilized",
+		Status:          "success",
+		PromptLogged:    false,
+		ResponseLogged:  false,
+		PromptPreview:   ExtractContentPreview(req, false),
+		ResponsePreview: ExtractResponsePreview(&api.ChatCompletionResponse{Choices: []api.Choice{{Message: api.Message{Role: "assistant", Content: "secret response"}}}}, false),
 	})
 
 	var promptLogged, responseLogged int

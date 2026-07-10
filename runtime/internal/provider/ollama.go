@@ -20,11 +20,11 @@ const ollamaDefaultURL = "http://localhost:11434"
 
 // OllamaAdapter implements ProviderAdapter for a local Ollama server.
 type OllamaAdapter struct {
-	name      string
-	baseURL   string
-	timeout   time.Duration
-	client    *http.Client
-	log       *logger.Logger
+	name    string
+	baseURL string
+	timeout time.Duration
+	client  *http.Client
+	log     *logger.Logger
 }
 
 // NewOllamaAdapter creates an Ollama adapter from settings.

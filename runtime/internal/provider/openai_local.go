@@ -21,11 +21,11 @@ const openAICompatibleDefaultURL = "http://localhost:8000/v1"
 // OpenAICompatibleAdapter implements ProviderAdapter for a local server that
 // exposes OpenAI-compatible /v1 endpoints. It does not support cloud OpenAI.
 type OpenAICompatibleAdapter struct {
-	name      string
-	baseURL   string
-	timeout   time.Duration
-	client    *http.Client
-	log       *logger.Logger
+	name    string
+	baseURL string
+	timeout time.Duration
+	client  *http.Client
+	log     *logger.Logger
 }
 
 // NewOpenAICompatibleAdapter creates an adapter from settings.

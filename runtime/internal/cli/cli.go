@@ -20,10 +20,14 @@ import (
 	"github.com/novexa/novexa/runtime/internal/dashboard"
 	"github.com/novexa/novexa/runtime/internal/gateway"
 	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/novexa/novexa/runtime/internal/version"
 )
 
 // Version is the current Novexa runtime version.
-const Version = "0.1.0"
+//
+// The default comes from the version package and can be overridden at build time
+// with ldflags so release pipelines do not need to edit source files.
+var Version = version.Version
 
 // Execute parses the CLI arguments and dispatches to the appropriate command.
 func Execute() {
@@ -59,7 +63,7 @@ func printUsage() {
 	fmt.Println("Novexa Runtime")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  novexa version")
+	fmt.Println("  novexa version [--verbose]")
 	fmt.Println("  novexa start [flags]")
 	fmt.Println("  novexa status [--json]")
 	fmt.Println("  novexa doctor [--json]")
@@ -70,14 +74,30 @@ func printUsage() {
 	fmt.Println("  novexa logs [--tail int]")
 	fmt.Println()
 	fmt.Println("Flags for start:")
-	fmt.Println("  --config string   Path to configuration file")
-	fmt.Println("  --port int        Override API port")
-	fmt.Println("  --verbose         Enable debug logging")
-	fmt.Println("  --quiet           Suppress non-error output")
+	fmt.Println("  --config string         Path to configuration file")
+	fmt.Println("  --port int              Override API port")
+	fmt.Println("  --host string           Override API bind host")
+	fmt.Println("  --dashboard-port int    Override dashboard port")
+	fmt.Println("  --dashboard-host string Override dashboard bind host")
+	fmt.Println("  --provider string       Override default provider")
+	fmt.Println("  --model string          Override default model")
+	fmt.Println("  --mode string           Override runtime mode")
+	fmt.Println("  --verbose               Enable debug logging")
+	fmt.Println("  --quiet                 Suppress non-error output")
 }
 
 func runVersion(args []string) {
+	fs := flag.NewFlagSet("version", flag.ContinueOnError)
+	verbose := fs.Bool("verbose", false, "show build metadata")
+	if err := fs.Parse(args); err != nil {
+		os.Exit(1)
+	}
+
 	fmt.Printf("Novexa Runtime %s\n", Version)
+	if *verbose {
+		fmt.Printf("Commit: %s\n", version.Commit)
+		fmt.Printf("Build Date: %s\n", version.BuildDate)
+	}
 }
 
 func runStart(args []string) {
@@ -86,6 +106,8 @@ func runStart(args []string) {
 	var configPath string
 	var portOverride int
 	var dashboardPortOverride int
+	var hostOverride string
+	var dashboardHostOverride string
 	var providerOverride string
 	var modelOverride string
 	var modeOverride string
@@ -95,6 +117,8 @@ func runStart(args []string) {
 	fs.StringVar(&configPath, "config", "", "path to configuration file")
 	fs.IntVar(&portOverride, "port", 0, "override API port")
 	fs.IntVar(&dashboardPortOverride, "dashboard-port", 0, "override dashboard port")
+	fs.StringVar(&hostOverride, "host", "", "override API bind host")
+	fs.StringVar(&dashboardHostOverride, "dashboard-host", "", "override dashboard bind host")
 	fs.StringVar(&providerOverride, "provider", "", "override default provider")
 	fs.StringVar(&modelOverride, "model", "", "override default model")
 	fs.StringVar(&modeOverride, "mode", "", "override runtime mode")
@@ -124,6 +148,12 @@ func runStart(args []string) {
 	}
 	if dashboardPortOverride > 0 {
 		cfg.Dashboard.Port = dashboardPortOverride
+	}
+	if hostOverride != "" {
+		cfg.Runtime.Host = hostOverride
+	}
+	if dashboardHostOverride != "" {
+		cfg.Dashboard.Host = dashboardHostOverride
 	}
 	if modeOverride != "" {
 		cfg.Runtime.Mode = modeOverride

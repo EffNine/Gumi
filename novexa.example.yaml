@@ -1,0 +1,62 @@
+# Novexa example configuration — documentation only for the 0.1.0 alpha.
+#
+# IMPORTANT: YAML configuration loading is NOT implemented in this alpha
+# release. The runtime uses hard-coded safe defaults (see below). Edit this file
+# to understand what future configuration will look like; Novexa will parse
+# novexa.yaml in a release after the alpha.
+#
+# Copy this file to one of the following locations once YAML loading is enabled:
+#   - ~/.novexa/novexa.yaml
+#   - ./novexa.yaml (project-local)
+#
+# This file intentionally contains no real secrets and keeps external telemetry
+# disabled. Prompts and responses are not logged by default.
+
+runtime:
+  name: novexa
+  mode: stabilized
+  host: 127.0.0.1
+  port: 8787
+  environment: local
+  log_level: info
+
+dashboard:
+  enabled: true
+  host: 127.0.0.1
+  port: 8788
+
+auth:
+  mode: local
+  local_key: novexa-local
+
+provider:
+  default: ollama
+
+providers:
+  ollama:
+    enabled: true
+    url: http://localhost:11434
+    default_model: local:auto
+    timeout_seconds: 60
+  lmstudio:
+    enabled: true
+    url: http://localhost:1234/v1
+    default_model: local:auto
+    timeout_seconds: 60
+  openai_compatible_local:
+    enabled: true
+    url: http://localhost:8000/v1
+    default_model: local:auto
+    timeout_seconds: 60
+
+storage:
+  engine: sqlite
+  database_path: ~/.novexa/novexa.db
+  retain_days: 14
+
+telemetry:
+  local: true
+  external: false
+  log_prompts: false
+  log_responses: false
+  retain_days: 14

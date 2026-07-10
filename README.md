@@ -86,6 +86,34 @@ And use local models with better stability, cleaner output, telemetry, and diagn
 
 ---
 
+## Get Started (0.1.0 Alpha)
+
+```bash
+# Build from source
+git clone https://github.com/novexa/novexa.git
+cd novexa
+make build
+./novexa start
+```
+
+Or download a pre-built release archive from the
+[GitHub releases](https://github.com/novexa/novexa/releases) page.
+
+Then open the dashboard at http://127.0.0.1:8788 and point an OpenAI-compatible
+client at http://127.0.0.1:8787/v1 with API key `novexa-local`.
+
+See [docs/installation.md](./docs/installation.md) and
+[docs/quickstart.md](./docs/quickstart.md) for platform-specific instructions.
+
+### Alpha limitations
+
+- YAML configuration loading is not implemented yet; the runtime uses safe
+  hard-coded defaults.
+- `novexa stop` and `novexa restart` are not implemented yet.
+- Streaming responses are not implemented yet.
+
+---
+
 ## V1 Focus
 
 Novexa V1 is local-only.
@@ -343,12 +371,10 @@ It does not send external telemetry in V1.
 
 ## CLI
 
-Planned V1 commands:
+Implemented commands:
 
 ```bash
 novexa start
-novexa stop
-novexa restart
 novexa status
 novexa doctor
 novexa config show
@@ -357,6 +383,13 @@ novexa models
 novexa benchmark
 novexa logs
 novexa version
+```
+
+Not yet implemented:
+
+```bash
+novexa stop
+novexa restart
 ```
 
 Most important first-run commands:
@@ -525,19 +558,30 @@ Core rules:
 
 ## Current Status
 
-Sprint 1 (Runtime Skeleton) and Sprint 2 (Gateway API) are complete.
+Sprints 1 through 10 are complete. Novexa is packaged as a 0.1.0 alpha release
+with cross-platform binaries, a Docker image, and installation documentation.
 
-The runtime now exposes an OpenAI-compatible local HTTP gateway at:
+The runtime exposes an OpenAI-compatible local HTTP gateway at:
 
 ```text
 http://127.0.0.1:8787/v1
 ```
 
-The next step is:
+The local dashboard is available at:
 
 ```text
-Sprint 3: Provider adapters
+http://127.0.0.1:8788
 ```
+
+Supported release targets:
+
+- macOS arm64
+- macOS amd64
+- Linux amd64
+- Linux arm64
+- Windows amd64
+
+The next step is to test the alpha and prepare for the first stable V1 release.
 
 ---
 

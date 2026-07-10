@@ -209,4 +209,3 @@ func TestStorageDBNil(t *testing.T) {
 		t.Error("DB on nil storage should return nil")
 	}
 }
-
