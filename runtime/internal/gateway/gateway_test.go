@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,8 @@ func testServer(t *testing.T, mode string) (*Server, *config.Config, *logger.Log
 	// Bind to port 0 so the OS assigns an unused port.
 	cfg.Runtime.Host = "127.0.0.1"
 	cfg.Runtime.Port = 0
+	// Use a temporary database so tests do not write to ~/.novexa.
+	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "novexa.db")
 	// Point providers at an unreachable port so tests are deterministic.
 	for key := range cfg.Providers {
 		settings := cfg.Providers[key]
@@ -547,5 +550,219 @@ func assertAuthError(t *testing.T, rr *httptest.ResponseRecorder) {
 	}
 	if body.Error.RequestID == "" {
 		t.Error("expected request_id in auth error response")
+	}
+}
+
+func TestTelemetryRecentRequiresAuth(t *testing.T) {
+	srv, _, _ := testServer(t, "local")
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/telemetry/recent", nil)
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+	assertAuthError(t, rr)
+}
+
+func TestTelemetryRecentReturnsRequestMetadata(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Auth.Mode = "local"
+	cfg.Runtime.Host = "127.0.0.1"
+	cfg.Runtime.Port = 0
+	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "novexa.db")
+
+	mock := newOllamaMockServer(t)
+	defer mock.Close()
+
+	settings := cfg.Providers["ollama"]
+	settings.URL = mock.URL
+	cfg.Providers["ollama"] = settings
+
+	srv := testServerWithConfig(t, cfg)
+
+	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Say hello from telemetry test"}]}`
+	chatReq := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
+	chatReq.Header.Set("Authorization", "Bearer novexa-local")
+	chatReq.Header.Set("Content-Type", "application/json")
+	chatRR := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(chatRR, chatReq)
+	if chatRR.Code != http.StatusOK {
+		t.Fatalf("expected chat 200, got %d: %s", chatRR.Code, chatRR.Body.String())
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/telemetry/recent", nil)
+	req.Header.Set("Authorization", "Bearer novexa-local")
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var body struct {
+		Object string `json:"object"`
+		Data   []struct {
+			ID          string `json:"id"`
+			CreatedAt   string `json:"created_at"`
+			RuntimeMode string `json:"runtime_mode"`
+			Provider    string `json:"provider"`
+			Model       string `json:"model"`
+			Status      string `json:"status"`
+			LatencyMs   int64  `json:"latency_ms"`
+			ErrorCode   string `json:"error_code"`
+			RepairApplied bool `json:"repair_applied"`
+			RetryCount  int    `json:"retry_count"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode telemetry recent response: %v", err)
+	}
+	if body.Object != "novexa.telemetry.recent" {
+		t.Errorf("expected object novexa.telemetry.recent, got %s", body.Object)
+	}
+	if len(body.Data) != 1 {
+		t.Fatalf("expected 1 recent request, got %d", len(body.Data))
+	}
+	if body.Data[0].Provider != "ollama" {
+		t.Errorf("expected provider ollama, got %s", body.Data[0].Provider)
+	}
+	if body.Data[0].Status != "success" {
+		t.Errorf("expected status success, got %s", body.Data[0].Status)
+	}
+	if body.Data[0].LatencyMs == 0 {
+		t.Error("expected non-zero latency")
+	}
+}
+
+func TestTelemetryRecentDoesNotExposeFullPromptOrResponse(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Auth.Mode = "local"
+	cfg.Runtime.Host = "127.0.0.1"
+	cfg.Runtime.Port = 0
+	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "novexa.db")
+
+	mock := newOllamaMockServer(t)
+	defer mock.Close()
+
+	settings := cfg.Providers["ollama"]
+	settings.URL = mock.URL
+	cfg.Providers["ollama"] = settings
+
+	srv := testServerWithConfig(t, cfg)
+
+	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Say hello from telemetry test"}]}`
+	chatReq := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
+	chatReq.Header.Set("Authorization", "Bearer novexa-local")
+	chatReq.Header.Set("Content-Type", "application/json")
+	chatRR := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(chatRR, chatReq)
+	if chatRR.Code != http.StatusOK {
+		t.Fatalf("expected chat 200, got %d: %s", chatRR.Code, chatRR.Body.String())
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/telemetry/recent", nil)
+	req.Header.Set("Authorization", "Bearer novexa-local")
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	bodyStr := rr.Body.String()
+	if strings.Contains(bodyStr, "Say hello from telemetry test") {
+		t.Error("recent telemetry leaked full prompt content")
+	}
+	if strings.Contains(bodyStr, "hello from mock ollama") {
+		t.Error("recent telemetry leaked full response content")
+	}
+}
+
+func TestStatusEndpointRequiresAuth(t *testing.T) {
+	srv, _, _ := testServer(t, "local")
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/status", nil)
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+	assertAuthError(t, rr)
+}
+
+func TestStatusEndpointReturnsRuntimeAndProviders(t *testing.T) {
+	srv, _, _ := testServer(t, "local")
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/status", nil)
+	req.Header.Set("Authorization", "Bearer novexa-local")
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var body statusResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode status response: %v", err)
+	}
+	if body.Runtime.Status != "running" {
+		t.Errorf("expected running, got %s", body.Runtime.Status)
+	}
+	if body.Runtime.Version != Version {
+		t.Errorf("expected version %s, got %s", Version, body.Runtime.Version)
+	}
+	if body.StorageStatus != "ok" {
+		t.Errorf("expected storage ok, got %s", body.StorageStatus)
+	}
+	if !body.TelemetryEnabled {
+		t.Error("expected telemetry enabled")
+	}
+	if len(body.Providers) == 0 {
+		t.Error("expected at least one provider summary")
+	}
+}
+
+func TestProviderErrorRecordedInTelemetry(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Auth.Mode = "local"
+	cfg.Runtime.Host = "127.0.0.1"
+	cfg.Runtime.Port = 0
+	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "novexa.db")
+	for key := range cfg.Providers {
+		settings := cfg.Providers[key]
+		settings.URL = "http://127.0.0.1:1"
+		cfg.Providers[key] = settings
+	}
+
+	srv := testServerWithConfig(t, cfg)
+
+	payload := `{"model":"ollama:llama3","messages":[{"role":"user","content":"Hello"}]}`
+	chatReq := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
+	chatReq.Header.Set("Authorization", "Bearer novexa-local")
+	chatReq.Header.Set("Content-Type", "application/json")
+	chatRR := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(chatRR, chatReq)
+
+	if chatRR.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d: %s", chatRR.Code, chatRR.Body.String())
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/telemetry/recent", nil)
+	req.Header.Set("Authorization", "Bearer novexa-local")
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	var recent telemetryRecentResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &recent); err != nil {
+		t.Fatalf("failed to decode recent telemetry: %v", err)
+	}
+	if len(recent.Data) != 1 {
+		t.Fatalf("expected 1 telemetry row, got %d", len(recent.Data))
+	}
+	if recent.Data[0].Status != "error" {
+		t.Errorf("expected error status, got %s", recent.Data[0].Status)
+	}
+	if recent.Data[0].ErrorCode != "PROVIDER_UNAVAILABLE" {
+		t.Errorf("expected PROVIDER_UNAVAILABLE, got %s", recent.Data[0].ErrorCode)
 	}
 }

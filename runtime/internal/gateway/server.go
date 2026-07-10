@@ -15,16 +15,18 @@ import (
 	"github.com/novexa/novexa/runtime/internal/logger"
 	"github.com/novexa/novexa/runtime/internal/pipeline"
 	"github.com/novexa/novexa/runtime/internal/provider"
+	"github.com/novexa/novexa/runtime/internal/telemetry"
 )
 
 // Server wraps the Novexa HTTP gateway.
 type Server struct {
-	cfg      *config.Config
-	log      *logger.Logger
-	manager  *provider.Manager
-	pipeline *pipeline.Engine
-	server   *http.Server
-	addr     string
+	cfg       *config.Config
+	log       *logger.Logger
+	manager   *provider.Manager
+	pipeline  *pipeline.Engine
+	telemetry *telemetry.Writer
+	server    *http.Server
+	addr      string
 }
 
 // New creates a gateway server from configuration and logger.
@@ -37,12 +39,29 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 		mgr = provider.NewManager(make(map[string]provider.ProviderAdapter), log)
 	}
 
+	var tw *telemetry.Writer
+	if cfg.Telemetry.Local {
+		tw, err = telemetry.Open(cfg, log)
+		if err != nil {
+			log.Error("telemetry storage unavailable; continuing in degraded mode", err)
+			tw = telemetry.NewNoop(cfg, log)
+		}
+	} else {
+		tw = telemetry.NewNoop(cfg, log)
+	}
+
+	mgr.Telemetry = tw
+
+	pipe := pipeline.New(cfg, mgr, log)
+	pipe.SetTelemetry(tw)
+
 	s := &Server{
-		cfg:      cfg,
-		log:      log,
-		manager:  mgr,
-		pipeline: pipeline.New(cfg, mgr, log),
-		addr:     net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
+		cfg:       cfg,
+		log:       log,
+		manager:   mgr,
+		pipeline:  pipe,
+		telemetry: tw,
+		addr:      net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
 		server: &http.Server{
 			Addr:              net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
 			Handler:           mux,
@@ -87,8 +106,14 @@ func (s *Server) Addr() string {
 	return s.server.Addr
 }
 
-// Shutdown gracefully stops the HTTP server.
+// Shutdown gracefully stops the HTTP server and closes telemetry storage.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.log.Info("gateway shutting down")
-	return s.server.Shutdown(ctx)
+	if err := s.server.Shutdown(ctx); err != nil {
+		return err
+	}
+	if s.telemetry != nil {
+		_ = s.telemetry.Close()
+	}
+	return nil
 }

@@ -14,6 +14,7 @@ type Config struct {
 	Auth      AuthConfig
 	Provider  ProviderConfig
 	Providers map[string]ProviderSettings
+	Storage   StorageConfig
 	Telemetry TelemetryConfig
 }
 
@@ -53,12 +54,19 @@ type ProviderSettings struct {
 	TimeoutSeconds int
 }
 
+// StorageConfig controls local SQLite storage location and retention.
+type StorageConfig struct {
+	DBPath     string
+	RetainDays int
+}
+
 // TelemetryConfig controls local telemetry and logging.
 type TelemetryConfig struct {
 	Local         bool
 	External      bool
 	LogPrompts    bool
 	LogResponses  bool
+	RetainDays    int
 }
 
 // DefaultConfig returns the safe local defaults defined by the architecture.
@@ -104,11 +112,16 @@ func DefaultConfig() *Config {
 				TimeoutSeconds: 60,
 			},
 		},
+		Storage: StorageConfig{
+			DBPath:     "",
+			RetainDays: 14,
+		},
 		Telemetry: TelemetryConfig{
 			Local:        true,
 			External:     false,
 			LogPrompts:   false,
 			LogResponses: false,
+			RetainDays:   14,
 		},
 	}
 }

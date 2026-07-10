@@ -1,13 +1,16 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/novexa/novexa/runtime/internal/pipeline"
 	"github.com/novexa/novexa/runtime/internal/provider"
+	"github.com/novexa/novexa/runtime/internal/telemetry"
 )
 
 // Version is injected by the CLI package via the Server. It mirrors cli.Version
@@ -48,7 +51,7 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleChatCompletions validates the HTTP request shape and delegates request
-// execution to Pipeline Engine.
+// execution to Pipeline Engine. Request metadata is recorded to local telemetry.
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	reqID := requestIDFromContext(r.Context())
 
@@ -75,7 +78,12 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	start := time.Now()
 	result := s.pipeline.RunChatCompletion(r.Context(), reqID, req)
+	latency := time.Since(start)
+
+	s.recordRequestTelemetry(r.Context(), reqID, start, req, result, latency)
+
 	if result.Error.Code != "" {
 		s.writeProviderError(w, result.Error, reqID)
 		return
@@ -92,6 +100,63 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result.Response)
+}
+
+// recordRequestTelemetry writes the request summary row to local telemetry.
+// Storage failures are logged but never block the response.
+func (s *Server) recordRequestTelemetry(ctx context.Context, reqID string, start time.Time, req api.ChatCompletionRequest, result pipeline.Result, latency time.Duration) {
+	if s.telemetry == nil {
+		return
+	}
+
+	record := telemetry.RequestRecord{
+		RequestID:   reqID,
+		CreatedAt:   start,
+		WorkspaceID: "default",
+		RuntimeMode: string(s.cfg.Runtime.Mode),
+		Provider:    result.ProviderName,
+		Status:      "success",
+		Stream:      req.Stream,
+		LatencyMs:   latency.Milliseconds(),
+	}
+
+	if result.Context != nil {
+		record.RuntimeMode = string(result.Context.RuntimeMode)
+		record.SessionID = result.Context.SessionID
+		record.ProviderLatencyMs = result.Context.ProviderLatency.Milliseconds()
+		record.RetryCount = result.Context.Retry.Attempt - 1
+		record.ValidationPassed = true
+		record.RepairApplied = false
+		record.ContextCompressed = false
+		if result.Context.SelectedModel != "" {
+			record.Model = result.Context.SelectedModel
+		}
+	}
+
+	if result.Response != nil {
+		resp := result.Response
+		if resp.Model != "" {
+			record.Model = resp.Model
+		}
+		record.PromptTokens = resp.Usage.PromptTokens
+		record.CompletionTokens = resp.Usage.CompletionTokens
+		record.TotalTokens = resp.Usage.TotalTokens
+	}
+
+	if result.Error.Code != "" {
+		record.Status = "error"
+		record.ErrorCode = string(result.Error.Code)
+		record.ValidationPassed = false
+	}
+
+	logPrompts := s.cfg.Telemetry.LogPrompts
+	logResponses := s.cfg.Telemetry.LogResponses
+	record.PromptLogged = logPrompts
+	record.ResponseLogged = logResponses
+	record.PromptPreview = telemetry.ExtractContentPreview(req, logPrompts)
+	record.ResponsePreview = telemetry.ExtractResponsePreview(result.Response, logResponses)
+
+	s.telemetry.RecordRequest(ctx, record)
 }
 
 // writeProviderError converts a ProviderError into an OpenAI-compatible error
@@ -124,4 +189,86 @@ func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.Provide
 	}
 
 	s.writeError(w, status, errResp)
+}
+
+// telemetryRecentResponse is the payload for GET /v1/novexa/telemetry/recent.
+type telemetryRecentResponse struct {
+	Object string                  `json:"object"`
+	Data   []telemetry.RecentRequest `json:"data"`
+}
+
+// handleTelemetryRecent returns recent request metadata without full prompts or
+// responses.
+func (s *Server) handleTelemetryRecent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	recent, err := s.telemetry.RecentRequests(ctx, 100)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, api.NewRuntimeError("TELEMETRY_ERROR", "failed to read recent telemetry", requestIDFromContext(ctx)))
+		return
+	}
+	if recent == nil {
+		recent = []telemetry.RecentRequest{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(telemetryRecentResponse{
+		Object: "novexa.telemetry.recent",
+		Data:   recent,
+	})
+}
+
+// statusProvider describes one configured provider for the status endpoint.
+type statusProvider struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	URL    string `json:"url"`
+}
+
+// statusResponse is the payload for GET /v1/novexa/status.
+type statusResponse struct {
+	Runtime struct {
+		Status  string `json:"status"`
+		Version string `json:"version"`
+		Mode    string `json:"mode"`
+		APIURL  string `json:"api_url"`
+	} `json:"runtime"`
+	Providers      []statusProvider `json:"providers,omitempty"`
+	StorageStatus  string           `json:"storage_status"`
+	TelemetryEnabled bool           `json:"telemetry_enabled"`
+}
+
+// handleStatus returns runtime status and provider summary.
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	providers := make([]statusProvider, 0, len(s.cfg.Providers))
+	for key, settings := range s.cfg.Providers {
+		if !settings.Enabled {
+			continue
+		}
+		st := provider.StatusUnknown
+		if checked, err := s.manager.HealthCheck(ctx, key); err == nil {
+			st = checked
+		} else {
+			st = provider.StatusOffline
+		}
+		providers = append(providers, statusProvider{
+			Name:   key,
+			Status: string(st),
+			URL:    settings.URL,
+		})
+	}
+
+	resp := statusResponse{
+		Providers:        providers,
+		StorageStatus:    s.telemetry.StorageStatus(),
+		TelemetryEnabled: s.cfg.Telemetry.Local,
+	}
+	resp.Runtime.Status = "running"
+	resp.Runtime.Version = Version
+	resp.Runtime.Mode = s.cfg.Runtime.Mode
+	resp.Runtime.APIURL = fmt.Sprintf("http://%s:%d/v1", s.cfg.Runtime.Host, s.cfg.Runtime.Port)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }

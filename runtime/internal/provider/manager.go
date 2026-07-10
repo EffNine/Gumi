@@ -19,6 +19,12 @@ const healthTTL = 30 * time.Second
 // provider. Ollama is preferred first, then LM Studio, then OpenAI-compatible.
 var providerPreferenceOrder = []string{"ollama", "lmstudio", "openai_compatible_local"}
 
+// TelemetryWriter receives provider health observations. It is defined in the
+// provider package so Manager can record health without creating an import cycle.
+type TelemetryWriter interface {
+	RecordProviderHealth(ctx context.Context, provider string, status ProviderStatus, latency time.Duration, err ProviderError)
+}
+
 // Manager owns the configured provider adapters and coordinates health checks,
 // model discovery, and generation.
 type Manager struct {
@@ -27,6 +33,9 @@ type Manager struct {
 
 	mu          sync.RWMutex
 	healthCache map[string]healthEntry
+
+	// Telemetry receives health check results. It may be nil.
+	Telemetry TelemetryWriter
 }
 
 type healthEntry struct {
@@ -55,7 +64,7 @@ func (m *Manager) ListProviders() []string {
 }
 
 // HealthCheck returns the current status of a provider, using a cached value
-// when fresh.
+// when fresh. Every fresh health check result is forwarded to telemetry.
 func (m *Manager) HealthCheck(ctx context.Context, name string) (ProviderStatus, error) {
 	adapter, ok := m.adapters[name]
 	if !ok {
@@ -70,11 +79,21 @@ func (m *Manager) HealthCheck(ctx context.Context, name string) (ProviderStatus,
 		return entry.status, nil
 	}
 
+	start := time.Now()
 	status, err := adapter.HealthCheck(ctx)
+	latency := time.Since(start)
 
 	m.mu.Lock()
 	m.healthCache[name] = healthEntry{status: status, timestamp: time.Now()}
 	m.mu.Unlock()
+
+	var perr ProviderError
+	if err != nil {
+		perr = adapter.NormalizeError(err)
+	}
+	if m.Telemetry != nil {
+		m.Telemetry.RecordProviderHealth(ctx, name, status, latency, perr)
+	}
 
 	return status, err
 }

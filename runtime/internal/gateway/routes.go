@@ -10,6 +10,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /health", s.withPublicMiddleware(s.handleHealth))
 	mux.HandleFunc("GET /v1/models", s.withAuthMiddleware(s.handleModels))
 	mux.HandleFunc("POST /v1/chat/completions", s.withAuthMiddleware(s.handleChatCompletions))
+	mux.HandleFunc("GET /v1/novexa/telemetry/recent", s.withAuthMiddleware(s.handleTelemetryRecent))
+	mux.HandleFunc("GET /v1/novexa/status", s.withAuthMiddleware(s.handleStatus))
 }
 
 // withPublicMiddleware applies logging and request-ID middleware without auth.

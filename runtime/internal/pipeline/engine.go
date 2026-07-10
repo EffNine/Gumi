@@ -10,6 +10,7 @@ import (
 	"github.com/novexa/novexa/runtime/internal/config"
 	"github.com/novexa/novexa/runtime/internal/logger"
 	"github.com/novexa/novexa/runtime/internal/provider"
+	"github.com/novexa/novexa/runtime/internal/telemetry"
 )
 
 const (
@@ -19,9 +20,10 @@ const (
 
 // Engine orchestrates the request lifecycle for chat completions.
 type Engine struct {
-	cfg     *config.Config
-	manager *provider.Manager
-	log     *logger.Logger
+	cfg       *config.Config
+	manager   *provider.Manager
+	log       *logger.Logger
+	telemetry *telemetry.Writer
 }
 
 // Result is returned to Gateway Engine after pipeline execution.
@@ -39,6 +41,12 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 		manager: manager,
 		log:     log,
 	}
+}
+
+// SetTelemetry attaches a telemetry writer. The writer may be nil; the engine
+// will simply skip telemetry recording.
+func (e *Engine) SetTelemetry(t *telemetry.Writer) {
+	e.telemetry = t
 }
 
 // RunChatCompletion executes a normalized chat completion request.
@@ -185,8 +193,10 @@ func (e *Engine) callProvider(ctx context.Context, pc *Context) Result {
 	pc.AddEvent("validation", "validation_completed", SeverityInfo, "Validation Engine skeleton placeholder", map[string]string{
 		"passed": "true",
 	})
-	pc.AddEvent("telemetry", "telemetry_recorded", SeverityInfo, "Telemetry Engine skeleton placeholder", nil)
+	pc.AddEvent("telemetry", "telemetry_recorded", SeverityInfo, "telemetry recorded", nil)
 	pc.AddEvent("pipeline", "pipeline_completed", SeverityInfo, "pipeline completed successfully", nil)
+
+	e.recordTelemetry(ctx, pc)
 
 	if resp != nil && resp.Novexa == nil && pc.IncomingRequest.Novexa != nil && pc.IncomingRequest.Novexa.Telemetry != nil && pc.IncomingRequest.Novexa.Telemetry.IncludeMetadata {
 		resp.Novexa = &api.NovexaMetadata{
@@ -214,7 +224,9 @@ func (e *Engine) fail(pc *Context, perr provider.ProviderError, message string) 
 	pc.AddEvent("pipeline", "pipeline_failed", SeverityError, message, map[string]string{
 		"code": string(perr.Code),
 	})
-	pc.AddEvent("telemetry", "telemetry_recorded", SeverityInfo, "Telemetry Engine skeleton placeholder", nil)
+	pc.AddEvent("telemetry", "telemetry_recorded", SeverityInfo, "telemetry recorded", nil)
+
+	e.recordTelemetry(context.Background(), pc)
 
 	if e.log != nil {
 		e.log.Error("pipeline failed", perr, "request_id", pc.RequestID, "code", string(perr.Code))
@@ -224,5 +236,29 @@ func (e *Engine) fail(pc *Context, perr provider.ProviderError, message string) 
 		Context:      pc,
 		ProviderName: pc.SelectedProvider,
 		Error:        perr,
+	}
+}
+
+func (e *Engine) recordTelemetry(ctx context.Context, pc *Context) {
+	if e.telemetry == nil {
+		return
+	}
+
+	events := make([]telemetry.PipelineEventRecord, len(pc.Events))
+	for i, ev := range pc.Events {
+		events[i] = telemetry.PipelineEventRecord{
+			RequestID: ev.RequestID,
+			Timestamp: ev.Timestamp,
+			Engine:    ev.Engine,
+			Event:     ev.Event,
+			Severity:  string(ev.Severity),
+			Message:   ev.Message,
+			Metadata:  ev.Metadata,
+		}
+	}
+	e.telemetry.RecordPipelineEvents(ctx, events)
+
+	if pc.ProviderError != nil {
+		e.telemetry.RecordError(ctx, pc.RequestID, "pipeline", *pc.ProviderError)
 	}
 }
