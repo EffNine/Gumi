@@ -132,17 +132,30 @@ func runBenchmark(base, key string, jsonOutput bool) {
 	start := time.Now()
 	_, err := apiGet(base+"/health", key)
 	latency := time.Since(start)
-	status := "ok"
-	if err != nil {
-		status = "failed"
+	result := map[string]any{
+		"endpoint":           base,
+		"gateway_latency_ms": latency.Milliseconds(),
 	}
-	result := map[string]any{"status": status, "gateway_latency_ms": latency.Milliseconds(), "endpoint": base}
-	body, _ := json.MarshalIndent(result, "", "  ")
-	if !jsonOutput {
-		fmt.Println("Novexa Benchmark")
-	}
-	fmt.Println(string(body))
 	if err != nil {
+		result["status"] = "failed"
+		result["error"] = err.Error()
+		result["suggestion"] = "start the runtime with 'novexa start'"
+	} else {
+		result["status"] = "ok"
+	}
+	if jsonOutput {
+		body, _ := json.MarshalIndent(result, "", "  ")
+		fmt.Println(string(body))
+		if err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+	fmt.Println("Novexa Benchmark")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Novexa benchmark failed: %v\nSuggestion: start the runtime with 'novexa start'.\n", err)
 		os.Exit(1)
 	}
+	body, _ := json.MarshalIndent(result, "", "  ")
+	fmt.Println(string(body))
 }

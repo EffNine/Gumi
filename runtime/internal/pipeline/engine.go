@@ -82,7 +82,7 @@ func (e *Engine) RunChatCompletion(ctx context.Context, requestID string, req ap
 	if req.Stream {
 		return e.fail(pc, provider.ProviderError{
 			Code:       provider.StreamingUnsupported,
-			Message:    "streaming chat completions are not supported in Sprint 4",
+			Message:    "streaming chat completions are not supported in this release",
 			Suggestion: "Set stream=false until streaming support is implemented.",
 		}, "streaming is not supported by the current pipeline")
 	}

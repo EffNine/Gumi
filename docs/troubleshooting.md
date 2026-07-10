@@ -179,7 +179,11 @@ Streaming responses are not implemented in this alpha. Requests with
 {
   "error": {
     "code": "STREAMING_UNSUPPORTED",
-    "message": "Streaming is not supported in this release."
+    "message": "streaming chat completions are not supported in this release",
+    "type": "runtime_error",
+    "engine": "pipeline",
+    "suggestion": "Set stream=false until streaming support is implemented.",
+    "request_id": "req_..."
   }
 }
 ```

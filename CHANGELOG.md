@@ -54,6 +54,8 @@ All notable changes to Novexa are documented in this file.
 - Streaming chat completions are not supported.
 - Cross-platform release artifacts are cross-compiled but not necessarily
   manually run on every target.
+- A Dockerfile is included for convenience but the Docker image has not been
+  manually built or tested in this environment.
 
 ## Previous sprints
 

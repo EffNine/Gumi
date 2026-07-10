@@ -111,6 +111,8 @@ See [docs/installation.md](./docs/installation.md) and
   hard-coded defaults.
 - `novexa stop` and `novexa restart` are not implemented yet.
 - Streaming responses are not implemented yet.
+- A Dockerfile is included for convenience but the Docker image has not been
+  manually built or tested in this environment.
 
 ---
 
