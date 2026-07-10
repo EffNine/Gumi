@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/novexa/novexa/runtime/internal/provider"
 )
 
 // Version is injected by the CLI package via the Server. It mirrors cli.Version
@@ -22,7 +23,8 @@ type healthResponse struct {
 	Timestamp string `json:"timestamp"`
 }
 
-// handleHealth returns runtime health information.
+// handleHealth returns runtime health information. It does not depend on
+// providers being online so the gateway remains responsive.
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(healthResponse{
@@ -34,13 +36,19 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleModels returns the static Sprint 2 model list.
+// handleModels returns the local:auto alias merged with provider-discovered models.
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
+	list := api.NewModelsList()
+
+	providerModels := s.manager.ListModels(r.Context())
+	list.Data = append(list.Data, providerModels...)
+
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(api.NewModelsList())
+	_ = json.NewEncoder(w).Encode(list)
 }
 
-// handleChatCompletions returns a placeholder OpenAI-compatible chat response.
+// handleChatCompletions delegates to provider adapters when possible, and falls
+// back to a placeholder only for local:auto when no provider is available.
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	reqID := requestIDFromContext(r.Context())
 
@@ -72,43 +80,53 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		mode = req.Novexa.Mode
 	}
 
-	provider := s.cfg.Provider.Default
-	model := req.Model
-
-	resp := api.ChatCompletionResponse{
-		ID:      "chatcmpl_nvx_" + reqID,
-		Object:  "chat.completion",
-		Created: time.Now().Unix(),
-		Model:   model,
-		Choices: []api.Choice{
-			{
-				Index: 0,
-				Message: api.Message{
-					Role:    "assistant",
-					Content: placeholderContent(req.Stream),
-				},
-				FinishReason: "stop",
-			},
-		},
-		Usage: api.Usage{
-			PromptTokens:     0,
-			CompletionTokens: 0,
-			TotalTokens:      0,
-		},
+	// Reject streaming requests explicitly; adapters do not implement streaming
+	// in Sprint 3.
+	if req.Stream {
+		s.writeError(w, http.StatusBadRequest, api.NewRequestError("STREAMING_NOT_SUPPORTED", "streaming chat completions are not supported in Sprint 3", reqID))
+		return
 	}
 
-	w.Header().Set("X-Novexa-Provider", provider)
-	w.Header().Set("X-Novexa-Model", model)
+	resp, providerName, perr := s.manager.Generate(r.Context(), req)
+	if perr.Code != "" {
+		s.writeProviderError(w, perr, reqID)
+		return
+	}
+
+	w.Header().Set("X-Novexa-Provider", providerName)
+	w.Header().Set("X-Novexa-Model", resp.Model)
 	w.Header().Set("X-Novexa-Runtime-Mode", mode)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// placeholderContent returns a helpful placeholder message explaining the
-// current sprint limitation.
-func placeholderContent(stream bool) string {
-	if stream {
-		return "Streaming is not yet implemented in Sprint 2. Set stream=false to receive a placeholder response."
+// writeProviderError converts a ProviderError into an OpenAI-compatible error
+// response and writes it to the response writer.
+func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.ProviderError, reqID string) {
+	status := http.StatusBadGateway
+	switch perr.Code {
+	case provider.ProviderTimeout:
+		status = http.StatusGatewayTimeout
+	case provider.ModelNotFound:
+		status = http.StatusNotFound
+	case provider.ProviderMisconfigured:
+		status = http.StatusBadRequest
+	case provider.ProviderAuthError:
+		status = http.StatusUnauthorized
 	}
-	return "This is a Sprint 2 placeholder response. Real provider generation will be available in Sprint 3."
+
+	errResp := api.ErrorResponse{
+		Error: api.APIError{
+			Code:       string(perr.Code),
+			Message:    perr.Message,
+			Type:       "runtime_error",
+			Engine:     "gateway",
+			Retryable:  perr.Code == provider.ProviderUnavailable || perr.Code == provider.ProviderTimeout,
+			Suggestion: perr.Suggestion,
+			RequestID:  reqID,
+		},
+	}
+
+	s.writeError(w, status, errResp)
 }
+

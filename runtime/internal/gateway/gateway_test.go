@@ -17,7 +17,9 @@ import (
 
 // testServer builds a gateway Server bound to a random free port.
 // It never uses the configured default port, so tests pass even when the
-// development runtime is already running.
+// development runtime is already running. Provider URLs are pointed at an
+// unused port so tests behave deterministically regardless of which local
+// providers are installed.
 func testServer(t *testing.T, mode string) (*Server, *config.Config, *logger.Logger) {
 	t.Helper()
 	cfg := config.DefaultConfig()
@@ -25,9 +27,23 @@ func testServer(t *testing.T, mode string) (*Server, *config.Config, *logger.Log
 	// Bind to port 0 so the OS assigns an unused port.
 	cfg.Runtime.Host = "127.0.0.1"
 	cfg.Runtime.Port = 0
+	// Point providers at an unreachable port so tests are deterministic.
+	for key := range cfg.Providers {
+		settings := cfg.Providers[key]
+		settings.URL = "http://127.0.0.1:1"
+		cfg.Providers[key] = settings
+	}
 	log := logger.New("error")
 	srv := New(cfg, log)
 	return srv, cfg, log
+}
+
+// testServerWithConfig creates a Server from an already-mutated config so tests
+// can inject mock provider URLs before the provider manager is built.
+func testServerWithConfig(t *testing.T, cfg *config.Config) *Server {
+	t.Helper()
+	log := logger.New("error")
+	return New(cfg, log)
 }
 
 func TestHealthEndpoint(t *testing.T) {
@@ -118,8 +134,20 @@ func TestModelsEndpointDisabledAuth(t *testing.T) {
 	}
 }
 
-func TestChatCompletionsSuccess(t *testing.T) {
-	srv, _, _ := testServer(t, "local")
+func TestChatCompletionsSuccessWithMockProvider(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Auth.Mode = "local"
+	cfg.Runtime.Host = "127.0.0.1"
+	cfg.Runtime.Port = 0
+
+	mock := newOllamaMockServer(t)
+	defer mock.Close()
+
+	settings := cfg.Providers["ollama"]
+	settings.URL = mock.URL
+	cfg.Providers["ollama"] = settings
+
+	srv := testServerWithConfig(t, cfg)
 
 	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Hello"}]}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
@@ -148,9 +176,32 @@ func TestChatCompletionsSuccess(t *testing.T) {
 	if rr.Header().Get("X-Request-ID") == "" {
 		t.Error("expected X-Request-ID response header")
 	}
-	if rr.Header().Get("X-Novexa-Provider") == "" {
-		t.Error("expected X-Novexa-Provider response header")
+	if rr.Header().Get("X-Novexa-Provider") != "ollama" {
+		t.Errorf("expected ollama provider header, got %s", rr.Header().Get("X-Novexa-Provider"))
 	}
+}
+
+func newOllamaMockServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/tags":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"models": []map[string]interface{}{{"name": "llama3"}},
+			})
+		case "/api/chat":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"model": "llama3",
+				"message": map[string]interface{}{
+					"role":    "assistant",
+					"content": "hello from mock ollama",
+				},
+				"done": true,
+			})
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
 }
 
 func TestChatCompletionsMissingAuth(t *testing.T) {
@@ -187,7 +238,18 @@ func TestChatCompletionsInvalidKey(t *testing.T) {
 }
 
 func TestChatCompletionsDisabledAuth(t *testing.T) {
-	srv, _, _ := testServer(t, "disabled")
+	cfg := config.DefaultConfig()
+	cfg.Auth.Mode = "disabled"
+	cfg.Runtime.Host = "127.0.0.1"
+	cfg.Runtime.Port = 0
+
+	mock := newOllamaMockServer(t)
+	defer mock.Close()
+	settings := cfg.Providers["ollama"]
+	settings.URL = mock.URL
+	cfg.Providers["ollama"] = settings
+
+	srv := testServerWithConfig(t, cfg)
 
 	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Hello"}]}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
@@ -332,6 +394,106 @@ func TestChatCompletionsInvalidJSON(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+}
+
+func TestChatCompletionsExplicitProviderUnavailable(t *testing.T) {
+	srv, _, _ := testServer(t, "disabled")
+
+	payload := `{"model":"ollama:llama3","messages":[{"role":"user","content":"Hello"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var body api.ErrorResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if body.Error.Code != "PROVIDER_UNAVAILABLE" {
+		t.Errorf("expected PROVIDER_UNAVAILABLE, got %s", body.Error.Code)
+	}
+	if body.Error.RequestID == "" {
+		t.Error("expected request_id in provider error response")
+	}
+}
+
+func TestChatCompletionsLocalAutoReturnsErrorWhenOffline(t *testing.T) {
+	srv, _, _ := testServer(t, "disabled")
+
+	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Hello"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502 provider unavailable, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var body api.ErrorResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if body.Error.Code != "PROVIDER_UNAVAILABLE" {
+		t.Errorf("expected PROVIDER_UNAVAILABLE, got %s", body.Error.Code)
+	}
+	if body.Error.Suggestion == "" {
+		t.Error("expected suggestion in provider unavailable error")
+	}
+}
+
+func TestModelsEndpointIncludesLocalAuto(t *testing.T) {
+	srv, _, _ := testServer(t, "disabled")
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var body api.ModelsList
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode models response: %v", err)
+	}
+
+	found := false
+	for _, m := range body.Data {
+		if m.ID == "local:auto" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected local:auto in model list")
+	}
+}
+
+func TestStreamingRejected(t *testing.T) {
+	srv, _, _ := testServer(t, "disabled")
+
+	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Hello"}],"stream":true}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var body api.ErrorResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if body.Error.Code != "STREAMING_NOT_SUPPORTED" {
+		t.Errorf("expected STREAMING_NOT_SUPPORTED, got %s", body.Error.Code)
 	}
 }
 

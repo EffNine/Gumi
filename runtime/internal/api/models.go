@@ -14,16 +14,13 @@ type Model struct {
 	OwnedBy string `json:"owned_by"`
 }
 
-// NewModelsList returns a populated model list with the Sprint 2 placeholder
-// models. Real provider discovery will replace this in Sprint 3.
+// NewModelsList returns a base model list containing the local:auto alias.
+// Provider-discovered models are merged by the gateway handler.
 func NewModelsList() *ModelsList {
 	return &ModelsList{
 		Object: "list",
 		Data: []Model{
 			{ID: "local:auto", Object: "model", Created: 0, OwnedBy: "novexa"},
-			{ID: "ollama:local:auto", Object: "model", Created: 0, OwnedBy: "ollama"},
-			{ID: "lmstudio:local:auto", Object: "model", Created: 0, OwnedBy: "lmstudio"},
-			{ID: "openai-compatible:local:auto", Object: "model", Created: 0, OwnedBy: "openai-compatible"},
 		},
 	}
 }

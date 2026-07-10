@@ -86,10 +86,22 @@ func DefaultConfig() *Config {
 		},
 		Providers: map[string]ProviderSettings{
 			"ollama": {
-				Enabled:       true,
-				URL:           "http://localhost:11434",
-				DefaultModel:  "local:auto",
-				TimeoutSeconds: 90,
+				Enabled:        true,
+				URL:            "http://localhost:11434",
+				DefaultModel:   "local:auto",
+				TimeoutSeconds: 60,
+			},
+			"lmstudio": {
+				Enabled:        true,
+				URL:            "http://localhost:1234/v1",
+				DefaultModel:   "local:auto",
+				TimeoutSeconds: 60,
+			},
+			"openai_compatible_local": {
+				Enabled:        true,
+				URL:            "http://localhost:8000/v1",
+				DefaultModel:   "local:auto",
+				TimeoutSeconds: 60,
 			},
 		},
 		Telemetry: TelemetryConfig{

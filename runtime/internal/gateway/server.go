@@ -14,24 +14,33 @@ import (
 
 	"github.com/novexa/novexa/runtime/internal/config"
 	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/novexa/novexa/runtime/internal/provider"
 )
 
 // Server wraps the Novexa HTTP gateway.
 type Server struct {
-	cfg    *config.Config
-	log    *logger.Logger
-	server *http.Server
-	addr   string
+	cfg     *config.Config
+	log     *logger.Logger
+	manager *provider.Manager
+	server  *http.Server
+	addr    string
 }
 
 // New creates a gateway server from configuration and logger.
 func New(cfg *config.Config, log *logger.Logger) *Server {
 	mux := http.NewServeMux()
 
+	mgr, err := provider.DefaultRegistry().Build(cfg, log)
+	if err != nil {
+		log.Error("failed to build provider manager", err)
+		mgr = provider.NewManager(make(map[string]provider.ProviderAdapter), log)
+	}
+
 	s := &Server{
-		cfg:  cfg,
-		log:  log,
-		addr: net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
+		cfg:     cfg,
+		log:     log,
+		manager: mgr,
+		addr:    net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
 		server: &http.Server{
 			Addr:              net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
 			Handler:           mux,
