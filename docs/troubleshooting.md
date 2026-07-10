@@ -208,3 +208,44 @@ xattr -d com.apple.quarantine ./novexa
 
 This warning appears because Novexa is not signed or notarized yet. Building from
 source avoids the warning entirely.
+
+## Qwen 3.5 thinking exhausts max tokens
+
+Symptom: requests to Qwen 3.5 models return `VALIDATION_FAILED` with an empty
+final answer, or the model is very slow in stabilized mode.
+
+Cause: Qwen 3.5 models (especially the 2B variant) may consume the entire
+`max_tokens` budget on internal reasoning/thinking, leaving no tokens for the
+final answer. Novexa detects this and returns a clear error.
+
+Fix:
+
+1. Disable thinking through the Novexa extension:
+
+```json
+{
+  "novexa": {
+    "thinking": {
+      "enabled": false
+    }
+  }
+}
+```
+
+2. The built-in `qwen3.5-2b` profile disables thinking by default. Use the
+   profile by requesting `ollama:qwen3.5:2b`.
+
+3. If you need thinking enabled, increase `max_tokens` significantly to give
+   the model room for both reasoning and the final answer.
+
+## Why raw reasoning is not returned or logged
+
+Novexa never appends thinking/reasoning text into the assistant final content.
+Reasoning text is considered private model internals. Novexa also never stores
+actual reasoning text in telemetry by default. Only safe metadata is recorded:
+
+- `thinking_enabled`: true/false/unspecified
+- `reasoning_content_present`: true/false
+
+This protects user privacy and prevents accidental exposure of model reasoning
+in application output.

@@ -148,7 +148,7 @@ func TestDefaultLoaderFindsRealProfiles(t *testing.T) {
 	for _, p := range result.Profiles {
 		ids[p.ID] = true
 	}
-	for _, id := range []string{"generic-local", "qwen3-8b", "qwen2.5-coder-7b", "deepseek-r1-8b", "llama3.1-8b", "gemma3-12b", "mistral-small"} {
+	for _, id := range []string{"generic-local", "qwen3-8b", "qwen2.5-coder-7b", "deepseek-r1-8b", "llama3.1-8b", "gemma3-12b", "mistral-small", "qwen3.5-2b"} {
 		if !ids[id] {
 			t.Fatalf("expected built-in profile %q to be loaded; got %v", id, ids)
 		}

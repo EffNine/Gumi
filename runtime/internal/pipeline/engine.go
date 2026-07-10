@@ -341,6 +341,19 @@ func (e *Engine) callProviderGenerate(ctx context.Context, pc *Context) Result {
 	providerReq.Model = pc.SelectedModel
 	e.applyProfileDefaults(pc, &providerReq)
 
+	// Apply thinking default from profile to NormalizedRequest for telemetry.
+	if pc.ModelProfile != nil && pc.ModelProfile.Defaults.Thinking != nil {
+		if pc.NormalizedRequest.Novexa == nil {
+			pc.NormalizedRequest.Novexa = &api.NovexaExtensions{}
+		}
+		if pc.NormalizedRequest.Novexa.Thinking == nil {
+			pc.NormalizedRequest.Novexa.Thinking = &api.ThinkingConfig{}
+		}
+		if pc.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+			pc.NormalizedRequest.Novexa.Thinking.Enabled = pc.ModelProfile.Defaults.Thinking
+		}
+	}
+
 	pc.AddEvent("provider", "provider_request_started", SeverityInfo, "provider request started", map[string]string{
 		"provider": pc.SelectedProvider,
 		"model":    pc.SelectedModel,
@@ -365,6 +378,10 @@ func (e *Engine) callProviderGenerate(ctx context.Context, pc *Context) Result {
 	if resp != nil {
 		pc.SelectedModel = resp.Model
 	}
+
+	// Record safe thinking telemetry metadata.
+	pc.ThinkingTelemetry = resolveThinkingTelemetry(pc)
+
 	pc.AddEvent("provider", "provider_request_completed", SeverityInfo, "provider request completed", map[string]string{
 		"provider":   pc.SelectedProvider,
 		"model":      pc.SelectedModel,
@@ -409,12 +426,44 @@ func (e *Engine) applyProfileDefaults(pc *Context, req *api.ChatCompletionReques
 	beforeTopP := req.TopP
 	beforeMaxTokens := req.MaxTokens
 	profiles.ApplyDefaults(pc.ModelProfile, req)
+
+	// Apply thinking default from profile if not explicitly set at request level.
+	// Precedence: request-level novexa.thinking.enabled > profile default > unspecified.
+	if pc.ModelProfile.Defaults.Thinking != nil {
+		if req.Novexa == nil {
+			req.Novexa = &api.NovexaExtensions{}
+		}
+		if req.Novexa.Thinking == nil {
+			req.Novexa.Thinking = &api.ThinkingConfig{}
+		}
+		if req.Novexa.Thinking.Enabled == nil {
+			req.Novexa.Thinking.Enabled = pc.ModelProfile.Defaults.Thinking
+		}
+	}
+
 	pc.AddEvent("profile", "profile_defaults_applied", SeverityInfo, "applied model profile defaults", map[string]string{
 		"profile_id":  pc.ModelProfile.ID,
 		"temperature": fmt.Sprintf("%t", beforeTemp == nil && req.Temperature != nil),
 		"top_p":       fmt.Sprintf("%t", beforeTopP == nil && req.TopP != nil),
 		"max_tokens":  fmt.Sprintf("%t", beforeMaxTokens == nil && req.MaxTokens != nil),
 	})
+}
+
+// resolveThinkingTelemetry records safe metadata about thinking behaviour.
+// Actual reasoning text is never stored.
+func resolveThinkingTelemetry(pc *Context) *ThinkingTelemetry {
+	t := &ThinkingTelemetry{
+		ThinkingEnabled:         "unspecified",
+		ReasoningContentPresent: false,
+	}
+	if pc.NormalizedRequest.Novexa != nil && pc.NormalizedRequest.Novexa.Thinking != nil && pc.NormalizedRequest.Novexa.Thinking.Enabled != nil {
+		if *pc.NormalizedRequest.Novexa.Thinking.Enabled {
+			t.ThinkingEnabled = "true"
+		} else {
+			t.ThinkingEnabled = "false"
+		}
+	}
+	return t
 }
 
 func (e *Engine) generateOnce(ctx context.Context, pc *Context, adapter provider.ProviderAdapter, req api.ChatCompletionRequest) (*api.ChatCompletionResponse, Result) {

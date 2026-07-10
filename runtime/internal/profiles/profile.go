@@ -48,6 +48,7 @@ type Defaults struct {
 	RepeatPenalty *float64 `yaml:"repeat_penalty,omitempty"`
 	MaxTokens     *int     `yaml:"max_tokens,omitempty"`
 	Stop          []string `yaml:"stop,omitempty"`
+	Thinking      *bool    `yaml:"thinking"`
 }
 
 // ContextSettings describes how the Context Engine should treat this model.

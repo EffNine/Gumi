@@ -31,6 +31,14 @@ type NovexaExtensions struct {
 	Validation *ValidationConfig   `json:"validation,omitempty"`
 	Session    *SessionConfig      `json:"session,omitempty"`
 	Telemetry  *TelemetryExtension `json:"telemetry,omitempty"`
+	Thinking   *ThinkingConfig     `json:"thinking,omitempty"`
+}
+
+// ThinkingConfig controls model thinking/reasoning behaviour.
+// A nil value means "use provider default or model profile default".
+// An explicit false means "disable thinking".
+type ThinkingConfig struct {
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // GuardConfig holds per-request guard overrides.

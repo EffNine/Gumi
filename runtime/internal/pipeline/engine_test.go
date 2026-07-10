@@ -419,6 +419,120 @@ func TestPipelineEmitsProfileFallbackForUnknownModel(t *testing.T) {
 	assertEvent(t, result.Context, "model_profile_fallback")
 }
 
+func TestPipelineAppliesProfileThinkingDefault(t *testing.T) {
+	cfg := config.DefaultConfig()
+	adapter := &fakeAdapter{
+		name:   "ollama",
+		models: []provider.ModelInfo{{Name: "qwen3.5:2b"}},
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_think", api.ChatCompletionRequest{
+		Model: "ollama:qwen3.5:2b",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.ModelProfile == nil || result.Context.ModelProfile.ID != "qwen3.5-2b" {
+		t.Fatalf("expected qwen3.5-2b profile, got %v", result.Context.ModelProfile)
+	}
+	// Profile defaults thinking to false; request should have it set.
+	if result.Context.NormalizedRequest.Novexa == nil || result.Context.NormalizedRequest.Novexa.Thinking == nil || result.Context.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+		t.Fatal("expected thinking to be resolved from profile default")
+	}
+	if *result.Context.NormalizedRequest.Novexa.Thinking.Enabled {
+		t.Fatal("expected thinking to be false from profile default")
+	}
+	assertEvent(t, result.Context, "profile_defaults_applied")
+}
+
+func TestPipelineRequestThinkingOverridesProfileDefault(t *testing.T) {
+	cfg := config.DefaultConfig()
+	adapter := &fakeAdapter{
+		name:   "ollama",
+		models: []provider.ModelInfo{{Name: "qwen3.5:2b"}},
+	}
+	engine := testEngine(adapter, cfg)
+
+	trueVal := true
+	result := engine.RunChatCompletion(context.Background(), "req_think_override", api.ChatCompletionRequest{
+		Model: "ollama:qwen3.5:2b",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+		Novexa: &api.NovexaExtensions{
+			Thinking: &api.ThinkingConfig{Enabled: &trueVal},
+		},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.NormalizedRequest.Novexa == nil || result.Context.NormalizedRequest.Novexa.Thinking == nil || result.Context.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+		t.Fatal("expected thinking to be set")
+	}
+	if !*result.Context.NormalizedRequest.Novexa.Thinking.Enabled {
+		t.Fatal("expected thinking to be true from request override")
+	}
+}
+
+func TestPipelineThinkingTelemetryRecorded(t *testing.T) {
+	cfg := config.DefaultConfig()
+	adapter := &fakeAdapter{
+		name:   "ollama",
+		models: []provider.ModelInfo{{Name: "qwen3.5:2b"}},
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_think_tele", api.ChatCompletionRequest{
+		Model: "ollama:qwen3.5:2b",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.ThinkingTelemetry == nil {
+		t.Fatal("expected thinking telemetry")
+	}
+	if result.Context.ThinkingTelemetry.ThinkingEnabled != "false" {
+		t.Fatalf("expected thinking_enabled 'false', got %q", result.Context.ThinkingTelemetry.ThinkingEnabled)
+	}
+}
+
+func TestPipelineNoThinkingDefaultForGenericProfile(t *testing.T) {
+	cfg := config.DefaultConfig()
+	adapter := &fakeAdapter{
+		name:   "ollama",
+		models: []provider.ModelInfo{{Name: "unknown-model"}},
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_no_think", api.ChatCompletionRequest{
+		Model: "ollama:unknown-model",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	// Generic profile has no thinking default; request should not have thinking set.
+	if result.Context.NormalizedRequest.Novexa != nil && result.Context.NormalizedRequest.Novexa.Thinking != nil && result.Context.NormalizedRequest.Novexa.Thinking.Enabled != nil {
+		t.Fatal("expected no thinking default for generic profile")
+	}
+}
 func TestPipelineAppliesProfilePromptInstructions(t *testing.T) {
 	cfg := config.DefaultConfig()
 	adapter := &fakeAdapter{

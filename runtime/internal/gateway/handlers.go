@@ -134,6 +134,10 @@ func (s *Server) recordRequestTelemetry(ctx context.Context, reqID string, start
 		if result.Context.SelectedModel != "" {
 			record.Model = result.Context.SelectedModel
 		}
+		if result.Context.ThinkingTelemetry != nil {
+			record.ThinkingEnabled = result.Context.ThinkingTelemetry.ThinkingEnabled
+			record.ReasoningContentPresent = result.Context.ThinkingTelemetry.ReasoningContentPresent
+		}
 	}
 
 	if result.Response != nil {

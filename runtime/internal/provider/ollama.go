@@ -138,8 +138,9 @@ func (o *OllamaAdapter) ListModels(ctx context.Context) ([]ModelInfo, error) {
 
 // ollamaMessage mirrors a chat message in Ollama format.
 type ollamaMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role     string `json:"role"`
+	Content  string `json:"content"`
+	Thinking string `json:"thinking,omitempty"`
 }
 
 // ollamaChatRequest is the request body for /api/chat.
@@ -148,6 +149,7 @@ type ollamaChatRequest struct {
 	Messages []ollamaMessage        `json:"messages"`
 	Stream   bool                   `json:"stream"`
 	Options  map[string]interface{} `json:"options,omitempty"`
+	Think    *bool                  `json:"think,omitempty"`
 }
 
 // ollamaChatResponse is the non-streaming response from /api/chat.
@@ -191,6 +193,11 @@ func (o *OllamaAdapter) Generate(ctx context.Context, req api.ChatCompletionRequ
 		Messages: messages,
 		Stream:   false,
 		Options:  options,
+	}
+
+	// Resolve thinking from request-level novexa extension.
+	if req.Novexa != nil && req.Novexa.Thinking != nil && req.Novexa.Thinking.Enabled != nil {
+		payload.Think = req.Novexa.Thinking.Enabled
 	}
 
 	body, err := json.Marshal(payload)
@@ -237,6 +244,19 @@ func (o *OllamaAdapter) Generate(ctx context.Context, req api.ChatCompletionRequ
 		}
 	}
 
+	content := ollamaResp.Message.Content
+	thinking := ollamaResp.Message.Thinking
+
+	// If the model returned empty content but non-empty thinking, the model
+	// exhausted its output budget on reasoning. Return a clear actionable error.
+	if strings.TrimSpace(content) == "" && strings.TrimSpace(thinking) != "" {
+		return nil, ProviderError{
+			Code:       ValidationFailed,
+			Message:    "model exhausted output tokens on reasoning and returned an empty final answer",
+			Suggestion: "Increase max_tokens or disable thinking via novexa.thinking.enabled=false.",
+		}
+	}
+
 	return &api.ChatCompletionResponse{
 		ID:      "chatcmpl_ollama_" + randomID(),
 		Object:  "chat.completion",
@@ -247,7 +267,7 @@ func (o *OllamaAdapter) Generate(ctx context.Context, req api.ChatCompletionRequ
 				Index: 0,
 				Message: api.Message{
 					Role:    "assistant",
-					Content: ollamaResp.Message.Content,
+					Content: content,
 				},
 				FinishReason: "stop",
 			},

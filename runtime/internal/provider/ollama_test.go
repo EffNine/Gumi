@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -32,11 +33,19 @@ func newOllamaTestServer(t *testing.T) *httptest.Server {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
+			content := "hello from ollama"
+			thinking := ""
+			// If think is explicitly false, return normal content.
+			// If think is nil or true, simulate thinking response.
+			if req.Think == nil || *req.Think {
+				thinking = "I need to think about this..."
+			}
 			resp := ollamaChatResponse{
 				Model: req.Model,
 				Message: ollamaMessage{
-					Role:    "assistant",
-					Content: "hello from ollama",
+					Role:     "assistant",
+					Content:  content,
+					Thinking: thinking,
 				},
 				Done: true,
 			}
@@ -119,5 +128,98 @@ func TestOllamaNormalizeErrorOffline(t *testing.T) {
 	err := adapter.NormalizeError(ProviderError{Code: ProviderUnavailable, Message: "offline"})
 	if err.Code != ProviderUnavailable {
 		t.Errorf("expected %s, got %s", ProviderUnavailable, err.Code)
+	}
+}
+
+func TestOllamaGenerateWithThinkFalse(t *testing.T) {
+	server := newOllamaTestServer(t)
+	defer server.Close()
+
+	adapter := newOllamaAdapter(t, server.URL)
+	falseVal := false
+	resp, err := adapter.Generate(context.Background(), api.ChatCompletionRequest{
+		Model: "llama3",
+		Messages: []api.Message{
+			{Role: "user", Content: "hi"},
+		},
+		Novexa: &api.NovexaExtensions{
+			Thinking: &api.ThinkingConfig{Enabled: &falseVal},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected generate error: %v", err)
+	}
+	if len(resp.Choices) != 1 {
+		t.Fatalf("expected 1 choice, got %d", len(resp.Choices))
+	}
+	content, _ := resp.Choices[0].Message.Content.(string)
+	if content != "hello from ollama" {
+		t.Errorf("expected content 'hello from ollama', got %q", content)
+	}
+}
+
+func TestOllamaGenerateOmitsThinkWhenUnspecified(t *testing.T) {
+	server := newOllamaTestServer(t)
+	defer server.Close()
+
+	adapter := newOllamaAdapter(t, server.URL)
+	resp, err := adapter.Generate(context.Background(), api.ChatCompletionRequest{
+		Model: "llama3",
+		Messages: []api.Message{
+			{Role: "user", Content: "hi"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected generate error: %v", err)
+	}
+	if len(resp.Choices) != 1 {
+		t.Fatalf("expected 1 choice, got %d", len(resp.Choices))
+	}
+	content, _ := resp.Choices[0].Message.Content.(string)
+	if content != "hello from ollama" {
+		t.Errorf("expected content 'hello from ollama', got %q", content)
+	}
+}
+
+func TestOllamaGenerateEmptyContentWithThinkingReturnsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/chat" {
+			resp := ollamaChatResponse{
+				Model: "test-model",
+				Message: ollamaMessage{
+					Role:     "assistant",
+					Content:  "",
+					Thinking: "I am thinking very hard about this...",
+				},
+				Done: true,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []interface{}{}})
+	}))
+	defer server.Close()
+
+	adapter := newOllamaAdapter(t, server.URL)
+	_, err := adapter.Generate(context.Background(), api.ChatCompletionRequest{
+		Model: "test-model",
+		Messages: []api.Message{
+			{Role: "user", Content: "hi"},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error for empty content with thinking")
+	}
+	var pe ProviderError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected ProviderError, got %T", err)
+	}
+	if pe.Code != ValidationFailed {
+		t.Errorf("expected ValidationFailed, got %s", pe.Code)
+	}
+	if pe.Suggestion == "" {
+		t.Error("expected a suggestion in the error")
 	}
 }

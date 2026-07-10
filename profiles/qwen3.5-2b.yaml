@@ -1,0 +1,63 @@
+id: qwen3.5-2b
+name: Qwen 3.5 2B
+version: 1
+family: qwen
+size: 2b
+type: instruct
+
+models:
+  ollama:
+    - qwen3.5:2b
+    - qwen3.5:latest
+
+capabilities:
+  chat: true
+  streaming: true
+  structured_output: weak
+  json_mode: weak
+  tool_calling: weak
+  vision: false
+  long_context: weak
+  coding: weak
+  reasoning: weak
+  creative_writing: weak
+
+defaults:
+  temperature: 0.3
+  top_p: 0.85
+  repeat_penalty: 1.15
+  max_tokens: 512
+  thinking: false
+
+context:
+  strategy: hybrid
+  max_input_tokens: 4000
+  preserve_recent_messages: 4
+  compression: true
+
+prompt:
+  style: general
+  instruction_strength: strict
+  json_instruction_style: explicit
+  system_prompt_style: direct
+  instructions:
+    - Answer concisely and directly. Do not include reasoning or chain-of-thought.
+    - For one-word or exact-format prompts, output only the requested final content.
+    - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
+    - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
+    - Avoid repeating the same sentence or explanation.
+    - If you are uncertain, state uncertainty once and stop.
+
+guard:
+  anti_loop: aggressive
+  context_overflow: true
+  structured_output: true
+  json_repair: true
+  repetition_detection: true
+
+notes:
+  - Small 2B model. Keep prompts short and instructions explicit.
+  - Thinking is disabled by default to avoid exhausting max_tokens on reasoning.
+  - May produce empty content if max_tokens is too small and thinking is enabled.
+  - Requires strict instruction formatting for JSON output.
+  - Not suitable for complex reasoning, long context, or creative writing.

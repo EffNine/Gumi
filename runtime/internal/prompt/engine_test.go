@@ -61,3 +61,25 @@ func TestBuildStructuredPromptAppliesJSONInstructions(t *testing.T) {
 		t.Fatalf("expected JSON instruction, got %q", system)
 	}
 }
+
+func TestBuildStabilizedPromptAvoidsImplicitStructuredOutput(t *testing.T) {
+	engine := New()
+
+	out := engine.Build(Input{
+		RuntimeMode: "stabilized",
+		Messages: []api.Message{
+			{Role: "user", Content: "What is 2+2? Answer in one word."},
+		},
+	})
+
+	system, _ := out.FinalMessages[0].Content.(string)
+	if !strings.Contains(system, "Do not convert plain-text answers into JSON") {
+		t.Fatalf("expected plain-text anti-JSON instruction, got %q", system)
+	}
+	if !strings.Contains(system, "one word") {
+		t.Fatalf("expected exact-format instruction, got %q", system)
+	}
+	if out.Report.ResponseFormatApplied {
+		t.Fatal("did not expect response format to be applied")
+	}
+}

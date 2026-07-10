@@ -90,6 +90,62 @@ func TestSchemaCreatesRecommendedIndexes(t *testing.T) {
 	}
 }
 
+func TestMigrateAddsThinkingColumnsToExistingRequestsTable(t *testing.T) {
+	s, err := OpenInMemory()
+	if err != nil {
+		t.Fatalf("OpenInMemory failed: %v", err)
+	}
+	defer s.Close()
+
+	if _, err := s.DB().Exec(`DROP TABLE requests`); err != nil {
+		t.Fatalf("drop requests failed: %v", err)
+	}
+	if _, err := s.DB().Exec(`
+		CREATE TABLE requests (
+			id TEXT PRIMARY KEY,
+			created_at TEXT NOT NULL,
+			workspace_id TEXT NOT NULL,
+			runtime_mode TEXT NOT NULL,
+			status TEXT NOT NULL,
+			stream INTEGER NOT NULL DEFAULT 0
+		);
+	`); err != nil {
+		t.Fatalf("create old requests table failed: %v", err)
+	}
+
+	if err := migrate(s.DB()); err != nil {
+		t.Fatalf("migrate old requests table failed: %v", err)
+	}
+
+	for _, column := range []string{"thinking_enabled", "reasoning_content_present"} {
+		var found bool
+		rows, err := s.DB().Query("PRAGMA table_info(requests)")
+		if err != nil {
+			t.Fatalf("inspect requests columns failed: %v", err)
+		}
+		for rows.Next() {
+			var cid int
+			var name, colType string
+			var notNull int
+			var defaultValue interface{}
+			var primaryKey int
+			if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &primaryKey); err != nil {
+				_ = rows.Close()
+				t.Fatalf("scan requests columns failed: %v", err)
+			}
+			if name == column {
+				found = true
+			}
+		}
+		if err := rows.Close(); err != nil {
+			t.Fatalf("close requests columns rows failed: %v", err)
+		}
+		if !found {
+			t.Fatalf("expected migrated column %s", column)
+		}
+	}
+}
+
 func TestInsertRequestRow(t *testing.T) {
 	s, err := OpenInMemory()
 	if err != nil {

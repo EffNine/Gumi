@@ -90,29 +90,31 @@ func (w *Writer) Close() error {
 
 // RequestRecord captures the metadata stored for one chat completion request.
 type RequestRecord struct {
-	RequestID         string
-	CreatedAt         time.Time
-	WorkspaceID       string
-	SessionID         string
-	RuntimeMode       string
-	Provider          string
-	Model             string
-	Status            string
-	Stream            bool
-	LatencyMs         int64
-	ProviderLatencyMs int64
-	PromptTokens      int
-	CompletionTokens  int
-	TotalTokens       int
-	ContextCompressed bool
-	ValidationPassed  bool
-	RepairApplied     bool
-	RetryCount        int
-	ErrorCode         string
-	PromptLogged      bool
-	ResponseLogged    bool
-	PromptPreview     string
-	ResponsePreview   string
+	RequestID               string
+	CreatedAt               time.Time
+	WorkspaceID             string
+	SessionID               string
+	RuntimeMode             string
+	Provider                string
+	Model                   string
+	Status                  string
+	Stream                  bool
+	LatencyMs               int64
+	ProviderLatencyMs       int64
+	PromptTokens            int
+	CompletionTokens        int
+	TotalTokens             int
+	ContextCompressed       bool
+	ValidationPassed        bool
+	RepairApplied           bool
+	RetryCount              int
+	ErrorCode               string
+	PromptLogged            bool
+	ResponseLogged          bool
+	PromptPreview           string
+	ResponsePreview         string
+	ThinkingEnabled         string
+	ReasoningContentPresent bool
 }
 
 // PipelineEventRecord captures one pipeline event for storage.
@@ -138,8 +140,8 @@ func (w *Writer) RecordRequest(ctx context.Context, r RequestRecord) {
 			status, stream, latency_ms, provider_latency_ms, prompt_tokens,
 			completion_tokens, total_tokens, context_compressed, validation_passed,
 			repair_applied, retry_count, error_code, prompt_logged, response_logged,
-			prompt_preview, response_preview
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			prompt_preview, response_preview, thinking_enabled, reasoning_content_present
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			workspace_id = excluded.workspace_id,
 			session_id = excluded.session_id,
@@ -161,7 +163,9 @@ func (w *Writer) RecordRequest(ctx context.Context, r RequestRecord) {
 			prompt_logged = excluded.prompt_logged,
 			response_logged = excluded.response_logged,
 			prompt_preview = excluded.prompt_preview,
-			response_preview = excluded.response_preview
+			response_preview = excluded.response_preview,
+			thinking_enabled = excluded.thinking_enabled,
+			reasoning_content_present = excluded.reasoning_content_present
 	`,
 		r.RequestID,
 		r.CreatedAt.UTC().Format(time.RFC3339),
@@ -186,6 +190,8 @@ func (w *Writer) RecordRequest(ctx context.Context, r RequestRecord) {
 		boolToInt(r.ResponseLogged),
 		nullableString(r.PromptPreview),
 		nullableString(r.ResponsePreview),
+		nullableString(r.ThinkingEnabled),
+		boolToInt(r.ReasoningContentPresent),
 	)
 	if err != nil && w.log != nil {
 		w.log.Error("telemetry: failed to record request", err, "request_id", r.RequestID)
@@ -295,16 +301,18 @@ func (w *Writer) RecordProviderHealth(ctx context.Context, name string, status p
 
 // RecentRequest is the public metadata returned by the recent telemetry API.
 type RecentRequest struct {
-	ID            string `json:"id"`
-	CreatedAt     string `json:"created_at"`
-	RuntimeMode   string `json:"runtime_mode"`
-	Provider      string `json:"provider"`
-	Model         string `json:"model"`
-	Status        string `json:"status"`
-	LatencyMs     int64  `json:"latency_ms"`
-	ErrorCode     string `json:"error_code,omitempty"`
-	RepairApplied bool   `json:"repair_applied"`
-	RetryCount    int    `json:"retry_count"`
+	ID                      string `json:"id"`
+	CreatedAt               string `json:"created_at"`
+	RuntimeMode             string `json:"runtime_mode"`
+	Provider                string `json:"provider"`
+	Model                   string `json:"model"`
+	Status                  string `json:"status"`
+	LatencyMs               int64  `json:"latency_ms"`
+	ErrorCode               string `json:"error_code,omitempty"`
+	RepairApplied           bool   `json:"repair_applied"`
+	RetryCount              int    `json:"retry_count"`
+	ThinkingEnabled         string `json:"thinking_enabled,omitempty"`
+	ReasoningContentPresent bool   `json:"reasoning_content_present"`
 }
 
 // RecentRequests returns the most recent request metadata, newest first.
@@ -317,7 +325,7 @@ func (w *Writer) RecentRequests(ctx context.Context, limit int) ([]RecentRequest
 	}
 
 	rows, err := w.store.DB().QueryContext(ctx, `
-		SELECT id, created_at, runtime_mode, provider, model, status, latency_ms, error_code, repair_applied, retry_count
+		SELECT id, created_at, runtime_mode, provider, model, status, latency_ms, error_code, repair_applied, retry_count, thinking_enabled, reasoning_content_present
 		FROM requests
 		ORDER BY created_at DESC
 		LIMIT ?
@@ -334,6 +342,8 @@ func (w *Writer) RecentRequests(ctx context.Context, limit int) ([]RecentRequest
 		var latencyMs sql.NullInt64
 		var repairApplied int
 		var provider, model sql.NullString
+		var thinkingEnabled sql.NullString
+		var reasoningContentPresent int
 
 		if err := rows.Scan(
 			&r.ID,
@@ -346,6 +356,8 @@ func (w *Writer) RecentRequests(ctx context.Context, limit int) ([]RecentRequest
 			&errorCode,
 			&repairApplied,
 			&r.RetryCount,
+			&thinkingEnabled,
+			&reasoningContentPresent,
 		); err != nil {
 			if w.log != nil {
 				w.log.Error("telemetry: failed to scan recent request", err)
@@ -357,6 +369,8 @@ func (w *Writer) RecentRequests(ctx context.Context, limit int) ([]RecentRequest
 		r.ErrorCode = errorCode.String
 		r.LatencyMs = latencyMs.Int64
 		r.RepairApplied = repairApplied != 0
+		r.ThinkingEnabled = thinkingEnabled.String
+		r.ReasoningContentPresent = reasoningContentPresent != 0
 		result = append(result, r)
 	}
 	return result, rows.Err()

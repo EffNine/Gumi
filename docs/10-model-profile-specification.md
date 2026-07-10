@@ -412,7 +412,35 @@ defaults:
   stop: []
 ```
 
-## 14.1 Temperature Guidelines
+## 14.3 Thinking Default
+
+Model Profiles can define a default thinking preference for models that support reasoning output.
+
+```yaml
+defaults:
+  temperature: 0.4
+  top_p: 0.9
+  repeat_penalty: 1.12
+  max_tokens: 4096
+  stop: []
+  thinking: false
+```
+
+When `thinking` is set to `false`, the runtime will request the provider to disable reasoning/thinking output. This is useful for small models where reasoning can exhaust the token budget.
+
+When `thinking` is absent (nil), the runtime does not send any thinking preference to the provider, preserving default provider behaviour.
+
+Precedence:
+
+```text
+request-level novexa.thinking.enabled
+  >
+model profile defaults.thinking
+  >
+provider default / unspecified
+```
+
+## 14.4 Temperature Guidelines
 
 Suggested defaults:
 

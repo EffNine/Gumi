@@ -723,6 +723,9 @@ Request mapping:
 | `top_p` | `options.top_p` |
 | `stop` | `options.stop` |
 | `max_tokens` | `options.num_predict` |
+| `novexa.thinking.enabled` | `think` |
+
+The `think` field is a top-level boolean in the Ollama request body. It is only sent when explicitly set. When absent, Ollama uses its default thinking behaviour.
 
 ---
 
@@ -739,6 +742,14 @@ maps to:
 ```text
 ProviderResponse.content
 ```
+
+Ollama also supports:
+
+```text
+message.thinking
+```
+
+This field contains model reasoning text. Novexa must never append thinking/reasoning text into the assistant final content. If a model finishes with empty `message.content` but non-empty `message.thinking`, Novexa returns a clear normalized error explaining that the model exhausted output in reasoning, with a suggestion to increase `max_tokens` or disable thinking.
 
 Ollama done reason maps to:
 

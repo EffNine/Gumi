@@ -118,6 +118,17 @@ type Context struct {
 	Events   []Event  `json:"events"`
 	Warnings []string `json:"warnings,omitempty"`
 	Errors   []string `json:"errors,omitempty"`
+
+	// ThinkingTelemetry records safe metadata about model thinking behaviour.
+	// Actual reasoning text is never stored.
+	ThinkingTelemetry *ThinkingTelemetry `json:"thinking_telemetry,omitempty"`
+}
+
+// ThinkingTelemetry records safe metadata about model thinking behaviour.
+// Actual reasoning text is never stored.
+type ThinkingTelemetry struct {
+	ThinkingEnabled         string `json:"thinking_enabled"`
+	ReasoningContentPresent bool   `json:"reasoning_content_present"`
 }
 
 // AddEvent appends a pipeline event to the context.

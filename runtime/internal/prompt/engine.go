@@ -118,6 +118,9 @@ func buildSystemPrompt(in Input) string {
 	}
 	if in.RuntimeMode == "structured" {
 		lines = append(lines, "Return only the requested structured output. Avoid prose outside the structure.")
+	} else if in.ResponseFormat == nil || in.ResponseFormat.Type == "" {
+		lines = append(lines, "Do not convert plain-text answers into JSON, YAML, XML, or another structured format unless the user explicitly asks for that format.")
+		lines = append(lines, "If the user requests one word, one token, or an exact format, output only that requested content.")
 	}
 	for _, existing := range in.ExistingSystem {
 		if strings.TrimSpace(existing) != "" {

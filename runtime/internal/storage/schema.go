@@ -12,7 +12,73 @@ func migrate(db *sql.DB) error {
 			return fmt.Errorf("migration step %d failed: %w", i+1, err)
 		}
 	}
+	for _, column := range requestColumns {
+		if err := ensureColumn(db, "requests", column.name, column.definition); err != nil {
+			return err
+		}
+	}
+	for i, stmt := range indexStatements {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("index migration step %d failed: %w", i+1, err)
+		}
+	}
 	return nil
+}
+
+func ensureColumn(db *sql.DB, table string, column string, definition string) error {
+	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return fmt.Errorf("inspect table %s: %w", table, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull int
+		var defaultValue interface{}
+		var primaryKey int
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return fmt.Errorf("scan table %s columns: %w", table, err)
+		}
+		if name == column {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate table %s columns: %w", table, err)
+	}
+
+	if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition)); err != nil {
+		return fmt.Errorf("add column %s.%s: %w", table, column, err)
+	}
+	return nil
+}
+
+type columnDefinition struct {
+	name       string
+	definition string
+}
+
+var requestColumns = []columnDefinition{
+	{name: "session_id", definition: "TEXT"},
+	{name: "provider", definition: "TEXT"},
+	{name: "model", definition: "TEXT"},
+	{name: "provider_latency_ms", definition: "INTEGER"},
+	{name: "prompt_tokens", definition: "INTEGER"},
+	{name: "completion_tokens", definition: "INTEGER"},
+	{name: "total_tokens", definition: "INTEGER"},
+	{name: "context_compressed", definition: "INTEGER NOT NULL DEFAULT 0"},
+	{name: "validation_passed", definition: "INTEGER"},
+	{name: "repair_applied", definition: "INTEGER NOT NULL DEFAULT 0"},
+	{name: "retry_count", definition: "INTEGER NOT NULL DEFAULT 0"},
+	{name: "error_code", definition: "TEXT"},
+	{name: "prompt_logged", definition: "INTEGER NOT NULL DEFAULT 0"},
+	{name: "response_logged", definition: "INTEGER NOT NULL DEFAULT 0"},
+	{name: "prompt_preview", definition: "TEXT"},
+	{name: "response_preview", definition: "TEXT"},
+	{name: "thinking_enabled", definition: "TEXT"},
+	{name: "reasoning_content_present", definition: "INTEGER NOT NULL DEFAULT 0"},
 }
 
 var schemaStatements = []string{
@@ -45,7 +111,9 @@ var schemaStatements = []string{
 		prompt_logged INTEGER NOT NULL DEFAULT 0,
 		response_logged INTEGER NOT NULL DEFAULT 0,
 		prompt_preview TEXT,
-		response_preview TEXT
+		response_preview TEXT,
+		thinking_enabled TEXT,
+		reasoning_content_present INTEGER NOT NULL DEFAULT 0
 	);`,
 
 	`CREATE TABLE IF NOT EXISTS pipeline_events (
@@ -107,7 +175,9 @@ var schemaStatements = []string{
 		retry_requested INTEGER NOT NULL DEFAULT 0,
 		metadata_json TEXT
 	);`,
+}
 
+var indexStatements = []string{
 	`CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at);`,
 	`CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);`,
 	`CREATE INDEX IF NOT EXISTS idx_requests_provider_model ON requests(provider, model);`,
