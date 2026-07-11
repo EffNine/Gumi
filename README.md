@@ -440,6 +440,30 @@ BENCHMARK_TIMEOUT_SECONDS=120 \
 
 Requirements: `novexa`, `jq`, and either `ollama` or an OpenAI-compatible LM Studio server.
 
+### LM Studio Benchmark Matrix
+
+Run benchmarks across multiple LM Studio models and produce a summary table:
+
+```bash
+./scripts/benchmark-lmstudio-matrix.sh
+```
+
+By default, the matrix auto-detects available models from LM Studio. Override the model list:
+
+```bash
+MODELS="qwen/qwen3.5-9b qwen/qwen3.5-2b" ./scripts/benchmark-lmstudio-matrix.sh
+```
+
+Override the LM Studio URL and attempts per prompt:
+
+```bash
+ATTEMPTS=3 \
+LMSTUDIO_URL=http://192.168.0.164:1234/v1 \
+./scripts/benchmark-lmstudio-matrix.sh
+```
+
+The matrix runs each model through `benchmark-local-model.sh`, then runs Profile Doctor on each JSON report. A summary Markdown file is saved to `benchmarks/lmstudio-matrix-<timestamp>.md`. If a single model fails, the matrix continues with the remaining models.
+
 Most important first-run commands:
 
 ```bash
