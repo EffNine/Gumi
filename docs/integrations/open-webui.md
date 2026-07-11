@@ -171,7 +171,6 @@ NOVEXA_PROVIDER_DEFAULT=lmstudio NOVEXA_LMSTUDIO_URL=http://192.168.0.164:1234/v
 
 - Restart Novexa with `NOVEXA_PROVIDER_TIMEOUT_SECONDS=180` for longer timeouts.
 - Run `./novexa doctor` to check provider health and model availability.
-- Benchmark the model: `./scripts/benchmark-local-model.sh qwen/qwen3-1.7b`
 - Use stabilized mode for normal chat; lightweight mode is designed for coding
   agents and may leave reasoning blocks visible in a chat UI.
 

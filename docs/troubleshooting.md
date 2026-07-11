@@ -56,9 +56,6 @@ ollama serve
 
 2. Check that the URL in the default config matches your Ollama server. The
    default is `http://localhost:11434`.
-3. If Ollama runs on a different host or port, update `providers.ollama.url`
-   in `novexa.example.yaml` for reference; YAML config loading will be enabled
-   after the alpha release.
 
 ## Model not installed
 
@@ -79,24 +76,6 @@ Or start Novexa with an installed model:
 ```bash
 ./novexa start --model llama3
 ```
-
-## Dashboard build missing
-
-Symptom: opening http://127.0.0.1:8788 shows a page saying the dashboard build
-was not found.
-
-Fix: build the dashboard and restart Novexa:
-
-```bash
-cd dashboard
-npm install
-npm run build
-cd ..
-./novexa start
-```
-
-Release archives already include `dashboard/dist`, so this only happens when
-building from source without running `make dashboard` first.
 
 ## SQLite permission error
 
@@ -153,7 +132,7 @@ Fix:
 ./novexa doctor
 ```
 
-2. Increase the timeout in the example configuration. The default is 60 seconds.
+2. Increase the timeout. The default is 60 seconds.
 3. For very large context windows or slow hardware, use a smaller model or
    fewer messages.
 
@@ -162,13 +141,8 @@ Fix:
 If the `profiles/` directory is not next to the `novexa` binary, Novexa falls
 back to the built-in `generic-local` profile and prints a warning.
 
-Fix: keep the `profiles/` directory next to the binary, or when running from
-source make sure you start Novexa from the repository root:
-
-```bash
-cd /path/to/novexa
-./novexa start
-```
+Fix: keep the `profiles/` directory next to the binary. The directory is
+included in release archives.
 
 ## Unsupported streaming
 
@@ -206,8 +180,7 @@ xattr -d com.apple.quarantine ./novexa
 2. If that does not work, allow the binary in **System Settings > Privacy &
    Security > Security** and click **Allow Anyway** after attempting to run it.
 
-This warning appears because Novexa is not signed or notarized yet. Building from
-source avoids the warning entirely.
+This warning appears because Novexa is not signed or notarized yet.
 
 ## Qwen 3.5 thinking exhausts max tokens
 

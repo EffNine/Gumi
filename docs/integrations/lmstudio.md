@@ -216,7 +216,6 @@ If `curl http://192.168.0.164:1234/v1/models` from the Novexa machine fails:
 - Restart Novexa with `NOVEXA_PROVIDER_TIMEOUT_SECONDS=180` for longer timeouts.
 - Use stabilized mode for normal chat.
 - Run `./novexa doctor` to check provider health and model availability.
-- Benchmark the model: `./scripts/benchmark-local-model.sh qwen2.5-coder-7b-instruct`
 
 ### Slow response
 

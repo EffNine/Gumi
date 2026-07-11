@@ -138,7 +138,6 @@ NOVEXA_PROVIDER_DEFAULT=lmstudio NOVEXA_LMSTUDIO_URL=http://192.168.0.164:1234/v
 
 - Restart Novexa with `NOVEXA_PROVIDER_TIMEOUT_SECONDS=180` for longer timeouts.
 - Run `./novexa doctor` to check provider health.
-- Benchmark the model: `./scripts/benchmark-local-model.sh qwen2.5-coder-7b-instruct`
 
 ## Recommended model choices
 

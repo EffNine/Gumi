@@ -43,7 +43,7 @@ ollama list
 
 ## 3. Start Novexa
 
-If you built from source or extracted a release archive, run:
+If you extracted a release archive, run:
 
 ```bash
 ./novexa start
@@ -135,5 +135,4 @@ Common fixes are in the [troubleshooting guide](./troubleshooting.md).
 ## Next steps
 
 - Read the [installation guide](./installation.md) for Docker and release-archive options.
-- Explore the bundled model profiles in the `profiles/` directory.
 - Try the CLI commands: `status`, `providers`, `models`, `config show`.

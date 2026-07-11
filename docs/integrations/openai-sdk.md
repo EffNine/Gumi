@@ -241,7 +241,6 @@ each model can safely use.
 - Restart Novexa with `NOVEXA_PROVIDER_TIMEOUT_SECONDS=180` for longer timeouts.
 - Use stabilized mode for normal chat.
 - Run `./novexa doctor` to check provider health and model availability.
-- Benchmark the model: `./scripts/benchmark-local-model.sh qwen2.5-coder-7b-instruct`
 
 ### Streaming unsupported
 

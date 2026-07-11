@@ -1,37 +1,15 @@
 # Contributing to Novexa
 
-Thank you for your interest in contributing to Novexa.
+Thank you for your interest in Novexa.
 
-Novexa is a local-first AI runtime designed to make local models more stable, observable, and production-ready.
+Novexa is a proprietary, closed-source product. The public repository is a
+release and documentation mirror only.
 
----
+## How you can contribute
 
-## Core Rules
+- **Report bugs** — open a GitHub issue with steps to reproduce.
+- **Suggest improvements** — open a GitHub issue with your use case.
+- **Fix documentation** — submit a pull request for docs/ or README changes.
+- **Share feedback** — contact **legal@effnine.com** for commercial inquiries.
 
-Before contributing, please understand these rules:
-
-1. Keep Novexa local-first.
-2. Do not add cloud providers to V1.
-3. Do not add billing or hosted accounts to V1.
-4. Do not bypass the Pipeline Engine.
-5. Keep provider adapters thin.
-6. Do not store full prompts by default.
-7. Do not store full responses by default.
-8. Do not send external telemetry by default.
-9. Keep the runtime modular.
-10. Update documentation when behaviour changes.
-
----
-
-## Architecture Source of Truth
-
-Read the files in `docs/` before making major changes.
-
-Important files:
-
-```text
-docs/00-vision-and-positioning.md
-docs/02-runtime-architecture.md
-docs/04-api-specification.md
-docs/07-pipeline-specification.md
-docs/14-implementation-roadmap.md
+Code contributions cannot be accepted because the source code is not public.

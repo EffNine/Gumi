@@ -118,7 +118,6 @@ Doctor tools determine which mode a model can safely use.
 
 - Restart Novexa with `NOVEXA_PROVIDER_TIMEOUT_SECONDS=180` for longer timeouts.
 - Run `./novexa doctor` to check provider health.
-- Benchmark the model: `./scripts/benchmark-local-model.sh qwen2.5-coder-7b-instruct`
 
 ### Tab autocomplete not working
 

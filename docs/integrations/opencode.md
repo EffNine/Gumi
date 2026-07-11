@@ -172,7 +172,6 @@ answer. Try:
 - Use stabilised mode instead of lightweight by omitting `novexa_mode` or setting
   it to `"stabilized"`.
 - Run `./novexa doctor` to check provider health and model availability.
-- Benchmark the model: `./scripts/benchmark-local-model.sh qwen2.5-coder-7b-instruct`
 
 ### Slow responses
 

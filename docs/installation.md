@@ -1,34 +1,20 @@
 # Installation Guide
 
-This guide covers installing Novexa from source, from a release archive, or as a
-Docker container. Novexa is a local-first runtime, so every installation method
-keeps the API and dashboard bound to `127.0.0.1` by default.
+This guide covers installing Novexa from a release archive or as a Docker
+container. Novexa is a local-first runtime, so every installation method keeps
+the API and dashboard bound to `127.0.0.1` by default.
+
+Novexa is distributed as a pre-built binary release. The source code is not
+publicly available.
 
 ## Requirements
 
 - A local inference provider such as [Ollama](https://ollama.com),
   [LM Studio](https://lmstudio.ai), or any OpenAI-compatible local server.
-- For building from source: Go 1.25+ and Node.js 22+ with npm.
-
-## Build from source
-
-```bash
-git clone https://github.com/novexa/novexa.git
-cd novexa
-make build
-```
-
-`make build` runs:
-
-1. `npm ci` and `npm run build` in `dashboard/`
-2. `go build -ldflags ...` in `runtime/`
-
-The resulting `novexa` binary is placed in the repository root and serves the
-dashboard from `dashboard/dist`.
 
 ## Download a release archive
 
-1. Visit the [GitHub releases](https://github.com/novexa/novexa/releases) page.
+1. Visit the [GitHub releases](https://github.com/EffNine/Novexa/releases) page.
 2. Download the archive for your OS and architecture:
    - macOS Apple Silicon: `novexa-<version>-darwin-arm64.tar.gz`
    - macOS Intel: `novexa-<version>-darwin-amd64.tar.gz`
@@ -60,20 +46,9 @@ novexa-<version>-<os>-<arch>/
 └── CHANGELOG.md
 ```
 
-### Install to PATH with install.sh
-
-From an extracted release archive or the repository root after `make build`:
-
-```bash
-./scripts/install.sh
-```
-
-This installs the binary and assets to `/usr/local/lib/novexa` and creates a
-symlink at `/usr/local/bin/novexa`.
-
 ## Docker
 
-Build the image:
+Build the image from the private source branch (source not publicly available):
 
 ```bash
 docker build -t novexa:0.1.0-alpha .
@@ -146,12 +121,11 @@ cd novexa
 ```
 
 Windows Defender may warn about an unrecognized binary. You can click
-"More info" and "Run anyway" for a local development tool, or build from
-source yourself.
+"More info" and "Run anyway" for a local development tool.
 
 ## Start Novexa
 
-From the extracted archive or after `make build`:
+From the extracted archive:
 
 ```bash
 ./novexa start
@@ -187,8 +161,8 @@ Once the runtime is running, open:
 http://127.0.0.1:8788
 ```
 
-The dashboard is served from the bundled `dashboard/dist` directory. It shows
-runtime status, provider health, recent telemetry, and diagnostic checks.
+The dashboard shows runtime status, provider health, recent telemetry, and
+diagnostic checks.
 
 ## Connect an OpenAI-compatible client
 
@@ -227,14 +201,7 @@ print(response.choices[0].message.content)
 
 ## Uninstall Novexa
 
-If you used `scripts/install.sh`:
-
-```bash
-rm -f /usr/local/bin/novexa
-rm -rf /usr/local/lib/novexa
-```
-
-If you used a release archive, simply delete the extracted directory.
+Simply delete the extracted directory.
 
 To remove local telemetry and logs:
 
