@@ -105,8 +105,9 @@ client at http://127.0.0.1:8787/v1 with API key `novexa-local`.
 See [docs/installation.md](./docs/installation.md) and
 [docs/quickstart.md](./docs/quickstart.md) for platform-specific instructions.
 
-For OpenCode integration, see
-[docs/integrations/opencode.md](./docs/integrations/opencode.md).
+For integration guides, see
+[docs/integrations/README.md](./docs/integrations/README.md)
+(OpenCode, OpenAI-compatible clients, and future guides).
 
 ### Alpha limitations
 
