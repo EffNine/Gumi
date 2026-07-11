@@ -9,8 +9,9 @@ do not have to.
 
 - A coding assistant backed by `qwen2.5-coder-7b-instruct` running on your own
   machine via LM Studio.
-- Tab autocomplete, inline edits, and chat — all local, no API keys, no rate
-  limits.
+- Chat and inline edits routed through Novexa — all local, no cloud API keys, no
+  rate limits. Tab autocomplete can use LM Studio directly until Novexa adds a
+  dedicated autocomplete endpoint.
 - Novexa lightweight mode is optimised for agentic coding workloads — minimal
   prompt overhead, 24 % faster than Novexa stabilised mode, 70 % fewer prompt
   tokens.
@@ -73,9 +74,10 @@ Add a model entry pointing at Novexa:
 }
 ```
 
-That is it. Continue will now send every request through Novexa, which routes
-them to LM Studio, applies the validated `qwen2.5-coder-7b` profile, runs repair
-and validation on failures, and returns clean, agent-friendly output.
+That is it. Continue will now send chat and inline-edit requests through
+Novexa, which routes them to LM Studio, applies the validated
+`qwen2.5-coder-7b` profile, runs repair and validation on failures, and returns
+clean, agent-friendly output.
 
 **No parameter tuning needed.** Do not set `temperature`, `topP`, `maxTokens`,
 or `stop` in Continue. Novexa applies the correct values from the validated
@@ -107,7 +109,8 @@ Doctor tools determine which mode a model can safely use.
 
 ### Continue cannot connect
 
-- Verify Novexa is running: `curl http://127.0.0.1:8787/v1/models`
+- Verify Novexa is running:
+  `curl http://127.0.0.1:8787/v1/models -H "Authorization: Bearer novexa-local"`
 - Check `apiBase` in `config.json` — must end with `/v1`.
 - Check `apiKey` matches `novexa-local`.
 

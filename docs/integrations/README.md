@@ -32,7 +32,6 @@ selects the correct provider automatically.
 
 ## Planned guides
 
-- [ ] Continue
 - [ ] Cline
 - [ ] Open WebUI
 - [ ] Generic OpenAI SDK clients (Python, JavaScript)
