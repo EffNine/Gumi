@@ -402,7 +402,18 @@ For reproducible quality and latency testing, use the standalone benchmark scrip
 ./scripts/benchmark-local-model.sh qwen3.5:2b
 ```
 
-The script runs sequential requests in four modes (Ollama direct, Novexa direct, Novexa stabilized, Novexa structured) and scores exact instruction following, JSON validity, and markdown fence avoidance. Results are printed as tables to stdout and saved as a Markdown report under `benchmarks/<model>-<timestamp>.md`.
+The script runs sequential requests in four modes (Ollama direct, Novexa direct, Novexa stabilized, Novexa structured) and scores exact instruction following, JSON validity, and markdown fence avoidance. Results are printed as tables to stdout and saved under `benchmarks/` as:
+
+```text
+<model>-<timestamp>.md
+<model>-<timestamp>.json
+```
+
+Use the JSON report with Profile Doctor to get profile tuning suggestions:
+
+```bash
+./scripts/profile-doctor.sh benchmarks/qwen3-5-2b-20260711T002209Z.json profiles/qwen3.5-2b.yaml
+```
 
 Override attempts per prompt:
 

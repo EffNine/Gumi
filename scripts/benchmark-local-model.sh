@@ -480,8 +480,10 @@ fi
 
 model_safe_name=$(echo "$MODEL" | tr ':.' '--' | tr -cd 'a-zA-Z0-9_-')
 timestamp=$(date -u '+%Y%m%dT%H%M%SZ')
+completed_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 report_dir="benchmarks"
 report_file="${report_dir}/${model_safe_name}-${timestamp}.md"
+report_json_file="${report_dir}/${model_safe_name}-${timestamp}.json"
 
 mkdir -p "$report_dir"
 
@@ -508,11 +510,63 @@ else
   conclusion="Insufficient data — one or more modes produced no results."
 fi
 
+latency_by_mode=$(echo "$results_json" | jq '
+  def stats:
+    if length == 0 then {count: 0, min: null, max: null, p50: null, p95: null, avg: null}
+    else sort | {count: length, min: .[0], max: .[-1], p50: .[(length * 0.50) | floor], p95: .[(length * 0.95) | floor], avg: (add / length)}
+    end;
+  {
+    "A-OllamaDirect": ([.[] | select(.mode == "A-OllamaDirect" and .status == "200") | .latency | tonumber] | stats),
+    "B-NovexaDirect": ([.[] | select(.mode == "B-NovexaDirect" and .status == "200") | .latency | tonumber] | stats),
+    "C-NovexaStabilized": ([.[] | select(.mode == "C-NovexaStabilized" and .status == "200") | .latency | tonumber] | stats),
+    "D-NovexaStructured": ([.[] | select(.mode == "D-NovexaStructured" and .status == "200") | .latency | tonumber] | stats)
+  }')
+
+jq -n \
+  --arg model "$MODEL" \
+  --arg generated_at "$completed_at" \
+  --argjson attempts "$ATTEMPTS" \
+  --arg conclusion "$conclusion" \
+  --argjson results "$results_json" \
+  --argjson latency_by_mode "$latency_by_mode" \
+  --argjson total_requests "$total_requests" \
+  --argjson passed_requests "$passed_requests" \
+  --argjson failed_requests "$failed_requests" \
+  --argjson empty_count "$empty_count" \
+  --argjson error_count "$error_count" \
+  --argjson exact_count "$exact_count" \
+  --argjson exact_total "$(echo "$results_json" | jq '[.[] | select(.prompt == "concise" or .prompt == "factual")] | length')" \
+  --argjson json_valid_count "$json_valid_count" \
+  --argjson json_total "$(echo "$results_json" | jq '[.[] | select(.prompt == "json")] | length')" \
+  --argjson json_keys_count "$json_keys_count" \
+  --argjson no_fence_count "$no_fence_count" \
+  '{
+    schema_version: 1,
+    model: $model,
+    generated_at: $generated_at,
+    attempts_per_prompt: $attempts,
+    modes_tested: ["A-OllamaDirect", "B-NovexaDirect", "C-NovexaStabilized", "D-NovexaStructured"],
+    quality: {
+      total_requests: $total_requests,
+      passed: $passed_requests,
+      failed: $failed_requests,
+      empty_responses: $empty_count,
+      http_or_curl_errors: $error_count,
+      exact_instruction_following: {passed: $exact_count, total: $exact_total},
+      valid_json: {passed: $json_valid_count, total: $json_total},
+      json_with_required_keys: {passed: $json_keys_count, total: $json_total},
+      no_markdown_fences: {passed: $no_fence_count, total: $total_requests}
+    },
+    latency_by_mode: $latency_by_mode,
+    conclusion: $conclusion,
+    results: $results
+  }' > "$report_json_file"
+
 cat > "$report_file" << REPORTEOF
 # Benchmark Report
 
 **Model:** $MODEL
-**Date:** $(date -u '+%Y-%m-%dT%H:%M:%SZ')
+**Date:** $completed_at
 **Attempts per prompt:** $ATTEMPTS
 **Modes tested:** A-OllamaDirect, B-NovexaDirect, C-NovexaStabilized, D-NovexaStructured
 
@@ -566,4 +620,5 @@ $conclusion
 REPORTEOF
 
 echo ""
-echo "Report saved to $report_file"
+echo "Markdown report saved to $report_file"
+echo "JSON report saved to $report_json_file"
