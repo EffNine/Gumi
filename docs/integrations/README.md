@@ -18,6 +18,7 @@ selects the correct provider automatically.
 | Guide | Description |
 |-------|-------------|
 | [OpenCode](./opencode.md) | Connect OpenCode through Novexa lightweight mode. Recommended for coding agents. |
+| [Continue](./continue.md) | Connect Continue for chat, inline edits, and tab autocomplete through Novexa. |
 
 ## Integration types
 
