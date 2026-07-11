@@ -20,6 +20,7 @@ selects the correct provider automatically.
 | [OpenCode](./opencode.md) | Connect OpenCode through Novexa lightweight mode. Recommended for coding agents. |
 | [Continue](./continue.md) | Connect Continue for chat, inline edits, and tab autocomplete through Novexa. |
 | [Cline](./cline.md) | Connect Cline for file editing, terminal commands, and codebase search through Novexa. |
+| [Open WebUI](./open-webui.md) | Connect Open WebUI through Novexa stabilized mode for local chat. |
 
 ## Integration types
 
@@ -33,7 +34,6 @@ selects the correct provider automatically.
 
 ## Planned guides
 
-- [ ] Open WebUI
 - [ ] Generic OpenAI SDK clients (Python, JavaScript)
 - [ ] LM Studio setup guide
 
