@@ -22,6 +22,7 @@ selects the correct provider automatically.
 | [Cline](./cline.md) | Connect Cline for file editing, terminal commands, and codebase search through Novexa. |
 | [Open WebUI](./open-webui.md) | Connect Open WebUI through Novexa stabilized mode for local chat. |
 | [OpenAI SDK](./openai-sdk.md) | Connect any OpenAI-compatible Python, JavaScript, or cURL client through Novexa. |
+| [LM Studio](./lmstudio.md) | Set up LM Studio as the local inference backend for Novexa. |
 
 ## Integration types
 
@@ -33,9 +34,7 @@ selects the correct provider automatically.
 - **Coding agents through Novexa lightweight mode** — optimised for agentic
   coding workloads with minimal prompt overhead and 24 % faster responses.
 
-## Planned guides
 
-- [ ] LM Studio setup guide
 
 ## Recommended default setup
 
