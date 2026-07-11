@@ -6,6 +6,11 @@ set -euo pipefail
 #
 # Reads a benchmark JSON sidecar and recommends profile tuning changes.
 # This script is intentionally read-only: it never edits profile YAML files.
+#
+# Scoring:
+#   - C-NovexaStabilized and D-NovexaStructured are the main quality gates.
+#   - B-NovexaDirect is diagnostic/proxy mode; failures there do not mark
+#     the profile as "Needs tuning" if C and D pass.
 
 REPORT_JSON="${1:-}"
 PROFILE_PATH="${2:-}"
@@ -31,35 +36,88 @@ if ! jq -e '.schema_version == 1 and (.results | type == "array")' "$REPORT_JSON
 fi
 
 model=$(jq -r '.model // "unknown"' "$REPORT_JSON")
+provider=$(jq -r '.provider // "unknown"' "$REPORT_JSON")
 generated_at=$(jq -r '.generated_at // "unknown"' "$REPORT_JSON")
+direct_mode=$(jq -r '.modes_tested[]? | select(startswith("A-"))' "$REPORT_JSON" | head -n 1)
+if [ -z "$direct_mode" ]; then
+  direct_mode=$(jq -r '.results[].mode | select(startswith("A-"))' "$REPORT_JSON" | head -n 1)
+fi
 
+# --- Direct provider stats ---
+direct_total=$(jq '[.results[] | select(.mode | startswith("A-"))] | length' "$REPORT_JSON")
+direct_pass=$(jq '[.results[] | select((.mode | startswith("A-")) and .passed == "true")] | length' "$REPORT_JSON")
+
+# --- B-NovexaDirect (diagnostic only) ---
+b_total=$(jq '[.results[] | select(.mode | startswith("B-"))] | length' "$REPORT_JSON")
+b_pass=$(jq '[.results[] | select((.mode | startswith("B-")) and .passed == "true")] | length' "$REPORT_JSON")
+b_exact_failures=$(jq '[.results[] | select((.mode | startswith("B-")) and (.prompt == "concise" or .prompt == "factual") and .passed != "true")] | length' "$REPORT_JSON")
+b_json_failures=$(jq '[.results[] | select((.mode | startswith("B-")) and .prompt == "json" and (.json_valid != "true" or .json_keys != "true" or .no_fence != "true"))] | length' "$REPORT_JSON")
+b_empty_failures=$(jq '[.results[] | select((.mode | startswith("B-")) and .note == "empty response")] | length' "$REPORT_JSON")
+b_errors=$(jq '[.results[] | select((.mode | startswith("B-")) and .status != "200")] | length' "$REPORT_JSON")
+
+# --- C-NovexaStabilized (main quality gate for normal prompts) ---
+c_total=$(jq '[.results[] | select(.mode | startswith("C-"))] | length' "$REPORT_JSON")
+c_pass=$(jq '[.results[] | select((.mode | startswith("C-")) and .passed == "true")] | length' "$REPORT_JSON")
+c_exact_failures=$(jq '[.results[] | select((.mode | startswith("C-")) and (.prompt == "concise" or .prompt == "factual") and .passed != "true")] | length' "$REPORT_JSON")
+c_json_failures=$(jq '[.results[] | select((.mode | startswith("C-")) and .prompt == "json" and (.json_valid != "true" or .json_keys != "true" or .no_fence != "true"))] | length' "$REPORT_JSON")
+c_empty_failures=$(jq '[.results[] | select((.mode | startswith("C-")) and .note == "empty response")] | length' "$REPORT_JSON")
+c_errors=$(jq '[.results[] | select((.mode | startswith("C-")) and .status != "200")] | length' "$REPORT_JSON")
+
+# --- D-NovexaStructured (main quality gate for JSON) ---
+d_total=$(jq '[.results[] | select(.mode | startswith("D-"))] | length' "$REPORT_JSON")
+d_pass=$(jq '[.results[] | select((.mode | startswith("D-")) and .passed == "true")] | length' "$REPORT_JSON")
+d_json_failures=$(jq '[.results[] | select((.mode | startswith("D-")) and .prompt == "json" and (.json_valid != "true" or .json_keys != "true" or .no_fence != "true"))] | length' "$REPORT_JSON")
+d_empty_failures=$(jq '[.results[] | select((.mode | startswith("D-")) and .note == "empty response")] | length' "$REPORT_JSON")
+d_errors=$(jq '[.results[] | select((.mode | startswith("D-")) and .status != "200")] | length' "$REPORT_JSON")
+
+# --- Aggregate Novexa stats (all modes) ---
 novexa_total=$(jq '[.results[] | select((.mode | startswith("B-")) or (.mode | startswith("C-")) or (.mode | startswith("D-")))] | length' "$REPORT_JSON")
 novexa_pass=$(jq '[.results[] | select(((.mode | startswith("B-")) or (.mode | startswith("C-")) or (.mode | startswith("D-"))) and .passed == "true")] | length' "$REPORT_JSON")
-ollama_total=$(jq '[.results[] | select(.mode == "A-OllamaDirect")] | length' "$REPORT_JSON")
-ollama_pass=$(jq '[.results[] | select(.mode == "A-OllamaDirect" and .passed == "true")] | length' "$REPORT_JSON")
-
-exact_failures=$(jq '[.results[] | select(((.mode | startswith("B-")) or (.mode | startswith("C-")) or (.mode | startswith("D-"))) and (.prompt == "concise" or .prompt == "factual") and .passed != "true")] | length' "$REPORT_JSON")
-json_failures=$(jq '[.results[] | select(((.mode | startswith("B-")) or (.mode | startswith("C-")) or (.mode | startswith("D-"))) and .prompt == "json" and (.json_valid != "true" or .json_keys != "true" or .no_fence != "true"))] | length' "$REPORT_JSON")
-empty_failures=$(jq '[.results[] | select(((.mode | startswith("B-")) or (.mode | startswith("C-")) or (.mode | startswith("D-"))) and .note == "empty response")] | length' "$REPORT_JSON")
+novexa_empty=$(jq '[.results[] | select(((.mode | startswith("B-")) or (.mode | startswith("C-")) or (.mode | startswith("D-"))) and .note == "empty response")] | length' "$REPORT_JSON")
 novexa_errors=$(jq '[.results[] | select(((.mode | startswith("B-")) or (.mode | startswith("C-")) or (.mode | startswith("D-"))) and .status != "200")] | length' "$REPORT_JSON")
 
-ollama_p50=$(jq -r '.latency_by_mode["A-OllamaDirect"].p50 // empty' "$REPORT_JSON")
+# --- Latency ---
+direct_p50=$(jq -r --arg mode "$direct_mode" '.latency_by_mode[$mode].p50 // empty' "$REPORT_JSON")
 novexa_direct_p50=$(jq -r '.latency_by_mode["B-NovexaDirect"].p50 // empty' "$REPORT_JSON")
 high_latency=false
-if [[ "$ollama_p50" =~ ^[0-9]+$ ]] && [[ "$novexa_direct_p50" =~ ^[0-9]+$ ]] && [ "$novexa_direct_p50" -gt $((ollama_p50 * 2)) ]; then
+if [[ "$direct_p50" =~ ^[0-9]+$ ]] && [[ "$novexa_direct_p50" =~ ^[0-9]+$ ]] && [ "$novexa_direct_p50" -gt $((direct_p50 * 2)) ]; then
   high_latency=true
+fi
+
+# --- Determine result ---
+# Main quality gate: C (stabilized) and D (structured) must pass.
+# B (direct) failures are diagnostic only and do not trigger "Needs tuning".
+has_cd_data=false
+cd_has_failures=false
+
+if [ "$c_total" -gt 0 ] || [ "$d_total" -gt 0 ]; then
+  has_cd_data=true
+fi
+
+if [ "$c_exact_failures" -gt 0 ] || [ "$c_json_failures" -gt 0 ] || [ "$c_empty_failures" -gt 0 ] || [ "$c_errors" -gt 0 ]; then
+  cd_has_failures=true
+fi
+if [ "$d_json_failures" -gt 0 ] || [ "$d_empty_failures" -gt 0 ] || [ "$d_errors" -gt 0 ]; then
+  cd_has_failures=true
 fi
 
 result="Good baseline"
 if [ "$novexa_total" -eq 0 ]; then
   result="Insufficient data"
-elif [ "$novexa_pass" -lt "$novexa_total" ] || [ "$novexa_pass" -lt "$ollama_pass" ] || [ "$exact_failures" -gt 0 ] || [ "$json_failures" -gt 0 ] || [ "$empty_failures" -gt 0 ] || [ "$novexa_errors" -gt 0 ] || [ "$high_latency" = "true" ]; then
+elif [ "$high_latency" = "true" ]; then
+  result="Needs tuning"
+elif ! $has_cd_data; then
+  # Only B data exists — treat as diagnostic, not a profile quality signal
+  result="Good baseline"
+elif $cd_has_failures || [ "$novexa_empty" -gt 0 ] || [ "$novexa_errors" -gt 0 ]; then
   result="Needs tuning"
 fi
 
+# --- Output ---
 echo "Novexa Profile Doctor"
 echo ""
 echo "Model: $model"
+echo "Provider: $provider"
 echo "Report: $REPORT_JSON"
 echo "Generated: $generated_at"
 if [ -n "$PROFILE_PATH" ]; then
@@ -75,65 +133,109 @@ else
   echo "- Novexa passed $novexa_pass/$novexa_total checks."
 fi
 
-if [ "$ollama_total" -gt 0 ]; then
-  echo "- Direct Ollama passed $ollama_pass/$ollama_total checks."
+if [ "$direct_total" -gt 0 ]; then
+  echo "- Direct provider passed $direct_pass/$direct_total checks."
 fi
 
-if [ "$exact_failures" -eq 0 ]; then
-  echo "- Exact instruction following passed across Novexa modes."
-else
-  echo "- Exact instruction following failed in $exact_failures Novexa row(s)."
+# B-NovexaDirect findings (diagnostic)
+if [ "$b_total" -gt 0 ]; then
+  if [ "$b_pass" -eq "$b_total" ]; then
+    echo "- B-NovexaDirect (diagnostic): all $b_total passed."
+  else
+    echo "- B-NovexaDirect (diagnostic): $b_pass/$b_total passed."
+    if [ "$b_exact_failures" -gt 0 ]; then
+      echo "  - Exact instruction failures in direct mode: $b_exact_failures"
+    fi
+    if [ "$b_json_failures" -gt 0 ]; then
+      echo "  - JSON failures in direct mode: $b_json_failures"
+    fi
+    if [ "$b_empty_failures" -gt 0 ]; then
+      echo "  - Empty responses in direct mode: $b_empty_failures"
+    fi
+  fi
 fi
 
-if [ "$json_failures" -eq 0 ]; then
-  echo "- JSON output is valid across Novexa modes."
-else
-  echo "- JSON output failed validation in $json_failures Novexa row(s)."
+# C-NovexaStabilized findings (main quality gate)
+if [ "$c_total" -gt 0 ]; then
+  if [ "$c_pass" -eq "$c_total" ]; then
+    echo "- C-NovexaStabilized: all $c_total passed."
+  else
+    echo "- C-NovexaStabilized: $c_pass/$c_total passed."
+    if [ "$c_exact_failures" -gt 0 ]; then
+      echo "  - Exact instruction failures: $c_exact_failures"
+    fi
+    if [ "$c_json_failures" -gt 0 ]; then
+      echo "  - JSON failures: $c_json_failures"
+    fi
+    if [ "$c_empty_failures" -gt 0 ]; then
+      echo "  - Empty responses: $c_empty_failures"
+    fi
+  fi
 fi
 
-if [ "$empty_failures" -eq 0 ]; then
-  echo "- No empty Novexa responses detected."
-else
-  echo "- Empty Novexa responses detected in $empty_failures row(s)."
+# D-NovexaStructured findings (main quality gate for JSON)
+if [ "$d_total" -gt 0 ]; then
+  if [ "$d_pass" -eq "$d_total" ]; then
+    echo "- D-NovexaStructured: all $d_total passed."
+  else
+    echo "- D-NovexaStructured: $d_pass/$d_total passed."
+    if [ "$d_json_failures" -gt 0 ]; then
+      echo "  - JSON failures: $d_json_failures"
+    fi
+    if [ "$d_empty_failures" -gt 0 ]; then
+      echo "  - Empty responses: $d_empty_failures"
+    fi
+  fi
 fi
 
-if [ "$novexa_errors" -eq 0 ]; then
-  echo "- No Novexa HTTP/curl errors detected."
-else
+if [ "$novexa_empty" -gt 0 ]; then
+  echo "- Empty Novexa responses detected in $novexa_empty row(s)."
+fi
+
+if [ "$novexa_errors" -gt 0 ]; then
   echo "- Novexa HTTP/curl errors detected in $novexa_errors row(s)."
 fi
 
 if [ "$high_latency" = "true" ]; then
-  echo "- Novexa direct p50 latency (${novexa_direct_p50}ms) is more than 2x direct Ollama p50 (${ollama_p50}ms)."
-elif [[ "$ollama_p50" =~ ^[0-9]+$ ]] && [[ "$novexa_direct_p50" =~ ^[0-9]+$ ]]; then
-  echo "- Latency overhead is acceptable: Ollama p50 ${ollama_p50}ms, Novexa direct p50 ${novexa_direct_p50}ms."
+  echo "- Novexa direct p50 latency (${novexa_direct_p50}ms) is more than 2x direct provider p50 (${direct_p50}ms)."
+elif [[ "$direct_p50" =~ ^[0-9]+$ ]] && [[ "$novexa_direct_p50" =~ ^[0-9]+$ ]]; then
+  echo "- Latency overhead is acceptable: direct provider p50 ${direct_p50}ms, Novexa direct p50 ${novexa_direct_p50}ms."
 else
   echo "- Latency comparison unavailable."
 fi
 
+# --- Direct mode note ---
+if [ "$b_total" -gt 0 ] && [ "$b_pass" -lt "$b_total" ] && [ "$c_pass" -eq "$c_total" ] && [ "$d_pass" -eq "$d_total" ]; then
+  echo ""
+  echo "Note: Direct mode has failures, but stabilized/structured modes pass. This is acceptable because direct mode is intentionally thin."
+fi
+
+# --- Recommendations ---
 echo ""
 echo "Recommended profile changes:"
 
 recommendation_count=0
-if [ "$exact_failures" -gt 0 ]; then
+
+# Only recommend profile changes if C or D modes fail.
+if [ "$c_exact_failures" -gt 0 ]; then
   echo "- Add exact-format instruction:"
   echo '  "For one-word or exact-format prompts, output only the requested final content."'
   recommendation_count=$((recommendation_count + 1))
 fi
-if [ "$json_failures" -gt 0 ]; then
+if [ "$c_json_failures" -gt 0 ] || [ "$d_json_failures" -gt 0 ]; then
   echo "- Add stronger JSON instruction:"
   echo '  "When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after."'
   echo "- Prefer structured mode for JSON-sensitive application calls."
   recommendation_count=$((recommendation_count + 1))
 fi
-if [ "$empty_failures" -gt 0 ]; then
+if [ "$c_empty_failures" -gt 0 ] || [ "$d_empty_failures" -gt 0 ]; then
   echo "- Set defaults.thinking: false if this is a thinking-capable model."
   echo "- Reduce defaults.max_tokens to 512 for small local models."
   echo "- Check provider output for reasoning-only responses."
   recommendation_count=$((recommendation_count + 1))
 fi
-if [ "$novexa_pass" -lt "$ollama_pass" ] && [ "$ollama_total" -gt 0 ]; then
-  echo "- Review profile prompt instructions because Novexa quality is below direct Ollama."
+if [ "$c_pass" -lt "$direct_pass" ] && [ "$direct_total" -gt 0 ] && [ "$c_total" -gt 0 ]; then
+  echo "- Review profile prompt instructions because Novexa stabilized quality is below direct provider."
   recommendation_count=$((recommendation_count + 1))
 fi
 if [ "$high_latency" = "true" ]; then
@@ -141,10 +243,21 @@ if [ "$high_latency" = "true" ]; then
   echo "- Keep profile prompt instructions shorter for this model."
   recommendation_count=$((recommendation_count + 1))
 fi
-if [ "$novexa_errors" -gt 0 ]; then
+if [ "$c_errors" -gt 0 ] || [ "$d_errors" -gt 0 ]; then
   echo "- Check provider availability and model aliases for this profile."
   recommendation_count=$((recommendation_count + 1))
 fi
+
+# B-only recommendations (use stabilized mode instead of tuning profile)
+if [ "$b_exact_failures" -gt 0 ] && [ "$c_exact_failures" -eq 0 ]; then
+  echo "- Direct mode exact-format failures detected. Use stabilized mode (C) for production workloads requiring exact output."
+  recommendation_count=$((recommendation_count + 1))
+fi
+if [ "$b_json_failures" -gt 0 ] && [ "$c_json_failures" -eq 0 ] && [ "$d_json_failures" -eq 0 ]; then
+  echo "- Direct mode JSON failures detected. Use stabilized mode (C) or structured mode (D) for JSON-sensitive calls."
+  recommendation_count=$((recommendation_count + 1))
+fi
+
 if [ "$recommendation_count" -eq 0 ]; then
   echo "- No required changes."
 fi

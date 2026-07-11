@@ -389,6 +389,66 @@ Direct Mode still includes:
 
 ## 8.2 Stabilized Mode
 
+## 8.2 Lightweight Mode
+
+Lightweight Mode is for apps that already provide their own interaction scaffolding but still want Novexa as the central tuning layer.
+
+```text
+Request
+    ↓
+Config
+    ↓
+Resolve Model Profile
+    ↓
+Apply Profile Defaults
+    ↓
+Apply Thinking Policy
+    ↓
+Apply Minimal Prompt Policy
+    ↓
+Provider
+    ↓
+Response
+    ↓
+Telemetry
+```
+
+Use cases:
+
+- OpenCode
+- Continue
+- Cline
+- Open WebUI
+- custom coding agents
+- apps that should not receive a heavy Novexa prompt wrapper
+
+Lightweight Mode should apply:
+
+- provider selection
+- model profile defaults
+- thinking policy
+- max token and sampling defaults
+- minimal exact-format/plain-text instruction
+- local telemetry
+
+Lightweight Mode should skip by default:
+
+- context compression
+- long prompt wrappers
+- memory retrieval
+- validation and repair unless response_format requires it
+
+Strategic purpose:
+
+```text
+Apps keep simple config.
+Novexa owns shared model tuning.
+```
+
+---
+
+## 8.3 Stabilized Mode
+
 Stabilized Mode is the default.
 
 ```text
@@ -422,7 +482,7 @@ Stabilized Mode improves reliability without requiring strict schema.
 
 ---
 
-## 8.3 Structured Mode
+## 8.4 Structured Mode
 
 Structured Mode is for JSON/schema-heavy tasks.
 

@@ -133,11 +133,71 @@ func (l *LMStudioAdapter) ListModels(ctx context.Context) ([]ModelInfo, error) {
 	return models, nil
 }
 
+type lmStudioChatRequest struct {
+	Model            string              `json:"model"`
+	Messages         []api.Message       `json:"messages"`
+	Temperature      *float32            `json:"temperature,omitempty"`
+	TopP             *float32            `json:"top_p,omitempty"`
+	MaxTokens        *int                `json:"max_tokens,omitempty"`
+	Stream           bool                `json:"stream,omitempty"`
+	Stop             interface{}         `json:"stop,omitempty"`
+	PresencePenalty  *float32            `json:"presence_penalty,omitempty"`
+	FrequencyPenalty *float32            `json:"frequency_penalty,omitempty"`
+	ResponseFormat   *api.ResponseFormat `json:"response_format,omitempty"`
+	Tools            []api.Tool          `json:"tools,omitempty"`
+	ToolChoice       interface{}         `json:"tool_choice,omitempty"`
+	Metadata         map[string]string   `json:"metadata,omitempty"`
+	ReasoningEffort  string              `json:"reasoning_effort,omitempty"`
+}
+
+func newLMStudioChatRequest(req api.ChatCompletionRequest) lmStudioChatRequest {
+	payload := lmStudioChatRequest{
+		Model:            req.Model,
+		Messages:         req.Messages,
+		Temperature:      req.Temperature,
+		TopP:             req.TopP,
+		MaxTokens:        req.MaxTokens,
+		Stream:           req.Stream,
+		Stop:             req.Stop,
+		PresencePenalty:  req.PresencePenalty,
+		FrequencyPenalty: req.FrequencyPenalty,
+		ResponseFormat:   lmStudioResponseFormat(req.ResponseFormat),
+		Tools:            req.Tools,
+		ToolChoice:       req.ToolChoice,
+		Metadata:         req.Metadata,
+	}
+
+	if req.Novexa != nil && req.Novexa.Thinking != nil && req.Novexa.Thinking.Enabled != nil && !*req.Novexa.Thinking.Enabled {
+		payload.ReasoningEffort = "none"
+	}
+
+	return payload
+}
+
+func lmStudioResponseFormat(format *api.ResponseFormat) *api.ResponseFormat {
+	if format == nil {
+		return nil
+	}
+	if format.Type != "json_object" {
+		return format
+	}
+	return &api.ResponseFormat{
+		Type: "json_schema",
+		JSONSchema: &api.JSONSchemaSpec{
+			Name: "response",
+			Schema: map[string]interface{}{
+				"type":                 "object",
+				"additionalProperties": true,
+			},
+		},
+	}
+}
+
 // Generate calls the LM Studio chat completions endpoint.
 func (l *LMStudioAdapter) Generate(ctx context.Context, req api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
 	url := l.apiPath("/chat/completions")
 
-	body, err := json.Marshal(req)
+	body, err := json.Marshal(newLMStudioChatRequest(req))
 	if err != nil {
 		return nil, ProviderError{
 			Code:    ProviderBadResponse,

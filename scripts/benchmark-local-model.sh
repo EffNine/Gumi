@@ -24,11 +24,31 @@ if [ -z "$MODEL" ]; then
 fi
 
 OLLAMA_URL="http://localhost:11434"
+LMSTUDIO_URL="${LMSTUDIO_URL:-http://localhost:1234/v1}"
 NOVEXA_URL="http://localhost:8787/v1"
 NOVEXA_HEALTH_URL="http://localhost:8787/health"
 
 # Override with environment variable
 ATTEMPTS="${ATTEMPTS:-3}"
+BENCHMARK_TIMEOUT_SECONDS="${BENCHMARK_TIMEOUT_SECONDS:-60}"
+BENCHMARK_PROVIDER="${BENCHMARK_PROVIDER:-ollama}"
+BENCHMARK_DISABLE_THINKING="${BENCHMARK_DISABLE_THINKING:-true}"
+
+case "$BENCHMARK_PROVIDER" in
+  ollama)
+    DIRECT_MODE_LABEL="A-OllamaDirect"
+    NOVEXA_MODEL="ollama:$MODEL"
+    ;;
+  lmstudio)
+    DIRECT_MODE_LABEL="A-LMStudioDirect"
+    NOVEXA_MODEL="lmstudio:$MODEL"
+    LMSTUDIO_URL="${LMSTUDIO_URL%/}"
+    ;;
+  *)
+    echo "Error: unsupported BENCHMARK_PROVIDER '$BENCHMARK_PROVIDER'. Use 'ollama' or 'lmstudio'." >&2
+    exit 1
+    ;;
+esac
 
 # Test suite: three prompts covering different use cases
 PROMPT_CONCISE="What is 2+2? Answer in one word."
@@ -50,12 +70,23 @@ preflight_checks() {
     echo "Error: curl is required to run this benchmark." >&2
     exit 1
   fi
-  if ! curl -fsS "$OLLAMA_URL/api/tags" > /dev/null 2>&1; then
-    echo "Error: Ollama is not reachable at $OLLAMA_URL." >&2
-    echo "Suggestion: start Ollama and make sure the model is pulled: ollama pull $MODEL" >&2
-    exit 1
-  fi
-  if ! curl -fsS "$NOVEXA_HEALTH_URL" > /dev/null 2>&1; then
+  case "$BENCHMARK_PROVIDER" in
+    ollama)
+      if ! curl --max-time 5 -fsS "$OLLAMA_URL/api/tags" > /dev/null 2>&1; then
+        echo "Error: Ollama is not reachable at $OLLAMA_URL." >&2
+        echo "Suggestion: start Ollama and make sure the model is pulled: ollama pull $MODEL" >&2
+        exit 1
+      fi
+      ;;
+    lmstudio)
+      if ! curl --max-time 5 -fsS "$LMSTUDIO_URL/models" > /dev/null 2>&1; then
+        echo "Error: LM Studio is not reachable at $LMSTUDIO_URL." >&2
+        echo "Suggestion: start LM Studio server and enable OpenAI-compatible API." >&2
+        exit 1
+      fi
+      ;;
+  esac
+  if ! curl --max-time 5 -fsS "$NOVEXA_HEALTH_URL" > /dev/null 2>&1; then
     echo "Error: Novexa is not reachable at $NOVEXA_HEALTH_URL." >&2
     echo "Suggestion: start Novexa with: cd runtime && go run ./cmd/novexa start" >&2
     exit 1
@@ -150,7 +181,23 @@ warm_up_ollama() {
   payload=$(jq -n \
     --arg model "$MODEL" \
     '{model: $model, messages: [{role: "user", content: "warm up"}], stream: false, options: {num_predict: 10}, think: false}')
-  curl -s -X POST "$OLLAMA_URL/api/chat" \
+  curl --max-time "$BENCHMARK_TIMEOUT_SECONDS" -s -X POST "$OLLAMA_URL/api/chat" \
+    -H "Content-Type: application/json" \
+    -d "$payload" > /dev/null 2>&1 || true
+  sleep 1
+}
+
+warm_up_lmstudio() {
+  echo ""
+  echo "=== Warming up LM Studio: $MODEL ==="
+  local payload
+  payload=$(jq -n \
+    --arg model "$MODEL" \
+    '{model: $model, messages: [{role: "user", content: "warm up"}], stream: false, max_tokens: 10}')
+  if [ "$BENCHMARK_DISABLE_THINKING" = "true" ]; then
+    payload=$(echo "$payload" | jq '.reasoning_effort = "none"')
+  fi
+  curl --max-time "$BENCHMARK_TIMEOUT_SECONDS" -s -X POST "$LMSTUDIO_URL/chat/completions" \
     -H "Content-Type: application/json" \
     -d "$payload" > /dev/null 2>&1 || true
   sleep 1
@@ -161,9 +208,12 @@ warm_up_novexa() {
   echo "=== Warming up Novexa ==="
   local payload
   payload=$(jq -n \
-    --arg model "$MODEL" \
+    --arg model "$NOVEXA_MODEL" \
     '{model: $model, messages: [{role: "user", content: "warm up"}], max_tokens: 10}')
-  curl -s -X POST "$NOVEXA_URL/chat/completions" \
+  if [ "$BENCHMARK_DISABLE_THINKING" = "true" ]; then
+    payload=$(echo "$payload" | jq '.novexa.thinking.enabled = false')
+  fi
+  curl --max-time "$BENCHMARK_TIMEOUT_SECONDS" -s -X POST "$NOVEXA_URL/chat/completions" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer novexa-local" \
     -d "$payload" > /dev/null 2>&1 || true
@@ -184,10 +234,10 @@ run_ollama_direct() {
   local start end latency_ms status response_content response_len
 
   start=$(date +%s%N)
-  response=$(curl -s -w "\n%{http_code}" -X POST "$OLLAMA_URL/api/chat" \
+  response=$(curl --max-time "$BENCHMARK_TIMEOUT_SECONDS" -s -w "\n%{http_code}" -X POST "$OLLAMA_URL/api/chat" \
     -H "Content-Type: application/json" \
     -d "$payload" 2>/dev/null) || {
-    record_result "A-OllamaDirect" "$prompt_label" "$attempt" "error" "0" "false" "false" "false" "false" "false" "curl failed"
+    record_result "A-OllamaDirect" "$prompt_label" "$attempt" "error" "0" "false" "false" "false" "false" "false" "curl failed or timed out after ${BENCHMARK_TIMEOUT_SECONDS}s"
     return
   }
   end=$(date +%s%N)
@@ -237,6 +287,87 @@ run_ollama_direct() {
   record_result "A-OllamaDirect" "$prompt_label" "$attempt" "$status" "$latency_ms" "$passed_validation" "$exact" "$json_valid" "$json_keys" "$no_fence" "ok (${response_len} chars)"
 }
 
+run_lmstudio_direct() {
+  local prompt="$1"
+  local prompt_label="$2"
+  local attempt="$3"
+
+  local payload
+  payload=$(jq -n \
+    --arg model "$MODEL" \
+    --arg content "$prompt" \
+    '{model: $model, messages: [{role: "user", content: $content}], stream: false, max_tokens: 512}')
+  if [ "$BENCHMARK_DISABLE_THINKING" = "true" ]; then
+    payload=$(echo "$payload" | jq '.reasoning_effort = "none"')
+  fi
+
+  local start end latency_ms status response_content response_len
+
+  start=$(date +%s%N)
+  response=$(curl --max-time "$BENCHMARK_TIMEOUT_SECONDS" -s -w "\n%{http_code}" -X POST "$LMSTUDIO_URL/chat/completions" \
+    -H "Content-Type: application/json" \
+    -d "$payload" 2>/dev/null) || {
+    record_result "A-LMStudioDirect" "$prompt_label" "$attempt" "error" "0" "false" "false" "false" "false" "false" "curl failed or timed out after ${BENCHMARK_TIMEOUT_SECONDS}s"
+    return
+  }
+  end=$(date +%s%N)
+  latency_ms=$(( (end - start) / 1000000 ))
+
+  status=$(echo "$response" | tail -1)
+  body=$(echo "$response" | sed '$d')
+
+  if [ "$status" != "200" ]; then
+    record_result "A-LMStudioDirect" "$prompt_label" "$attempt" "$status" "$latency_ms" "false" "false" "false" "false" "false" "HTTP $status"
+    return
+  fi
+
+  response_content=$(echo "$body" | jq -r '.choices[0].message.content // ""')
+  response_len=${#response_content}
+
+  if [ -z "$response_content" ] || [ "$response_content" = "null" ]; then
+    record_result "A-LMStudioDirect" "$prompt_label" "$attempt" "$status" "$latency_ms" "false" "false" "false" "false" "false" "empty response"
+    return
+  fi
+
+  local exact="false"
+  local json_valid="false"
+  local json_keys="false"
+  local no_fence="false"
+
+  no_fence=$(score_no_markdown_fence "$response_content")
+
+  if [ "$prompt_label" = "concise" ]; then
+    exact=$(score_exact_match "$response_content" "4")
+  elif [ "$prompt_label" = "factual" ]; then
+    exact=$(score_exact_match "$response_content" "paris")
+  elif [ "$prompt_label" = "json" ]; then
+    json_valid=$(score_json_valid "$response_content")
+    if [ "$json_valid" = "true" ]; then
+      json_keys=$(score_json_has_keys "$response_content" "name" "value")
+    fi
+  fi
+
+  local passed_validation="false"
+  if [ "$prompt_label" = "concise" ] || [ "$prompt_label" = "factual" ]; then
+    passed_validation="$exact"
+  elif [ "$prompt_label" = "json" ] && [ "$json_valid" = "true" ] && [ "$json_keys" = "true" ] && [ "$no_fence" = "true" ]; then
+    passed_validation="true"
+  fi
+
+  record_result "A-LMStudioDirect" "$prompt_label" "$attempt" "$status" "$latency_ms" "$passed_validation" "$exact" "$json_valid" "$json_keys" "$no_fence" "ok (${response_len} chars)"
+}
+
+run_direct_provider() {
+  case "$BENCHMARK_PROVIDER" in
+    ollama)
+      run_ollama_direct "$@"
+      ;;
+    lmstudio)
+      run_lmstudio_direct "$@"
+      ;;
+  esac
+}
+
 run_novexa_mode() {
   local mode="$1"
   local prompt="$2"
@@ -247,28 +378,32 @@ run_novexa_mode() {
   local payload
   if [ "$mode" = "structured" ]; then
     payload=$(jq -n \
-      --arg model "ollama:$MODEL" \
+      --arg model "$NOVEXA_MODEL" \
       --arg content "$prompt" \
       '{model: $model, messages: [{role: "user", content: $content}], response_format: {type: "json_object"}, max_tokens: 512}')
   else
     payload=$(jq -n \
-      --arg model "ollama:$MODEL" \
+      --arg model "$NOVEXA_MODEL" \
       --arg content "$prompt" \
       '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 512}')
   fi
 
   if [ "$mode" = "direct" ]; then
-    payload=$(echo "$payload" | jq '.novexa = {mode: "direct"}')
+    payload=$(echo "$payload" | jq '.novexa.mode = "direct"')
+  fi
+
+  if [ "$BENCHMARK_DISABLE_THINKING" = "true" ]; then
+    payload=$(echo "$payload" | jq '.novexa.thinking.enabled = false')
   fi
 
   local start end latency_ms status response_content response_len
 
   start=$(date +%s%N)
-  response=$(curl -s -w "\n%{http_code}" -X POST "$NOVEXA_URL/chat/completions" \
+  response=$(curl --max-time "$BENCHMARK_TIMEOUT_SECONDS" -s -w "\n%{http_code}" -X POST "$NOVEXA_URL/chat/completions" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer novexa-local" \
     -d "$payload" 2>/dev/null) || {
-    record_result "$mode_label" "$prompt_label" "$attempt" "error" "0" "false" "false" "false" "false" "false" "curl failed"
+    record_result "$mode_label" "$prompt_label" "$attempt" "error" "0" "false" "false" "false" "false" "false" "curl failed or timed out after ${BENCHMARK_TIMEOUT_SECONDS}s"
     return
   }
   end=$(date +%s%N)
@@ -336,23 +471,30 @@ compute_stats() {
 echo "============================================"
 echo "  Novexa Local Model Benchmark"
 echo "  Model: $MODEL"
+echo "  Provider: $BENCHMARK_PROVIDER"
 echo "  Attempts per prompt: $ATTEMPTS"
 echo "  Date:  $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo "============================================"
 
 preflight_checks
 
-# Warm up
-warm_up_ollama
+case "$BENCHMARK_PROVIDER" in
+  ollama)
+    warm_up_ollama
+    ;;
+  lmstudio)
+    warm_up_lmstudio
+    ;;
+esac
 warm_up_novexa
 
-# Mode A: Ollama direct with think:false
+# Mode A: direct provider
 echo ""
-echo "=== Mode A: Ollama Direct (think:false) ==="
+echo "=== Mode A: $BENCHMARK_PROVIDER Direct ==="
 for i in $(seq 1 "$ATTEMPTS"); do
-  run_ollama_direct "$PROMPT_CONCISE" "concise" "$i"
-  run_ollama_direct "$PROMPT_FACTUAL" "factual" "$i"
-  run_ollama_direct "$PROMPT_JSON" "json" "$i"
+  run_direct_provider "$PROMPT_CONCISE" "concise" "$i"
+  run_direct_provider "$PROMPT_FACTUAL" "factual" "$i"
+  run_direct_provider "$PROMPT_JSON" "json" "$i"
 done
 
 # Mode B: Novexa direct mode
@@ -434,7 +576,7 @@ echo "**Per-Mode Latency (p50 / p95):**"
 echo ""
 echo "| Mode | p50 (ms) | p95 (ms) | Count |"
 echo "|------|----------|----------|-------|"
-for mode_label in "A-OllamaDirect" "B-NovexaDirect" "C-NovexaStabilized" "D-NovexaStructured"; do
+for mode_label in "$DIRECT_MODE_LABEL" "B-NovexaDirect" "C-NovexaStabilized" "D-NovexaStructured"; do
   mode_stats=$(echo "$results_json" | jq -r "[.[] | select(.mode == \"$mode_label\" and .status == \"200\") | .latency | tonumber] | sort")
   count=$(echo "$mode_stats" | jq 'length')
   if [ "$count" -gt 0 ]; then
@@ -478,7 +620,7 @@ fi
 #  Markdown report export
 # ─────────────────────────────────────────────────────────────────
 
-model_safe_name=$(echo "$MODEL" | tr ':.' '--' | tr -cd 'a-zA-Z0-9_-')
+model_safe_name=$(echo "$MODEL" | sed 's/[^a-zA-Z0-9_-]/-/g')
 timestamp=$(date -u '+%Y%m%dT%H%M%SZ')
 completed_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 report_dir="benchmarks"
@@ -487,36 +629,36 @@ report_json_file="${report_dir}/${model_safe_name}-${timestamp}.json"
 
 mkdir -p "$report_dir"
 
-ollama_pass_rate=$(echo "$results_json" | jq '[.[] | select(.mode == "A-OllamaDirect" and .passed == "true")] | length')
-ollama_total=$(echo "$results_json" | jq '[.[] | select(.mode == "A-OllamaDirect")] | length')
+direct_pass_rate=$(echo "$results_json" | jq --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode and .passed == "true")] | length')
+direct_total=$(echo "$results_json" | jq --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode)] | length')
 novexa_pass=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-")) and .passed == "true")] | length')
 novexa_total=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-")))] | length')
 
-ollama_p50=$(echo "$results_json" | jq -r '[.[] | select(.mode == "A-OllamaDirect" and .status == "200") | .latency | tonumber] | sort | .[(length * 0.50) | floor] // "N/A"')
+direct_p50=$(echo "$results_json" | jq -r --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode and .status == "200") | .latency | tonumber] | sort | .[(length * 0.50) | floor] // "N/A"')
 novexa_direct_p50=$(echo "$results_json" | jq -r '[.[] | select(.mode == "B-NovexaDirect" and .status == "200") | .latency | tonumber] | sort | .[(length * 0.50) | floor] // "N/A"')
 
 conclusion=""
-if [ "$novexa_total" -gt 0 ] && [ "$ollama_total" -gt 0 ]; then
-  if [ "$novexa_pass" -ge "$ollama_pass_rate" ] 2>/dev/null; then
-    if [ "$novexa_direct_p50" != "N/A" ] && [ "$ollama_p50" != "N/A" ] && [ "$novexa_direct_p50" -le $((ollama_p50 * 2)) ] 2>/dev/null; then
-      conclusion="Worth it — Novexa modes match or exceed direct Ollama quality with acceptable latency overhead."
+if [ "$novexa_total" -gt 0 ] && [ "$direct_total" -gt 0 ]; then
+  if [ "$novexa_pass" -ge "$direct_pass_rate" ] 2>/dev/null; then
+    if [ "$novexa_direct_p50" != "N/A" ] && [ "$direct_p50" != "N/A" ] && [ "$novexa_direct_p50" -le $((direct_p50 * 2)) ] 2>/dev/null; then
+      conclusion="Worth it — Novexa modes match or exceed direct provider quality with acceptable latency overhead."
     else
       conclusion="Needs tuning — Novexa quality is acceptable but latency overhead is high."
     fi
   else
-    conclusion="Needs tuning — Novexa modes underperform direct Ollama on quality. Review profile settings and prompt instructions."
+    conclusion="Needs tuning — Novexa modes underperform direct provider on quality. Review profile settings and prompt instructions."
   fi
 else
   conclusion="Insufficient data — one or more modes produced no results."
 fi
 
-latency_by_mode=$(echo "$results_json" | jq '
+latency_by_mode=$(echo "$results_json" | jq --arg direct_mode "$DIRECT_MODE_LABEL" '
   def stats:
     if length == 0 then {count: 0, min: null, max: null, p50: null, p95: null, avg: null}
     else sort | {count: length, min: .[0], max: .[-1], p50: .[(length * 0.50) | floor], p95: .[(length * 0.95) | floor], avg: (add / length)}
     end;
   {
-    "A-OllamaDirect": ([.[] | select(.mode == "A-OllamaDirect" and .status == "200") | .latency | tonumber] | stats),
+    ($direct_mode): ([.[] | select(.mode == $direct_mode and .status == "200") | .latency | tonumber] | stats),
     "B-NovexaDirect": ([.[] | select(.mode == "B-NovexaDirect" and .status == "200") | .latency | tonumber] | stats),
     "C-NovexaStabilized": ([.[] | select(.mode == "C-NovexaStabilized" and .status == "200") | .latency | tonumber] | stats),
     "D-NovexaStructured": ([.[] | select(.mode == "D-NovexaStructured" and .status == "200") | .latency | tonumber] | stats)
@@ -524,6 +666,8 @@ latency_by_mode=$(echo "$results_json" | jq '
 
 jq -n \
   --arg model "$MODEL" \
+  --arg provider "$BENCHMARK_PROVIDER" \
+  --arg direct_mode "$DIRECT_MODE_LABEL" \
   --arg generated_at "$completed_at" \
   --argjson attempts "$ATTEMPTS" \
   --arg conclusion "$conclusion" \
@@ -543,9 +687,10 @@ jq -n \
   '{
     schema_version: 1,
     model: $model,
+    provider: $provider,
     generated_at: $generated_at,
     attempts_per_prompt: $attempts,
-    modes_tested: ["A-OllamaDirect", "B-NovexaDirect", "C-NovexaStabilized", "D-NovexaStructured"],
+    modes_tested: [$direct_mode, "B-NovexaDirect", "C-NovexaStabilized", "D-NovexaStructured"],
     quality: {
       total_requests: $total_requests,
       passed: $passed_requests,
@@ -566,9 +711,10 @@ cat > "$report_file" << REPORTEOF
 # Benchmark Report
 
 **Model:** $MODEL
+**Provider:** $BENCHMARK_PROVIDER
 **Date:** $completed_at
 **Attempts per prompt:** $ATTEMPTS
-**Modes tested:** A-OllamaDirect, B-NovexaDirect, C-NovexaStabilized, D-NovexaStructured
+**Modes tested:** $DIRECT_MODE_LABEL, B-NovexaDirect, C-NovexaStabilized, D-NovexaStructured
 
 ## Quality Metrics
 
@@ -590,7 +736,7 @@ cat > "$report_file" << REPORTEOF
 |------|----------|----------|-------|
 REPORTEOF
 
-for mode_label in "A-OllamaDirect" "B-NovexaDirect" "C-NovexaStabilized" "D-NovexaStructured"; do
+for mode_label in "$DIRECT_MODE_LABEL" "B-NovexaDirect" "C-NovexaStabilized" "D-NovexaStructured"; do
   mode_stats=$(echo "$results_json" | jq -r "[.[] | select(.mode == \"$mode_label\" and .status == \"200\") | .latency | tonumber] | sort")
   count=$(echo "$mode_stats" | jq 'length')
   if [ "$count" -gt 0 ]; then

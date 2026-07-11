@@ -421,7 +421,24 @@ Override attempts per prompt:
 ATTEMPTS=5 ./scripts/benchmark-local-model.sh qwen3.5:2b
 ```
 
-Requirements: `ollama`, `novexa`, `jq`.
+Override request timeout if a local model is slow or queueing:
+
+```bash
+BENCHMARK_TIMEOUT_SECONDS=120 ./scripts/benchmark-local-model.sh qwen3.5:2b
+```
+
+Benchmark models served by LM Studio:
+
+```bash
+BENCHMARK_PROVIDER=lmstudio \
+LMSTUDIO_URL=http://192.168.0.164:1234/v1 \
+NOVEXA_LMSTUDIO_URL=http://192.168.0.164:1234/v1 \
+NOVEXA_PROVIDER_DEFAULT=lmstudio \
+BENCHMARK_TIMEOUT_SECONDS=120 \
+./scripts/benchmark-local-model.sh qwen/qwen3.5-9b
+```
+
+Requirements: `novexa`, `jq`, and either `ollama` or an OpenAI-compatible LM Studio server.
 
 Most important first-run commands:
 

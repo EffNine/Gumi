@@ -46,3 +46,29 @@ func TestLoadWithMissingFile(t *testing.T) {
 		t.Errorf("expected safe default mode when file missing, got %q", cfg.Runtime.Mode)
 	}
 }
+
+func TestLoadAppliesProviderEnvOverrides(t *testing.T) {
+	t.Setenv("NOVEXA_PROVIDER_DEFAULT", "lmstudio")
+	t.Setenv("NOVEXA_LMSTUDIO_URL", "http://192.168.0.164:1234/v1")
+	t.Setenv("NOVEXA_DEFAULT_MODEL", "qwen/qwen3.5-9b")
+	t.Setenv("NOVEXA_PROVIDER_TIMEOUT_SECONDS", "120")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+
+	if cfg.Provider.Default != "lmstudio" {
+		t.Fatalf("expected default provider lmstudio, got %q", cfg.Provider.Default)
+	}
+	lmstudio := cfg.Providers["lmstudio"]
+	if lmstudio.URL != "http://192.168.0.164:1234/v1" {
+		t.Fatalf("expected LM Studio URL override, got %q", lmstudio.URL)
+	}
+	if lmstudio.DefaultModel != "qwen/qwen3.5-9b" {
+		t.Fatalf("expected default model override, got %q", lmstudio.DefaultModel)
+	}
+	if lmstudio.TimeoutSeconds != 120 {
+		t.Fatalf("expected timeout override 120, got %d", lmstudio.TimeoutSeconds)
+	}
+}

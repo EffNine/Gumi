@@ -82,6 +82,31 @@ func TestResolveFamilyMatch(t *testing.T) {
 	}
 }
 
+func TestResolveLMStudioModelToProfile(t *testing.T) {
+	profiles := []*Profile{
+		{
+			ID:      "qwen3.5-9b",
+			Version: 1,
+			Family:  "qwen",
+			Models: map[string][]string{
+				"lmstudio": {"qwen/qwen3.5-9b"},
+			},
+		},
+	}
+	r := NewResolver(profiles)
+
+	m := r.Resolve("lmstudio", "qwen/qwen3.5-9b")
+	if m.Profile.ID != "qwen3.5-9b" {
+		t.Fatalf("expected qwen3.5-9b, got %q", m.Profile.ID)
+	}
+	if m.IsFallback {
+		t.Fatal("expected a real match, not fallback")
+	}
+	if m.Reason != "provider_alias" {
+		t.Fatalf("expected reason provider_alias, got %q", m.Reason)
+	}
+}
+
 func TestResolverAlwaysIncludesGenericFallback(t *testing.T) {
 	r := NewResolver(nil)
 	m := r.Resolve("ollama", "anything")

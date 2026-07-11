@@ -587,6 +587,47 @@ Used for maximum speed.
 
 ## 10.2 Stabilized Mode
 
+## 10.2 Lightweight Mode
+
+Low-overhead mode for apps that already manage their own workflow prompts, such as OpenCode, Continue, Cline, Open WebUI, or custom agents.
+
+```text
+Request
+    ↓
+Model Profile Defaults
+    ↓
+Thinking Policy
+    ↓
+Minimal Prompt Policy
+    ↓
+Provider
+    ↓
+Telemetry
+    ↓
+Response
+```
+
+Used when the app should keep its own behavior while Novexa centralizes model tuning.
+
+Lightweight Mode should apply:
+
+- provider and model profile defaults
+- thinking on/off policy
+- max token and sampling defaults
+- minimal exact-format/plain-text guard
+- local telemetry
+
+Lightweight Mode should avoid:
+
+- heavy context wrappers
+- long system prompts
+- unnecessary JSON instructions
+- expensive validation/repair unless explicitly requested
+
+---
+
+## 10.3 Stabilized Mode
+
 Default mode.
 
 ```text
@@ -609,7 +650,7 @@ Used for normal applications.
 
 ---
 
-## 10.3 Structured Mode
+## 10.4 Structured Mode
 
 Used when a schema is required.
 
@@ -622,7 +663,7 @@ Additional features:
 
 ---
 
-## 10.4 Agent Mode
+## 10.5 Agent Mode
 
 Future mode.
 

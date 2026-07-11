@@ -77,6 +77,41 @@ vLLM optimizes inference.
 Novexa stabilizes and governs the intelligence layer.
 ```
 
+## Central Tuning Layer
+
+Novexa should become the place where local model behavior is tuned once and reused everywhere.
+
+Apps such as OpenCode, Continue, Cline, Open WebUI, and custom tools should only need:
+
+```text
+base_url
+api_key
+model
+```
+
+They should not need to duplicate model-specific settings such as:
+
+- temperature
+- top_p
+- max_tokens
+- thinking on/off
+- exact-format instructions
+- JSON behavior
+- anti-loop behavior
+- provider quirks
+
+Those settings belong in Novexa profiles and runtime modes.
+
+This keeps every app simpler and makes tuning reusable across the whole local AI stack.
+
+Novexa should support a low-overhead `lightweight` mode for this purpose:
+
+```text
+App keeps its own workflow prompt.
+Novexa applies shared model tuning.
+Provider runs the model.
+```
+
 ---
 
 # 4. Long-Term Product Thesis

@@ -5,7 +5,10 @@
 // path. Full YAML config parsing will be added in a later sprint.
 package config
 
-import "os"
+import (
+	"os"
+	"strconv"
+)
 
 // Config is the top-level runtime configuration.
 type Config struct {
@@ -141,5 +144,41 @@ func Load(configPath string) (*Config, error) {
 		}
 	}
 
+	applyEnvOverrides(cfg)
+
 	return cfg, nil
+}
+
+func applyEnvOverrides(cfg *Config) {
+	if v := os.Getenv("NOVEXA_PROVIDER_DEFAULT"); v != "" {
+		cfg.Provider.Default = v
+	}
+	if v := os.Getenv("NOVEXA_OLLAMA_URL"); v != "" {
+		updateProvider(cfg, "ollama", func(s *ProviderSettings) { s.URL = v })
+	}
+	if v := os.Getenv("NOVEXA_LMSTUDIO_URL"); v != "" {
+		updateProvider(cfg, "lmstudio", func(s *ProviderSettings) { s.URL = v })
+	}
+	if v := os.Getenv("NOVEXA_OPENAI_COMPATIBLE_LOCAL_URL"); v != "" {
+		updateProvider(cfg, "openai_compatible_local", func(s *ProviderSettings) { s.URL = v })
+	}
+	if v := os.Getenv("NOVEXA_DEFAULT_MODEL"); v != "" {
+		updateProvider(cfg, cfg.Provider.Default, func(s *ProviderSettings) { s.DefaultModel = v })
+	}
+	if v := os.Getenv("NOVEXA_PROVIDER_TIMEOUT_SECONDS"); v != "" {
+		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
+			for key := range cfg.Providers {
+				updateProvider(cfg, key, func(s *ProviderSettings) { s.TimeoutSeconds = seconds })
+			}
+		}
+	}
+}
+
+func updateProvider(cfg *Config, key string, update func(*ProviderSettings)) {
+	settings, ok := cfg.Providers[key]
+	if !ok {
+		return
+	}
+	update(&settings)
+	cfg.Providers[key] = settings
 }
