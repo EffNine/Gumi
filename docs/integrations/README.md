@@ -21,6 +21,7 @@ selects the correct provider automatically.
 | [Continue](./continue.md) | Connect Continue for chat, inline edits, and tab autocomplete through Novexa. |
 | [Cline](./cline.md) | Connect Cline for file editing, terminal commands, and codebase search through Novexa. |
 | [Open WebUI](./open-webui.md) | Connect Open WebUI through Novexa stabilized mode for local chat. |
+| [OpenAI SDK](./openai-sdk.md) | Connect any OpenAI-compatible Python, JavaScript, or cURL client through Novexa. |
 
 ## Integration types
 
@@ -34,7 +35,6 @@ selects the correct provider automatically.
 
 ## Planned guides
 
-- [ ] Generic OpenAI SDK clients (Python, JavaScript)
 - [ ] LM Studio setup guide
 
 ## Recommended default setup
