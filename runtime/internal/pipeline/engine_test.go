@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -533,6 +534,210 @@ func TestPipelineNoThinkingDefaultForGenericProfile(t *testing.T) {
 		t.Fatal("expected no thinking default for generic profile")
 	}
 }
+func TestRunChatCompletionLightweightMode(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeLightweight)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_lightweight", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.RuntimeMode != ModeLightweight {
+		t.Fatalf("expected lightweight mode, got %s", result.Context.RuntimeMode)
+	}
+	assertEvent(t, result.Context, "lightweight_mode_selected")
+	assertEvent(t, result.Context, "context_skipped")
+	assertEvent(t, result.Context, "memory_skipped")
+	assertEvent(t, result.Context, "session_skipped")
+	assertEvent(t, result.Context, "lightweight_prompt_built")
+	assertEvent(t, result.Context, "lightweight_guard_completed")
+	assertEvent(t, result.Context, "validation_skipped")
+	assertEvent(t, result.Context, "repair_skipped")
+	if result.Context.ContextCompressed {
+		t.Fatal("expected context compression to be skipped")
+	}
+	if result.Context.PromptPackage == nil {
+		t.Fatal("expected prompt package")
+	}
+}
+
+func TestRunChatCompletionLightweightAppliesProfileDefaults(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeLightweight)
+	adapter := &fakeAdapter{
+		name:   "ollama",
+		models: []provider.ModelInfo{{Name: "qwen3.5:2b"}},
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_lightweight_defaults", api.ChatCompletionRequest{
+		Model: "ollama:qwen3.5:2b",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+		Novexa: &api.NovexaExtensions{Mode: string(ModeLightweight)},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	assertEvent(t, result.Context, "profile_defaults_applied")
+	assertEvent(t, result.Context, "thinking_policy_applied")
+	if adapter.seenReq.Temperature == nil {
+		t.Fatal("expected profile temperature default to be applied")
+	}
+	if got := float64(*adapter.seenReq.Temperature); got < 0.29 || got > 0.31 {
+		t.Fatalf("expected temperature ~0.3, got %v", got)
+	}
+	if adapter.seenReq.MaxTokens == nil || *adapter.seenReq.MaxTokens != 512 {
+		t.Fatalf("expected max_tokens 512, got %v", adapter.seenReq.MaxTokens)
+	}
+	if result.Context.NormalizedRequest.Novexa == nil || result.Context.NormalizedRequest.Novexa.Thinking == nil || result.Context.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+		t.Fatal("expected thinking default resolved from profile")
+	}
+	if result.Context.ThinkingTelemetry == nil || result.Context.ThinkingTelemetry.ThinkingEnabled != "false" {
+		t.Fatalf("expected thinking telemetry to report false, got %v", result.Context.ThinkingTelemetry)
+	}
+	if *result.Context.NormalizedRequest.Novexa.Thinking.Enabled {
+		t.Fatal("expected thinking to be disabled from qwen3.5-2b profile")
+	}
+}
+
+func TestRunChatCompletionLightweightPreservesAppSystemPrompt(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeLightweight)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_lightweight_system", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{
+			{Role: "developer", Content: "App system prompt: use early returns."},
+			{Role: "user", Content: "Refactor this."},
+		},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if len(adapter.seenMessages) != 2 {
+		t.Fatalf("expected 2 messages preserved, got %d: %#v", len(adapter.seenMessages), adapter.seenMessages)
+	}
+	if adapter.seenMessages[0].Role != "developer" {
+		t.Fatalf("expected first message preserved as developer, got %s", adapter.seenMessages[0].Role)
+	}
+	content, _ := adapter.seenMessages[0].Content.(string)
+	if !strings.HasPrefix(content, "App system prompt: use early returns.") {
+		t.Fatalf("expected app system prompt preserved, got %q", content)
+	}
+	assertEvent(t, result.Context, "lightweight_prompt_built")
+	if result.Context.PromptPackage == nil || result.Context.PromptPackage.SystemPrompt != "" {
+		t.Fatal("expected no new system prompt to be added when app provides one")
+	}
+}
+
+func TestRunChatCompletionLightweightSkipsContextCompression(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeLightweight)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_lightweight_context", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.ContextCompressed {
+		t.Fatal("expected context compression to be skipped in lightweight mode")
+	}
+	if result.Context.ContextPackage != nil {
+		t.Fatal("expected no context package in lightweight mode")
+	}
+	assertEvent(t, result.Context, "context_skipped")
+}
+
+func TestRunChatCompletionLightweightJSONOnlyWithResponseFormat(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeLightweight)
+	adapter := &fakeAdapter{
+		name:     "ollama",
+		response: response(`{"ok":true}`),
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_lightweight_json", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Return JSON",
+		}},
+		ResponseFormat: &api.ResponseFormat{Type: "json_object"},
+		Novexa: &api.NovexaExtensions{
+			Mode:       string(ModeLightweight),
+			Validation: &api.ValidationConfig{Enabled: true, Repair: true},
+		},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	assertEvent(t, result.Context, "lightweight_format_instruction_added")
+	if len(adapter.seenMessages) == 0 || adapter.seenMessages[0].Role != "system" {
+		t.Fatalf("expected system message with JSON instruction, got %#v", adapter.seenMessages)
+	}
+	system, _ := adapter.seenMessages[0].Content.(string)
+	if !strings.Contains(system, "Return a valid JSON object") {
+		t.Fatalf("expected JSON instruction in system prompt, got %q", system)
+	}
+}
+
+func TestRunChatCompletionLightweightNoJSONInstructionWithoutResponseFormat(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeLightweight)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_lightweight_no_json", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "What is 2+2?",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	for _, ev := range result.Context.Events {
+		if ev.Event == "lightweight_format_instruction_added" {
+			t.Fatal("expected no JSON instruction event when response_format is absent")
+		}
+	}
+	if len(adapter.seenMessages) == 0 || adapter.seenMessages[0].Role != "system" {
+		t.Fatalf("expected minimal system prompt, got %#v", adapter.seenMessages)
+	}
+	system, _ := adapter.seenMessages[0].Content.(string)
+	if strings.Contains(system, "JSON") {
+		t.Fatalf("expected no JSON instruction without response_format, got %q", system)
+	}
+}
+
 func TestPipelineAppliesProfilePromptInstructions(t *testing.T) {
 	cfg := config.DefaultConfig()
 	adapter := &fakeAdapter{

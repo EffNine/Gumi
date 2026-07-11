@@ -41,6 +41,15 @@ type ThinkingConfig struct {
 	Enabled *bool `json:"enabled,omitempty"`
 }
 
+// GetThinkingEnabled returns the explicit request thinking value, or nil if
+// the request does not specify one.
+func (n *NovexaExtensions) GetThinkingEnabled() *bool {
+	if n == nil || n.Thinking == nil {
+		return nil
+	}
+	return n.Thinking.Enabled
+}
+
 // GuardConfig holds per-request guard overrides.
 type GuardConfig struct {
 	AntiLoop         bool `json:"anti_loop,omitempty"`

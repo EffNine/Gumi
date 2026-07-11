@@ -585,8 +585,6 @@ Used for maximum speed.
 
 ---
 
-## 10.2 Stabilized Mode
-
 ## 10.2 Lightweight Mode
 
 Low-overhead mode for apps that already manage their own workflow prompts, such as OpenCode, Continue, Cline, Open WebUI, or custom agents.
@@ -608,6 +606,12 @@ Response
 ```
 
 Used when the app should keep its own behavior while Novexa centralizes model tuning.
+
+Lightweight Mode sits between Direct Mode and Stabilized Mode:
+
+- Direct Mode forwards requests almost unchanged.
+- Lightweight Mode adds model profile defaults, thinking policy, minimal prompt policy, and telemetry.
+- Stabilized Mode adds context compression, memory, full prompt wrapping, guardrails, validation, and repair.
 
 Lightweight Mode should apply:
 

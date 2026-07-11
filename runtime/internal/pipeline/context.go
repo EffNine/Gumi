@@ -34,10 +34,11 @@ const (
 type RuntimeMode string
 
 const (
-	ModeDirect     RuntimeMode = "direct"
-	ModeStabilized RuntimeMode = "stabilized"
-	ModeStructured RuntimeMode = "structured"
-	ModeAgent      RuntimeMode = "agent"
+	ModeDirect      RuntimeMode = "direct"
+	ModeLightweight RuntimeMode = "lightweight"
+	ModeStabilized  RuntimeMode = "stabilized"
+	ModeStructured  RuntimeMode = "structured"
+	ModeAgent       RuntimeMode = "agent"
 )
 
 // Event records a significant pipeline action.

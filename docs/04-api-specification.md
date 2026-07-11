@@ -366,6 +366,7 @@ Supported modes:
 
 ```text
 direct
+lightweight
 stabilized
 structured
 agent
@@ -375,6 +376,7 @@ V1 supports:
 
 ```text
 direct
+lightweight
 stabilized
 structured
 ```
@@ -1170,9 +1172,77 @@ Novexa-specific extension fields should remain backwards compatible.
 
 ---
 
-# 30. Example Usage
+# 30. Lightweight Mode Example
 
-## 30.1 Python OpenAI Client
+## 30.1 Request with `novexa.mode = lightweight`
+
+```bash
+curl http://localhost:8787/v1/chat/completions \
+  -H "Authorization: Bearer novexa-local" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "lmstudio:qwen2.5-coder-7b-instruct",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Refactor this function to use early returns."
+      }
+    ],
+    "novexa": {
+      "mode": "lightweight"
+    }
+  }'
+```
+
+## 30.2 OpenAI-Compatible Python Client
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8787/v1",
+    api_key="novexa-local",
+)
+
+response = client.chat.completions.create(
+    model="lmstudio:qwen2.5-coder-7b-instruct",
+    messages=[
+        {"role": "user", "content": "Refactor this function to use early returns."}
+    ],
+    extra_body={"novexa": {"mode": "lightweight"}},
+)
+
+print(response.choices[0].message.content)
+```
+
+## 30.3 OpenAI-Compatible JavaScript Client
+
+```js
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "http://localhost:8787/v1",
+  apiKey: "novexa-local",
+});
+
+const response = await client.chat.completions.create({
+  model: "lmstudio:qwen2.5-coder-7b-instruct",
+  messages: [
+    { role: "user", content: "Refactor this function to use early returns." }
+  ],
+  // Use the library's extension mechanism for extra body fields if available.
+});
+
+console.log(response.choices[0].message.content);
+```
+
+In lightweight mode Novexa resolves the `qwen2.5-coder-7b` profile, applies its defaults, preserves the app-provided messages, and forwards the request to the LM Studio adapter.
+
+---
+
+# 31. General Example Usage
+
+## 31.1 Python OpenAI Client
 
 ```python
 from openai import OpenAI
@@ -1192,7 +1262,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-## 30.2 JavaScript OpenAI Client
+## 31.2 JavaScript OpenAI Client
 
 ```js
 import OpenAI from "openai";
@@ -1215,7 +1285,7 @@ const response = await client.chat.completions.create({
 console.log(response.choices[0].message.content);
 ```
 
-## 30.3 cURL
+## 31.3 cURL
 
 ```bash
 curl http://localhost:8787/v1/chat/completions \
@@ -1234,7 +1304,7 @@ curl http://localhost:8787/v1/chat/completions \
 
 ---
 
-# 31. Final API Statement
+# 32. Final API Statement
 
 Novexa V1 API is an OpenAI-compatible local runtime API.
 

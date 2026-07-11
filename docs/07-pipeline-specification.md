@@ -387,11 +387,9 @@ Direct Mode still includes:
 
 ---
 
-## 8.2 Stabilized Mode
-
 ## 8.2 Lightweight Mode
 
-Lightweight Mode is for apps that already provide their own interaction scaffolding but still want Novexa as the central tuning layer.
+Lightweight Mode is the recommended default for coding agents and other applications that already provide their own interaction scaffolding but still want Novexa as the central tuning layer.
 
 ```text
 Request
@@ -413,6 +411,11 @@ Response
 Telemetry
 ```
 
+Position:
+
+- Higher overhead than Direct Mode: it still resolves profiles, applies defaults, and enforces a minimal prompt policy.
+- Lower overhead than Stabilized Mode: it skips context compression, long system wrappers, memory, and most validation/repair.
+
 Use cases:
 
 - OpenCode
@@ -424,19 +427,24 @@ Use cases:
 
 Lightweight Mode should apply:
 
+- request normalization
+- workspace and config resolution
+- model profile resolution
 - provider selection
-- model profile defaults
-- thinking policy
-- max token and sampling defaults
+- model profile defaults (temperature, top_p, repeat_penalty, max_tokens, stop, thinking)
+- thinking policy (disable reasoning when profile or request says false)
 - minimal exact-format/plain-text instruction
+- lightweight guard checks (empty prompt, context overflow estimate, unsupported feature)
 - local telemetry
 
 Lightweight Mode should skip by default:
 
-- context compression
-- long prompt wrappers
-- memory retrieval
-- validation and repair unless response_format requires it
+- context compression, summarization, and memory retrieval
+- the full Novexa base system prompt
+- long prompt wrappers and workspace instruction blocks
+- anti-loop, hallucination, and structured-output guards (unless explicitly requested)
+- validation and repair, except when response_format is present
+- retry loops beyond provider-level retries
 
 Strategic purpose:
 
@@ -444,6 +452,107 @@ Strategic purpose:
 Apps keep simple config.
 Novexa owns shared model tuning.
 ```
+
+---
+
+## 8.2.1 Lightweight Mode Engines
+
+| Engine | Runs | Role |
+|---|---|---|
+| Gateway Engine | Yes | Receives and normalizes request, extracts `novexa.*` overrides. |
+| Workspace Engine | Yes | Resolves default workspace. |
+| Config Engine | Yes | Builds config snapshot with lightweight defaults. |
+| Session Engine | No | Lightweight mode is stateless per request by default. |
+| Context Engine | No | App owns context; token budget is only estimated for overflow guard. |
+| Memory Engine | No | Disabled by default. |
+| Prompt Engine | Partial | Applies minimal prompt policy only. |
+| Guard Engine | Partial | Runs empty-prompt, context-overflow, and unsupported-feature checks. |
+| Provider Engine | Yes | Selects provider/model, normalizes request, applies profile defaults, calls provider. |
+| Response Engine | Yes | Normalizes provider output. |
+| Validation Engine | Conditional | Only when `response_format` is present. |
+| Repair Engine | Conditional | Only when `response_format` validation fails and repair is explicitly enabled. |
+| Telemetry Engine | Yes | Records mode, profile, provider, latency, warnings. |
+
+---
+
+## 8.2.2 Lightweight Mode Prompt Policy
+
+Prompt Engine optimization level forced to **light** in lightweight mode.
+
+Applied:
+
+- If the request contains no `system` or `developer` message, a minimal system prompt may be inserted from the model profile (`system_prompt_style: minimal`) or the generic fallback.
+- If a `system` or `developer` message exists, Novexa does **not** replace it. It may append a single short anti-loop sentence only when `guard.anti_loop != off`.
+- When `response_format.type = json_object`, append a minimal JSON-only instruction.
+- When `response_format.type = json_schema`, append a minimal schema-conformance instruction.
+
+Skipped:
+
+- Full base Novexa system prompt.
+- Runtime mode instruction block.
+- Workspace instruction block.
+- Memory block.
+- Context compression summary.
+- Vague-prompt rewriting.
+- Additional task framing.
+
+---
+
+## 8.2.3 Lightweight Mode Defaults and Overrides
+
+Default settings for lightweight mode:
+
+```yaml
+engines:
+  context:
+    enabled: false
+  memory:
+    enabled: false
+  validation:
+    enabled: false
+  repair:
+    enabled: false
+  guard:
+    anti_loop: light
+    context_overflow: true
+    structured_output: false
+  prompt:
+    optimization_level: light
+    preserve_user_intent: true
+```
+
+Request-level overrides can opt back into individual features:
+
+```json
+{
+  "novexa": {
+    "mode": "lightweight",
+    "validation": { "enabled": true, "repair": true },
+    "guard": { "anti_loop": "aggressive" }
+  }
+}
+```
+
+---
+
+## 8.2.4 Lightweight Mode Risks and Non-Goals
+
+Risks:
+
+| Risk | Mitigation |
+|---|---|
+| Apps assume full stabilization quality. | Telemetry and response metadata expose `runtime_mode: lightweight` and skipped engines. |
+| Weak client prompts are not rescued. | Document that lightweight mode preserves app prompts. |
+| Long sessions overflow context. | Guard emits `context_overflow_warning` but does not compress unless requested. |
+| JSON output wrapped in markdown. | JSON instruction is added only when `response_format` is explicit. |
+
+Non-goals:
+
+- Not a separate pipeline implementation; it is a branch of the existing Pipeline Engine.
+- Not a prompt optimization mode.
+- Not a context management or memory mode.
+- Not an agent orchestration mode (no step budgets or tool-call validation).
+- Not a replacement for Direct Mode, which remains the raw passthrough.
 
 ---
 
@@ -567,7 +676,7 @@ V1 may define Agent Mode but does not need full implementation.
 
 ---
 
-## 9.2 Stabilized Mode Order
+## 9.2 Lightweight Mode Order
 
 ```text
 1. request_received
@@ -575,28 +684,33 @@ V1 may define Agent Mode but does not need full implementation.
 3. create_pipeline_context
 4. resolve_workspace
 5. resolve_config
-6. resolve_session
-7. resolve_model_profile
-8. run_before_request_hooks
-9. prepare_context
-10. retrieve_memory_if_enabled
-11. build_prompt
-12. apply_guardrails
-13. run_before_provider_hooks
-14. select_provider
-15. call_provider
-16. run_after_provider_hooks
-17. normalize_response
-18. validate_response
-19. repair_if_needed
-20. run_after_response_hooks
-21. record_telemetry
-22. return_response
+6. resolve_model_profile
+7. apply_profile_defaults
+8. apply_thinking_policy
+9. run_before_request_hooks
+10. build_minimal_prompt
+11. apply_lightweight_guardrails
+12. run_before_provider_hooks
+13. select_provider
+14. call_provider
+15. run_after_provider_hooks
+16. normalize_response
+17. validate_response_if_format_requested
+18. repair_if_explicitly_enabled
+19. run_after_response_hooks
+20. record_telemetry
+21. return_response
 ```
+
+Notes:
+
+- `resolve_session` is skipped by default.
+- `prepare_context` and `retrieve_memory` are skipped.
+- Validation and repair run only when `response_format` is present or explicitly enabled.
 
 ---
 
-## 9.3 Structured Mode Order
+## 9.3 Stabilized Mode Order
 
 ```text
 1. request_received
@@ -1591,6 +1705,7 @@ Dashboard should use these metrics.
 Pipeline must have tests for:
 
 - direct mode success
+- lightweight mode success
 - stabilized mode success
 - structured mode success
 - provider unavailable
@@ -1606,6 +1721,9 @@ Pipeline must have tests for:
 - plugin hook failure
 - streaming success
 - streaming provider error
+- lightweight mode preserves app system prompt
+- lightweight mode applies profile defaults
+- lightweight mode skips context compression
 
 ---
 
@@ -1669,15 +1787,20 @@ Build pipeline in this order:
 2. Pipeline Event system
 3. Direct Mode pipeline
 4. Provider call integration
-5. Stabilized Mode pipeline
-6. Context Engine integration
-7. Prompt Engine integration
-8. Validation Engine integration
-9. Repair Engine integration
-10. Streaming pipeline
-11. Plugin hook placeholders
-12. Structured Mode pipeline
+5. Lightweight Mode pipeline
+6. Stabilized Mode pipeline
+7. Context Engine integration
+8. Prompt Engine integration
+9. Validation Engine integration
+10. Repair Engine integration
+11. Streaming pipeline
+12. Plugin hook placeholders
+13. Structured Mode pipeline
 ```
+
+Reason:
+
+Lightweight Mode is a thin branch of the pipeline and should be added before Stabilized Mode so that coding-agent integrations can be tested early.
 
 Reason:
 
