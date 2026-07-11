@@ -174,7 +174,71 @@ deepseek-r1-8b.yaml
 llama3.1-8b.yaml
 gemma3-12b.yaml
 mistral-small.yaml
+qwen3-1.7b.yaml          ← new, LM Studio validated
+ornith-1.0-9b-q4-km.yaml ← new, LM Studio validated
+gemma-4-e4b.yaml         ← new, LM Studio validated
 ```
+
+### LM Studio Validated Profiles
+
+Benchmark matrix run on 2026-07-11 against `http://192.168.0.164:1234/v1` (3 attempts per model):
+
+| Profile | LM Studio Model | Size | Role | Novexa Pass | Direct p50 | Doctor |
+|---------|----------------|------|------|-------------|------------|--------|
+| `qwen2.5-coder-7b` | `qwen2.5-coder-7b-instruct` | 7B | **Coding** | 21/21 | 114ms | Good baseline |
+| `qwen3-1.7b` | `qwen/qwen3-1.7b` | 1.7B | **Fast chat** | 21/21 | 94ms | Good baseline |
+| `ornith-1.0-9b-q4-km` | `ornith-1.0-9b@q4_k_m` | 9B | **Quality alt** | 21/21 | 182ms | Good baseline |
+| `qwen3.5-9b` | `qwen/qwen3.5-9b` | 9B | **Technical** | 18/21 | 197ms | Good baseline |
+| `gemma-4-e4b` | `google/gemma-4-e4b` | 4B | **Mid-size** | 15/21 | 175ms | Needs tuning |
+
+**Recommended default model choices:**
+
+| Use Case | LM Studio Model | Profile |
+|----------|---------------|---------|
+| Coding | `qwen2.5-coder-7b-instruct` | `qwen2.5-coder-7b` |
+| Fast general chat | `qwen/qwen3-1.7b` | `qwen3-1.7b` |
+| Mid-size general chat | `google/gemma-4-e4b` | `gemma-4-e4b` |
+| Quality alternative | `ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
+
+**Benchmark mode notes:**
+- **A-LMStudioDirect** — raw provider pass-through. Diagnostic only; not a quality gate.
+- **B-NovexaDirect** — thin Novexa proxy. Diagnostic only; not a quality gate.
+- **C-NovexaStabilized** — main quality gate. Includes context, prompt, validation, repair, and telemetry.
+- **D-NovexaStructured** — strict JSON/schema output mode. Quality gate for structured output.
+
+All validated profiles pass 100% through Novexa stabilized and structured modes.
+
+### LM Studio Benchmark Matrix
+
+Run benchmarks across all LM Studio models and produce a summary table:
+
+```bash
+ATTEMPTS=1 LMSTUDIO_URL=http://192.168.0.164:1234/v1 ./scripts/benchmark-lmstudio-matrix.sh
+```
+
+The matrix auto-detects models, runs each through `benchmark-local-model.sh`, runs Profile Doctor on each JSON report, and saves a summary to `benchmarks/lmstudio-matrix-<timestamp>.md`.
+
+Use `ATTEMPTS=3` for more reliable pass/fail data.
+
+### Models Skipped
+
+| Model | Reason |
+|-------|--------|
+| `qwen2.5-0.5b-instruct` | Too small for useful work |
+| `qwen2.5-coder-0.5b-instruct` | Too small, stabilized mode fails concise |
+| `qwen/qwen2.5-coder-14b` | 7.6s structured latency — unusable on current hardware |
+| `text-embedding-nomic-embed-text-v1.5` | Embedding model, not chat |
+
+### Profile Tuning Pattern
+
+All validated profiles follow the same tuning pattern:
+
+1. `defaults.thinking: false` — prevents token exhaustion on reasoning
+2. `defaults.max_tokens: 512` (small) or `1024` (9B) — conservative generation budget
+3. `prompt.instruction_strength: strict` — forces exact-format compliance
+4. Exact-format instruction: "For one-word or exact-format prompts, output only the requested final content"
+5. JSON instruction: "When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after."
+6. `guard.anti_loop: aggressive` — prevents repetition loops
 
 Most important tuned profile right now:
 

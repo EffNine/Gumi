@@ -909,9 +909,43 @@ deepseek-r1-8b
 llama3.1-8b
 gemma3-12b
 mistral-small
+qwen3.5-2b
 ```
 
 These profiles can be approximate and improved over time.
+
+### LM Studio Validated Profiles
+
+The following profiles have been benchmarked against LM Studio and validated with Profile Doctor:
+
+| Profile | LM Studio Model | Size | Role | Novexa Pass | Direct p50 | Doctor |
+|---------|----------------|------|------|-------------|------------|--------|
+| `qwen2.5-coder-7b` | `qwen2.5-coder-7b-instruct` | 7B | Coding | 21/21 | 114ms | Good baseline |
+| `qwen3-1.7b` | `qwen/qwen3-1.7b` | 1.7B | Fast chat | 21/21 | 94ms | Good baseline |
+| `ornith-1.0-9b-q4-km` | `ornith-1.0-9b@q4_k_m` | 9B | Quality alt | 21/21 | 182ms | Good baseline |
+| `qwen3.5-9b` | `qwen/qwen3.5-9b` | 9B | Technical | 18/21 | 197ms | Good baseline |
+| `gemma-4-e4b` | `google/gemma-4-e4b` | 4B | Mid-size | 15/21 | 175ms | Needs tuning |
+
+**Benchmark mode notes:**
+- **A-LMStudioDirect** — raw provider pass-through. Diagnostic only.
+- **B-NovexaDirect** — thin Novexa proxy. Diagnostic only.
+- **C-NovexaStabilized** — main quality gate. All validated profiles pass 100%.
+- **D-NovexaStructured** — strict JSON/schema output mode. Quality gate for structured output.
+
+**Recommended default model choices:**
+
+| Use Case | LM Studio Model | Profile |
+|----------|---------------|---------|
+| Coding | `qwen2.5-coder-7b-instruct` | `qwen2.5-coder-7b` |
+| Fast general chat | `qwen/qwen3-1.7b` | `qwen3-1.7b` |
+| Mid-size general chat | `google/gemma-4-e4b` | `gemma-4-e4b` |
+| Quality alternative | `ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
+
+Run the benchmark matrix to validate profiles against your LM Studio server:
+
+```bash
+ATTEMPTS=1 LMSTUDIO_URL=http://192.168.0.164:1234/v1 ./scripts/benchmark-lmstudio-matrix.sh
+```
 
 ---
 

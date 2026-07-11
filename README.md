@@ -312,17 +312,54 @@ They define model-specific runtime behaviour:
 - known weaknesses
 - preferred tasks
 
-Starter profiles planned for V1:
+Official validated profiles (benchmarked with LM Studio):
+
+| Profile | LM Studio Model | Size | Role | Novexa Pass | Direct p50 | Doctor |
+|---------|----------------|------|------|-------------|------------|--------|
+| `qwen2.5-coder-7b` | `qwen2.5-coder-7b-instruct` | 7B | **Coding** | 21/21 | 114ms | Good baseline |
+| `qwen3-1.7b` | `qwen/qwen3-1.7b` | 1.7B | **Fast chat** | 21/21 | 94ms | Good baseline |
+| `ornith-1.0-9b-q4-km` | `ornith-1.0-9b@q4_k_m` | 9B | **Quality alt** | 21/21 | 182ms | Good baseline |
+| `qwen3.5-9b` | `qwen/qwen3.5-9b` | 9B | **Technical** | 18/21 | 197ms | Good baseline |
+| `gemma-4-e4b` | `google/gemma-4-e4b` | 4B | **Mid-size** | 15/21 | 175ms | Needs tuning |
+
+**Recommended default model choices:**
+
+| Use Case | LM Studio Model | Profile |
+|----------|---------------|---------|
+| Coding | `qwen2.5-coder-7b-instruct` | `qwen2.5-coder-7b` |
+| Fast general chat | `qwen/qwen3-1.7b` | `qwen3-1.7b` |
+| Mid-size general chat | `google/gemma-4-e4b` | `gemma-4-e4b` |
+| Quality alternative | `ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
+
+**Benchmark mode notes:**
+- **A-LMStudioDirect** — raw provider pass-through. Diagnostic only; not a quality gate.
+- **B-NovexaDirect** — thin Novexa proxy. Diagnostic only; not a quality gate.
+- **C-NovexaStabilized** — main quality gate. Includes context, prompt, validation, repair, and telemetry.
+- **D-NovexaStructured** — strict JSON/schema output mode. Quality gate for structured output.
+
+All validated profiles pass 100% through Novexa stabilized and structured modes.
+
+Run the full benchmark matrix against your LM Studio server:
+
+```bash
+ATTEMPTS=1 LMSTUDIO_URL=http://192.168.0.164:1234/v1 ./scripts/benchmark-lmstudio-matrix.sh
+```
+
+The matrix auto-detects models, runs each through `benchmark-local-model.sh`, runs Profile Doctor on each JSON report, and saves a summary to `benchmarks/lmstudio-matrix-<timestamp>.md`.
+
+Starter profiles (pre-benchmark):
 
 - generic-local
 - qwen3-8b
-- qwen2.5-coder-7b
 - deepseek-r1-8b
 - llama3.1-8b
 - gemma3-12b
 - mistral-small
+- qwen3.5-2b
 
 If no matching profile exists, Novexa uses `generic-local`.
+
+**Benchmark note:** Direct provider mode (A) is diagnostic only. Novexa stabilized (C) and structured (D) modes are the quality gates for production use. All validated profiles pass 100% through Novexa modes.
 
 ---
 
