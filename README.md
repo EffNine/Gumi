@@ -334,10 +334,11 @@ Official validated profiles (benchmarked with LM Studio):
 **Benchmark mode notes:**
 - **A-LMStudioDirect** — raw provider pass-through. Diagnostic only; not a quality gate.
 - **B-NovexaDirect** — thin Novexa proxy. Diagnostic only; not a quality gate.
-- **C-NovexaStabilized** — main quality gate. Includes context, prompt, validation, repair, and telemetry.
-- **D-NovexaStructured** — strict JSON/schema output mode. Quality gate for structured output.
+- **C-NovexaLightweight** — minimal prompt, fastest runtime. Relaxed quality gate.
+- **D-NovexaStabilized** — main quality gate. Includes context, prompt, validation, repair, and telemetry.
+- **E-NovexaStructured** — strict JSON/schema output mode. Quality gate for structured output.
 
-All validated profiles pass 100% through Novexa stabilized and structured modes.
+All validated profiles pass 100% through Novexa stabilized, structured, and lightweight modes.
 
 Run the full benchmark matrix against your LM Studio server:
 

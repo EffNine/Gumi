@@ -4,11 +4,12 @@ set -euo pipefail
 # Novexa Local Model Benchmark
 # Usage: ./scripts/benchmark-local-model.sh <model_name>
 #
-# Runs sequential requests against a local model in four modes:
+# Runs sequential requests against a local model in five modes:
 #   A. Ollama direct with think:false
 #   B. Novexa direct mode with model profile
-#   C. Novexa stabilized mode with model profile
-#   D. Novexa structured JSON mode with model profile
+#   C. Novexa lightweight mode with model profile
+#   D. Novexa stabilized mode with model profile
+#   E. Novexa structured JSON mode with model profile
 #
 # Requirements:
 #   - ollama must be running on http://localhost:11434
@@ -390,6 +391,8 @@ run_novexa_mode() {
 
   if [ "$mode" = "direct" ]; then
     payload=$(echo "$payload" | jq '.novexa.mode = "direct"')
+  elif [ "$mode" = "lightweight" ]; then
+    payload=$(echo "$payload" | jq '.novexa.mode = "lightweight"')
   fi
 
   if [ "$BENCHMARK_DISABLE_THINKING" = "true" ]; then
@@ -506,20 +509,29 @@ for i in $(seq 1 "$ATTEMPTS"); do
   run_novexa_mode "direct" "$PROMPT_JSON" "json" "$i" "B-NovexaDirect"
 done
 
-# Mode C: Novexa stabilized mode
+# Mode C: Novexa lightweight mode
 echo ""
-echo "=== Mode C: Novexa Stabilized Mode ==="
+echo "=== Mode C: Novexa Lightweight Mode ==="
 for i in $(seq 1 "$ATTEMPTS"); do
-  run_novexa_mode "stabilized" "$PROMPT_CONCISE" "concise" "$i" "C-NovexaStabilized"
-  run_novexa_mode "stabilized" "$PROMPT_FACTUAL" "factual" "$i" "C-NovexaStabilized"
-  run_novexa_mode "stabilized" "$PROMPT_JSON" "json" "$i" "C-NovexaStabilized"
+  run_novexa_mode "lightweight" "$PROMPT_CONCISE" "concise" "$i" "C-NovexaLightweight"
+  run_novexa_mode "lightweight" "$PROMPT_FACTUAL" "factual" "$i" "C-NovexaLightweight"
+  run_novexa_mode "lightweight" "$PROMPT_JSON" "json" "$i" "C-NovexaLightweight"
 done
 
-# Mode D: Novexa structured JSON mode
+# Mode D: Novexa stabilized mode
 echo ""
-echo "=== Mode D: Novexa Structured JSON Mode ==="
+echo "=== Mode D: Novexa Stabilized Mode ==="
 for i in $(seq 1 "$ATTEMPTS"); do
-  run_novexa_mode "structured" "$PROMPT_JSON" "json" "$i" "D-NovexaStructured"
+  run_novexa_mode "stabilized" "$PROMPT_CONCISE" "concise" "$i" "D-NovexaStabilized"
+  run_novexa_mode "stabilized" "$PROMPT_FACTUAL" "factual" "$i" "D-NovexaStabilized"
+  run_novexa_mode "stabilized" "$PROMPT_JSON" "json" "$i" "D-NovexaStabilized"
+done
+
+# Mode E: Novexa structured JSON mode
+echo ""
+echo "=== Mode E: Novexa Structured JSON Mode ==="
+for i in $(seq 1 "$ATTEMPTS"); do
+  run_novexa_mode "structured" "$PROMPT_JSON" "json" "$i" "E-NovexaStructured"
 done
 
 # Print per-request table
@@ -576,7 +588,7 @@ echo "**Per-Mode Latency (p50 / p95):**"
 echo ""
 echo "| Mode | p50 (ms) | p95 (ms) | Count |"
 echo "|------|----------|----------|-------|"
-for mode_label in "$DIRECT_MODE_LABEL" "B-NovexaDirect" "C-NovexaStabilized" "D-NovexaStructured"; do
+for mode_label in "$DIRECT_MODE_LABEL" "B-NovexaDirect" "C-NovexaLightweight" "D-NovexaStabilized" "E-NovexaStructured"; do
   mode_stats=$(echo "$results_json" | jq -r "[.[] | select(.mode == \"$mode_label\" and .status == \"200\") | .latency | tonumber] | sort")
   count=$(echo "$mode_stats" | jq 'length')
   if [ "$count" -gt 0 ]; then
@@ -594,7 +606,7 @@ echo "**Novexa Repair & Retry Summary:**"
 echo ""
 echo "| Mode | Repairs | Retries |"
 echo "|------|---------|---------|"
-for mode_label in "B-NovexaDirect" "C-NovexaStabilized" "D-NovexaStructured"; do
+for mode_label in "B-NovexaDirect" "C-NovexaLightweight" "D-NovexaStabilized" "E-NovexaStructured"; do
   repairs=$(echo "$results_json" | jq -r "[.[] | select(.mode == \"$mode_label\") | .note | select(contains(\"repair\") or contains(\"retry\"))] | length")
   echo "| $mode_label | $repairs | - |"
 done
@@ -631,8 +643,8 @@ mkdir -p "$report_dir"
 
 direct_pass_rate=$(echo "$results_json" | jq --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode and .passed == "true")] | length')
 direct_total=$(echo "$results_json" | jq --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode)] | length')
-novexa_pass=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-")) and .passed == "true")] | length')
-novexa_total=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-")))] | length')
+novexa_pass=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-") or startswith("E-")) and .passed == "true")] | length')
+novexa_total=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-") or startswith("E-")))] | length')
 
 direct_p50=$(echo "$results_json" | jq -r --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode and .status == "200") | .latency | tonumber] | sort | .[(length * 0.50) | floor] // "N/A"')
 novexa_direct_p50=$(echo "$results_json" | jq -r '[.[] | select(.mode == "B-NovexaDirect" and .status == "200") | .latency | tonumber] | sort | .[(length * 0.50) | floor] // "N/A"')
@@ -660,8 +672,9 @@ latency_by_mode=$(echo "$results_json" | jq --arg direct_mode "$DIRECT_MODE_LABE
   {
     ($direct_mode): ([.[] | select(.mode == $direct_mode and .status == "200") | .latency | tonumber] | stats),
     "B-NovexaDirect": ([.[] | select(.mode == "B-NovexaDirect" and .status == "200") | .latency | tonumber] | stats),
-    "C-NovexaStabilized": ([.[] | select(.mode == "C-NovexaStabilized" and .status == "200") | .latency | tonumber] | stats),
-    "D-NovexaStructured": ([.[] | select(.mode == "D-NovexaStructured" and .status == "200") | .latency | tonumber] | stats)
+    "C-NovexaLightweight": ([.[] | select(.mode == "C-NovexaLightweight" and .status == "200") | .latency | tonumber] | stats),
+    "D-NovexaStabilized": ([.[] | select(.mode == "D-NovexaStabilized" and .status == "200") | .latency | tonumber] | stats),
+    "E-NovexaStructured": ([.[] | select(.mode == "E-NovexaStructured" and .status == "200") | .latency | tonumber] | stats)
   }')
 
 jq -n \
@@ -690,7 +703,7 @@ jq -n \
     provider: $provider,
     generated_at: $generated_at,
     attempts_per_prompt: $attempts,
-    modes_tested: [$direct_mode, "B-NovexaDirect", "C-NovexaStabilized", "D-NovexaStructured"],
+    modes_tested: [$direct_mode, "B-NovexaDirect", "C-NovexaLightweight", "D-NovexaStabilized", "E-NovexaStructured"],
     quality: {
       total_requests: $total_requests,
       passed: $passed_requests,
@@ -714,7 +727,7 @@ cat > "$report_file" << REPORTEOF
 **Provider:** $BENCHMARK_PROVIDER
 **Date:** $completed_at
 **Attempts per prompt:** $ATTEMPTS
-**Modes tested:** $DIRECT_MODE_LABEL, B-NovexaDirect, C-NovexaStabilized, D-NovexaStructured
+**Modes tested:** $DIRECT_MODE_LABEL, B-NovexaDirect, C-NovexaLightweight, D-NovexaStabilized, E-NovexaStructured
 
 ## Quality Metrics
 
@@ -736,7 +749,7 @@ cat > "$report_file" << REPORTEOF
 |------|----------|----------|-------|
 REPORTEOF
 
-for mode_label in "$DIRECT_MODE_LABEL" "B-NovexaDirect" "C-NovexaStabilized" "D-NovexaStructured"; do
+for mode_label in "$DIRECT_MODE_LABEL" "B-NovexaDirect" "C-NovexaLightweight" "D-NovexaStabilized" "E-NovexaStructured"; do
   mode_stats=$(echo "$results_json" | jq -r "[.[] | select(.mode == \"$mode_label\" and .status == \"200\") | .latency | tonumber] | sort")
   count=$(echo "$mode_stats" | jq 'length')
   if [ "$count" -gt 0 ]; then

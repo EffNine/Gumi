@@ -132,14 +132,16 @@ for model in "${model_list[@]}"; do
 
   # Extract stats from JSON report
   direct_pass=$(jq '[.results[] | select((.mode | startswith("A-")) and .passed == "true")] | length' "$json_report")
-  stabilized_pass=$(jq '[.results[] | select((.mode | startswith("C-")) and .passed == "true")] | length' "$json_report")
-  structured_pass=$(jq '[.results[] | select((.mode | startswith("D-")) and .passed == "true")] | length' "$json_report")
+  lightweight_pass=$(jq '[.results[] | select((.mode | startswith("C-")) and .passed == "true")] | length' "$json_report")
+  stabilized_pass=$(jq '[.results[] | select((.mode | startswith("D-")) and .passed == "true")] | length' "$json_report")
+  structured_pass=$(jq '[.results[] | select((.mode | startswith("E-")) and .passed == "true")] | length' "$json_report")
 
   direct_p50=$(jq -r '[.latency_by_mode | to_entries[] | select(.key | startswith("A-")) | .value.p50 // empty] | first // "N/A"' "$json_report")
-  stabilized_p50=$(jq -r '.latency_by_mode["C-NovexaStabilized"].p50 // "N/A"' "$json_report")
-  structured_p50=$(jq -r '.latency_by_mode["D-NovexaStructured"].p50 // "N/A"' "$json_report")
+  lightweight_p50=$(jq -r '.latency_by_mode["C-NovexaLightweight"].p50 // "N/A"' "$json_report")
+  stabilized_p50=$(jq -r '.latency_by_mode["D-NovexaStabilized"].p50 // "N/A"' "$json_report")
+  structured_p50=$(jq -r '.latency_by_mode["E-NovexaStructured"].p50 // "N/A"' "$json_report")
 
-  summary_rows+=("$model|$json_report|$doctor_result|$direct_pass|$stabilized_pass|$structured_pass|$direct_p50|$stabilized_p50|$structured_p50")
+  summary_rows+=("$model|$json_report|$doctor_result|$direct_pass|$lightweight_pass|$stabilized_pass|$structured_pass|$direct_p50|$lightweight_p50|$stabilized_p50|$structured_p50")
 
   overall_total=$((overall_total + 1))
   if [ "$bench_exit" -eq 0 ]; then
@@ -165,20 +167,21 @@ summary_file="$BENCHMARK_DIR/lmstudio-matrix-${matrix_timestamp}.md"
   echo ""
   echo "## Summary"
   echo ""
-  echo "| Model | JSON Report | Doctor Result | Direct Pass | Stabilized Pass | Structured Pass | Direct p50 (ms) | Stabilized p50 (ms) | Structured p50 (ms) |"
-  echo "|-------|-------------|---------------|-------------|-----------------|-----------------|-----------------|---------------------|----------------------|"
+  echo "| Model | JSON Report | Doctor Result | Direct Pass | Lightweight Pass | Stabilized Pass | Structured Pass | Direct p50 (ms) | Lightweight p50 (ms) | Stabilized p50 (ms) | Structured p50 (ms) |"
+  echo "|-------|-------------|---------------|-------------|------------------|-----------------|-----------------|-----------------|-----------------------|----------------------|-----------------------|"
   for row in "${summary_rows[@]}"; do
-    IFS='|' read -r model path doctor d_pass s_pass st_pass d_p50 s_p50 st_p50 <<< "$row"
-    echo "| $model | $path | $doctor | $d_pass | $s_pass | $st_pass | $d_p50 | $s_p50 | $st_p50 |"
+    IFS='|' read -r model path doctor d_pass l_pass s_pass st_pass d_p50 l_p50 s_p50 st_p50 <<< "$row"
+    echo "| $model | $path | $doctor | $d_pass | $l_pass | $s_pass | $st_pass | $d_p50 | $l_p50 | $s_p50 | $st_p50 |"
   done
   echo ""
   echo "## Legend"
   echo ""
   echo "- **Direct Pass**: Number of passing requests in direct provider mode (A-*)"
-  echo "- **Stabilized Pass**: Number of passing requests in Novexa stabilized mode (C-NovexaStabilized)"
-  echo "- **Structured Pass**: Number of passing requests in Novexa structured mode (D-NovexaStructured)"
+  echo "- **Lightweight Pass**: Number of passing requests in Novexa lightweight mode (C-NovexaLightweight)"
+  echo "- **Stabilized Pass**: Number of passing requests in Novexa stabilized mode (D-NovexaStabilized)"
+  echo "- **Structured Pass**: Number of passing requests in Novexa structured mode (E-NovexaStructured)"
   echo "- **p50 (ms)**: Median latency in milliseconds for each mode"
-  echo "- **Doctor Result**: Profile Doctor assessment (Good baseline / Needs tuning / Insufficient data)"
+  echo "- **Doctor Result**: Profile Doctor assessment (Good baseline / Needs tuning / Insufficient data / Good baseline with lightweight caveat)"
 } > "$summary_file"
 
 echo "=============================================="
