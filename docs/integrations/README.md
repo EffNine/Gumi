@@ -19,6 +19,7 @@ selects the correct provider automatically.
 |-------|-------------|
 | [OpenCode](./opencode.md) | Connect OpenCode through Novexa lightweight mode. Recommended for coding agents. |
 | [Continue](./continue.md) | Connect Continue for chat, inline edits, and tab autocomplete through Novexa. |
+| [Cline](./cline.md) | Connect Cline for file editing, terminal commands, and codebase search through Novexa. |
 
 ## Integration types
 
@@ -27,12 +28,11 @@ selects the correct provider automatically.
   JS SDK, cURL, and similar.
 - **LM Studio through Novexa** — LM Studio provides the local inference engine;
   Novexa adds prompt profiles, validation, repair, and structured output on top.
-- **OpenCode through Novexa lightweight mode** — optimised for agentic coding
-  workloads with minimal prompt overhead and 24 % faster responses.
+- **Coding agents through Novexa lightweight mode** — optimised for agentic
+  coding workloads with minimal prompt overhead and 24 % faster responses.
 
 ## Planned guides
 
-- [ ] Cline
 - [ ] Open WebUI
 - [ ] Generic OpenAI SDK clients (Python, JavaScript)
 - [ ] LM Studio setup guide
