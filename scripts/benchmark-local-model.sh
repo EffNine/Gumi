@@ -25,6 +25,7 @@ fi
 
 OLLAMA_URL="http://localhost:11434"
 NOVEXA_URL="http://localhost:8787/v1"
+NOVEXA_HEALTH_URL="http://localhost:8787/health"
 
 # Override with environment variable
 ATTEMPTS="${ATTEMPTS:-3}"
@@ -39,6 +40,27 @@ fail=0
 total=0
 
 results_json='[]'
+
+preflight_checks() {
+  if ! command -v jq > /dev/null 2>&1; then
+    echo "Error: jq is required to run this benchmark." >&2
+    exit 1
+  fi
+  if ! command -v curl > /dev/null 2>&1; then
+    echo "Error: curl is required to run this benchmark." >&2
+    exit 1
+  fi
+  if ! curl -fsS "$OLLAMA_URL/api/tags" > /dev/null 2>&1; then
+    echo "Error: Ollama is not reachable at $OLLAMA_URL." >&2
+    echo "Suggestion: start Ollama and make sure the model is pulled: ollama pull $MODEL" >&2
+    exit 1
+  fi
+  if ! curl -fsS "$NOVEXA_HEALTH_URL" > /dev/null 2>&1; then
+    echo "Error: Novexa is not reachable at $NOVEXA_HEALTH_URL." >&2
+    echo "Suggestion: start Novexa with: cd runtime && go run ./cmd/novexa start" >&2
+    exit 1
+  fi
+}
 
 # Scoring helpers
 score_exact_match() {
@@ -318,6 +340,8 @@ echo "  Attempts per prompt: $ATTEMPTS"
 echo "  Date:  $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo "============================================"
 
+preflight_checks
+
 # Warm up
 warm_up_ollama
 warm_up_novexa
@@ -443,3 +467,103 @@ fi
 echo ""
 echo "---"
 echo "Benchmark completed at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+successful_requests=$(echo "$results_json" | jq '[.[] | select(.status == "200")] | length')
+if [ "$successful_requests" -eq 0 ]; then
+  echo "No successful benchmark requests were recorded. Report export skipped." >&2
+  exit 1
+fi
+
+# ─────────────────────────────────────────────────────────────────
+#  Markdown report export
+# ─────────────────────────────────────────────────────────────────
+
+model_safe_name=$(echo "$MODEL" | tr ':.' '--' | tr -cd 'a-zA-Z0-9_-')
+timestamp=$(date -u '+%Y%m%dT%H%M%SZ')
+report_dir="benchmarks"
+report_file="${report_dir}/${model_safe_name}-${timestamp}.md"
+
+mkdir -p "$report_dir"
+
+ollama_pass_rate=$(echo "$results_json" | jq '[.[] | select(.mode == "A-OllamaDirect" and .passed == "true")] | length')
+ollama_total=$(echo "$results_json" | jq '[.[] | select(.mode == "A-OllamaDirect")] | length')
+novexa_pass=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-")) and .passed == "true")] | length')
+novexa_total=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-")))] | length')
+
+ollama_p50=$(echo "$results_json" | jq -r '[.[] | select(.mode == "A-OllamaDirect" and .status == "200") | .latency | tonumber] | sort | .[(length * 0.50) | floor] // "N/A"')
+novexa_direct_p50=$(echo "$results_json" | jq -r '[.[] | select(.mode == "B-NovexaDirect" and .status == "200") | .latency | tonumber] | sort | .[(length * 0.50) | floor] // "N/A"')
+
+conclusion=""
+if [ "$novexa_total" -gt 0 ] && [ "$ollama_total" -gt 0 ]; then
+  if [ "$novexa_pass" -ge "$ollama_pass_rate" ] 2>/dev/null; then
+    if [ "$novexa_direct_p50" != "N/A" ] && [ "$ollama_p50" != "N/A" ] && [ "$novexa_direct_p50" -le $((ollama_p50 * 2)) ] 2>/dev/null; then
+      conclusion="Worth it — Novexa modes match or exceed direct Ollama quality with acceptable latency overhead."
+    else
+      conclusion="Needs tuning — Novexa quality is acceptable but latency overhead is high."
+    fi
+  else
+    conclusion="Needs tuning — Novexa modes underperform direct Ollama on quality. Review profile settings and prompt instructions."
+  fi
+else
+  conclusion="Insufficient data — one or more modes produced no results."
+fi
+
+cat > "$report_file" << REPORTEOF
+# Benchmark Report
+
+**Model:** $MODEL
+**Date:** $(date -u '+%Y-%m-%dT%H:%M:%SZ')
+**Attempts per prompt:** $ATTEMPTS
+**Modes tested:** A-OllamaDirect, B-NovexaDirect, C-NovexaStabilized, D-NovexaStructured
+
+## Quality Metrics
+
+| Metric | Value |
+|--------|-------|
+| Total requests | $total_requests |
+| Passed | $passed_requests |
+| Failed | $failed_requests |
+| Empty responses | $empty_count |
+| HTTP/curl errors | $error_count |
+| Exact instruction following | $exact_count / $(echo "$results_json" | jq '[.[] | select(.prompt == "concise" or .prompt == "factual")] | length') |
+| Valid JSON (all JSON prompts) | $json_valid_count / $(echo "$results_json" | jq '[.[] | select(.prompt == "json")] | length') |
+| JSON with required keys | $json_keys_count / $(echo "$results_json" | jq '[.[] | select(.prompt == "json")] | length') |
+| No markdown fences | $no_fence_count / $total_requests |
+
+## Per-Mode Latency
+
+| Mode | p50 (ms) | p95 (ms) | Count |
+|------|----------|----------|-------|
+REPORTEOF
+
+for mode_label in "A-OllamaDirect" "B-NovexaDirect" "C-NovexaStabilized" "D-NovexaStructured"; do
+  mode_stats=$(echo "$results_json" | jq -r "[.[] | select(.mode == \"$mode_label\" and .status == \"200\") | .latency | tonumber] | sort")
+  count=$(echo "$mode_stats" | jq 'length')
+  if [ "$count" -gt 0 ]; then
+    p50=$(echo "$mode_stats" | jq '.[(length * 0.50) | floor]')
+    p95=$(echo "$mode_stats" | jq '.[(length * 0.95) | floor]')
+    echo "| $mode_label | $p50 | $p95 | $count |" >> "$report_file"
+  else
+    echo "| $mode_label | N/A | N/A | 0 |" >> "$report_file"
+  fi
+done
+
+cat >> "$report_file" << REPORTEOF
+
+## Per-Request Results
+
+| Mode | Prompt | # | Status | Lat(ms) | Pass | Exact | JSON | Keys | NoFence | Note |
+|------|--------|---|--------|---------|------|-------|------|------|---------|------|
+REPORTEOF
+
+echo "$results_json" | jq -r '.[] | "| \(.mode) | \(.prompt) | \(.attempt) | \(.status) | \(.latency) | \(.passed) | \(.exact_match) | \(.json_valid) | \(.json_keys) | \(.no_fence) | \(.note) |"' >> "$report_file"
+
+cat >> "$report_file" << REPORTEOF
+
+## Conclusion
+
+$conclusion
+REPORTEOF
+
+echo ""
+echo "Report saved to $report_file"

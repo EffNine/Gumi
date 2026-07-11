@@ -394,6 +394,24 @@ novexa stop
 novexa restart
 ```
 
+### Local Model Benchmark Script
+
+For reproducible quality and latency testing, use the standalone benchmark script:
+
+```bash
+./scripts/benchmark-local-model.sh qwen3.5:2b
+```
+
+The script runs sequential requests in four modes (Ollama direct, Novexa direct, Novexa stabilized, Novexa structured) and scores exact instruction following, JSON validity, and markdown fence avoidance. Results are printed as tables to stdout and saved as a Markdown report under `benchmarks/<model>-<timestamp>.md`.
+
+Override attempts per prompt:
+
+```bash
+ATTEMPTS=5 ./scripts/benchmark-local-model.sh qwen3.5:2b
+```
+
+Requirements: `ollama`, `novexa`, `jq`.
+
 Most important first-run commands:
 
 ```bash

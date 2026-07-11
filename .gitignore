@@ -49,6 +49,7 @@ dashboard/vite.config.js
 
 # Build outputs
 dist/
+benchmarks/
 build/
 bin/
 novexa
