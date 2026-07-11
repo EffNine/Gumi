@@ -1,22 +1,22 @@
-id: qwen3.5-9b
-name: Qwen 3.5 9B
-version: 2
-family: qwen
+id: ornith-1.0-9b-q4-km
+name: Ornith 1.0 9B Q4_K_M
+version: 1
+family: ornith
 size: 9b
-type: instruct
+type: chat
 
 aliases:
-  - qwen3.5:9b
-  - qwen3.5:latest
+  - ornith:9b
+  - ornith:latest
 
 models:
   ollama:
-    - qwen3.5:9b
-    - qwen3.5:latest
+    - ornith:9b
+    - ornith:latest
   lmstudio:
-    - qwen/qwen3.5-9b
+    - ornith-1.0-9b@q4_k_m
   openai_compatible_local:
-    - qwen3.5-9b
+    - ornith-1.0-9b-q4-km
 
 capabilities:
   chat: true
@@ -26,7 +26,7 @@ capabilities:
   tool_calling: weak
   vision: false
   long_context: medium
-  coding: strong
+  coding: medium
   reasoning: medium
   creative_writing: medium
 
@@ -34,38 +34,36 @@ defaults:
   temperature: 0.4
   top_p: 0.9
   repeat_penalty: 1.12
-  max_tokens: 512
+  max_tokens: 1024
   thinking: false
 
 context:
   strategy: hybrid
-  max_input_tokens: 24000
+  max_input_tokens: 12000
   preserve_recent_messages: 8
   compression: true
 
 prompt:
-  style: technical
+  style: general
   instruction_strength: strong
   json_instruction_style: explicit
   system_prompt_style: direct
   instructions:
-    - Answer technical questions clearly and accurately.
+    - Answer concisely and directly. Do not include reasoning or chain-of-thought.
     - For one-word or exact-format prompts, output only the requested final content.
     - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
     - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
     - Avoid repeating the same sentence or explanation.
+    - If you are uncertain, state uncertainty once and stop.
 
 guard:
-  anti_loop: aggressive
+  anti_loop: standard
   context_overflow: true
   structured_output: true
   json_repair: true
   repetition_detection: true
 
 notes:
-  - Good general-purpose technical local model.
+  - 9B model with Q4_K_M quantization. Good general-purpose chat model.
   - Thinking is disabled by default to avoid exhausting max_tokens on reasoning.
-  - May repeat when context is too long.
-  - Requires explicit JSON-only instructions for structured output.
-  - May over-explain simple answers.
-  - Validated with LM Studio model qwen/qwen3.5-9b (Good baseline, Novexa 18/21, direct p50 197ms).
+  - Validated with LM Studio model ornith-1.0-9b@q4_k_m (21/21 Novexa passes, Good baseline, direct p50 182ms).

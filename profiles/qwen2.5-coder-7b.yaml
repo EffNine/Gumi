@@ -1,6 +1,6 @@
 id: qwen2.5-coder-7b
 name: Qwen2.5 Coder 7B
-version: 1
+version: 2
 family: qwen
 size: 7b
 type: instruct
@@ -15,6 +15,7 @@ models:
     - qwen2.5-coder:latest
   lmstudio:
     - qwen2.5-coder-7b
+    - qwen2.5-coder-7b-instruct
   openai_compatible_local:
     - qwen2.5-coder-7b
 
@@ -35,6 +36,7 @@ defaults:
   top_p: 0.9
   repeat_penalty: 1.12
   max_tokens: 4096
+  thinking: false
 
 context:
   strategy: hybrid
@@ -63,3 +65,4 @@ notes:
   - Tuned for coding and debugging tasks.
   - May need strict formatting for reliable structured output.
   - Conservative temperature improves code correctness.
+  - Validated with LM Studio model qwen2.5-coder-7b-instruct (21/21 Novexa passes, Good baseline).

@@ -107,6 +107,69 @@ func TestResolveLMStudioModelToProfile(t *testing.T) {
 	}
 }
 
+func TestResolveLMStudioQwen3_1_7b(t *testing.T) {
+	profiles := []*Profile{
+		{
+			ID:      "qwen3-1.7b",
+			Version: 1,
+			Family:  "qwen",
+			Models: map[string][]string{
+				"lmstudio": {"qwen/qwen3-1.7b"},
+			},
+		},
+	}
+	r := NewResolver(profiles)
+	m := r.Resolve("lmstudio", "qwen/qwen3-1.7b")
+	if m.Profile.ID != "qwen3-1.7b" {
+		t.Fatalf("expected qwen3-1.7b, got %q", m.Profile.ID)
+	}
+	if m.IsFallback {
+		t.Fatal("expected a real match, not fallback")
+	}
+}
+
+func TestResolveLMStudioOrnithQ4KM(t *testing.T) {
+	profiles := []*Profile{
+		{
+			ID:      "ornith-1.0-9b-q4-km",
+			Version: 1,
+			Family:  "ornith",
+			Models: map[string][]string{
+				"lmstudio": {"ornith-1.0-9b@q4_k_m"},
+			},
+		},
+	}
+	r := NewResolver(profiles)
+	m := r.Resolve("lmstudio", "ornith-1.0-9b@q4_k_m")
+	if m.Profile.ID != "ornith-1.0-9b-q4-km" {
+		t.Fatalf("expected ornith-1.0-9b-q4-km, got %q", m.Profile.ID)
+	}
+	if m.IsFallback {
+		t.Fatal("expected a real match, not fallback")
+	}
+}
+
+func TestResolveLMStudioGemma4E4B(t *testing.T) {
+	profiles := []*Profile{
+		{
+			ID:      "gemma-4-e4b",
+			Version: 1,
+			Family:  "gemma",
+			Models: map[string][]string{
+				"lmstudio": {"google/gemma-4-e4b"},
+			},
+		},
+	}
+	r := NewResolver(profiles)
+	m := r.Resolve("lmstudio", "google/gemma-4-e4b")
+	if m.Profile.ID != "gemma-4-e4b" {
+		t.Fatalf("expected gemma-4-e4b, got %q", m.Profile.ID)
+	}
+	if m.IsFallback {
+		t.Fatal("expected a real match, not fallback")
+	}
+}
+
 func TestResolverAlwaysIncludesGenericFallback(t *testing.T) {
 	r := NewResolver(nil)
 	m := r.Resolve("ollama", "anything")
