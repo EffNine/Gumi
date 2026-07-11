@@ -10,6 +10,9 @@ Thumbs.db
 .claude/
 .remember/
 
+# Private/internal Novexa documentation
+private-docs/
+
 # Playwright / browser test artifacts
 test-results/
 playwright-report/
