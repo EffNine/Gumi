@@ -204,6 +204,9 @@ func (s *Server) recordStreamTelemetry(ctx context.Context, reqID string, start 
 			record.ThinkingEnabled = result.Context.ThinkingTelemetry.ThinkingEnabled
 			record.ReasoningContentPresent = result.Context.ThinkingTelemetry.ReasoningContentPresent
 		}
+		// Agent-specific telemetry fields.
+		record.AgentStepCount = result.Context.StepCount
+		record.AgentLoopDetected = result.Context.LoopDetected
 		// Streaming token counts from accumulated content
 		record.PromptTokens = 0
 		record.CompletionTokens = result.Context.StreamingTokenCount
@@ -257,6 +260,9 @@ func (s *Server) recordRequestTelemetry(ctx context.Context, reqID string, start
 			record.ThinkingEnabled = result.Context.ThinkingTelemetry.ThinkingEnabled
 			record.ReasoningContentPresent = result.Context.ThinkingTelemetry.ReasoningContentPresent
 		}
+		// Agent-specific telemetry fields.
+		record.AgentStepCount = result.Context.StepCount
+		record.AgentLoopDetected = result.Context.LoopDetected
 	}
 
 	if result.Response != nil {
@@ -306,6 +312,12 @@ func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.Provide
 		status = http.StatusUnprocessableEntity
 	case provider.ProviderAuthError:
 		status = http.StatusUnauthorized
+	case provider.AGENT_STEP_LIMIT_EXCEEDED:
+		status = http.StatusTooManyRequests
+	case provider.AGENT_TOOL_CALL_LOOP:
+		status = http.StatusConflict
+	case provider.AGENT_INVALID_TOOL_CALL:
+		status = http.StatusUnprocessableEntity
 	}
 
 	errResp := api.ErrorResponse{

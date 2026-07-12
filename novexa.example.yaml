@@ -20,6 +20,11 @@ runtime:
   port: 8787
   environment: local
   log_level: info
+  agent:
+    max_steps: 30
+    tool_call_timeout_seconds: 120
+    context_compaction_threshold: 0.85
+    loop_detection: strict
 
 dashboard:
   enabled: true

@@ -115,11 +115,7 @@ func (e *Engine) RunChatCompletion(ctx context.Context, requestID string, req ap
 	case ModeStabilized, ModeStructured:
 		return e.runStabilized(ctx, pc)
 	case ModeAgent:
-		return e.fail(pc, provider.ProviderError{
-			Code:       provider.ProviderMisconfigured,
-			Message:    "agent mode is reserved for a future Novexa release",
-			Suggestion: "Use direct, lightweight, stabilized, or structured mode.",
-		}, "unsupported runtime mode")
+		return e.runAgent(ctx, pc)
 	default:
 		return e.fail(pc, provider.ProviderError{
 			Code:       provider.ProviderMisconfigured,
@@ -173,11 +169,7 @@ func (e *Engine) RunChatCompletionStream(ctx context.Context, requestID string, 
 	case ModeStabilized:
 		return e.runStreamStabilized(ctx, pc, out)
 	case ModeAgent:
-		return e.failStream(pc, provider.ProviderError{
-			Code:       provider.ProviderMisconfigured,
-			Message:    "agent mode is reserved for a future Novexa release",
-			Suggestion: "Use direct, lightweight, stabilized, or structured mode.",
-		}, "unsupported runtime mode")
+		return e.runStreamAgent(ctx, pc, out)
 	default:
 		return e.failStream(pc, provider.ProviderError{
 			Code:       provider.ProviderMisconfigured,
@@ -555,6 +547,290 @@ func (e *Engine) runStabilized(ctx context.Context, pc *Context) Result {
 		return result
 	}
 	return e.callProviderGenerate(ctx, pc)
+}
+
+// runAgent implements the agent mode pipeline for non-streaming requests.
+// It extends stabilized mode with step budget enforcement, tool-call loop
+// detection, tool-call JSON validation/repair, and context compaction hints.
+func (e *Engine) runAgent(ctx context.Context, pc *Context) Result {
+	pc.AddEvent("pipeline", "agent_mode_selected", SeverityInfo, "agent mode selected", nil)
+
+	if result := e.resolveProviderAndProfile(ctx, pc); result.Error.Code != "" {
+		return result
+	}
+	e.prepareToolShim(pc)
+	e.applyProfileDefaults(pc, &pc.NormalizedRequest)
+
+	// Force thinking OFF in agent mode — reasoning wastes context budget and
+	// breaks tool-call parsing.
+	pc.ThinkingMode = "disabled"
+	pc.ThinkingDecisionReason = "agent_mode_forced_disabled"
+	pc.AddEvent("thinking", "agent_thinking_disabled", SeverityInfo, "thinking disabled in agent mode", map[string]string{
+		"reason": "reasoning wastes context budget and breaks tool-call parsing",
+	})
+
+	// Agent guard: step budget + tool-call loop detection.
+	// Run BEFORE prepareContext/buildPrompt so we check the original messages.
+	if result := e.applyAgentGuard(pc); result.Error.Code != "" {
+		return result
+	}
+
+	e.prepareContext(pc)
+	e.buildPrompt(pc)
+	e.applyInstructionAssist(pc)
+
+	// Context compaction hint: check if estimated tokens exceed threshold.
+	e.checkAgentContextCompaction(pc)
+
+	result := e.callProviderGenerate(ctx, pc)
+	if result.Error.Code != "" {
+		return result
+	}
+
+	// Agent post-processing: strip reasoning, normalize tools, validate tool-call JSON.
+	e.agentPostProcess(pc)
+
+	pc.AddEvent("pipeline", "agent_completed", SeverityInfo, "agent mode pipeline completed", map[string]string{
+		"step_count": fmt.Sprintf("%d", pc.StepCount),
+	})
+
+	e.recordTelemetry(ctx, pc)
+
+	return result
+}
+
+// runStreamAgent implements the agent mode pipeline for streaming requests.
+// Governance checks run pre-generation; tool-call validation runs post-hoc
+// on the accumulated stream buffer.
+func (e *Engine) runStreamAgent(ctx context.Context, pc *Context, out chan<- api.ChatCompletionChunk) StreamResult {
+	pc.AddEvent("pipeline", "agent_mode_selected", SeverityInfo, "agent mode selected for streaming", nil)
+
+	if result := e.resolveProviderAndProfile(ctx, pc); result.Error.Code != "" {
+		return e.failStream(pc, result.Error, "provider selection failed")
+	}
+	e.prepareToolShim(pc)
+	e.applyProfileDefaults(pc, &pc.NormalizedRequest)
+
+	// Force thinking OFF in agent mode.
+	pc.ThinkingMode = "disabled"
+	pc.ThinkingDecisionReason = "agent_mode_forced_disabled"
+	pc.AddEvent("thinking", "agent_thinking_disabled", SeverityInfo, "thinking disabled in agent mode", map[string]string{
+		"reason": "reasoning wastes context budget and breaks tool-call parsing",
+	})
+
+	// Agent guard: step budget + tool-call loop detection.
+	// Run BEFORE prepareContext/buildPrompt so we check the original messages.
+	if result := e.applyAgentGuard(pc); result.Error.Code != "" {
+		return e.failStream(pc, result.Error, "agent guard blocked request")
+	}
+
+	e.prepareContext(pc)
+	e.buildPrompt(pc)
+	e.applyInstructionAssist(pc)
+
+	// Context compaction hint.
+	e.checkAgentContextCompaction(pc)
+
+	streamResult := e.callProviderGenerateStream(ctx, pc, out)
+	if streamResult.Error.Code != "" {
+		return streamResult
+	}
+
+	// Post-hoc tool-call validation on accumulated stream buffer.
+	e.agentPostProcessStream(pc)
+
+	pc.AddEvent("pipeline", "streaming_agent_completed", SeverityInfo, "agent mode streaming pipeline completed", map[string]string{
+		"step_count": fmt.Sprintf("%d", pc.StepCount),
+	})
+
+	e.recordTelemetry(ctx, pc)
+
+	return streamResult
+}
+
+// applyAgentGuard runs the agent-specific guard checks (step budget + tool-call
+// loop detection). It maps the guard Decision to pipeline actions.
+func (e *Engine) applyAgentGuard(pc *Context) Result {
+	agentCfg := e.cfg.Runtime.Agent
+	agentIn := guardengine.AgentInput{
+		MaxSteps:      agentCfg.MaxSteps,
+		LoopDetection: agentCfg.LoopDetection,
+	}
+
+	// Config loop_detection takes precedence. Only fall back to profile's
+	// anti_loop when the config value is empty.
+	if agentIn.LoopDetection == "" && pc.ModelProfile != nil && pc.ModelProfile.Guard.AntiLoop != "" {
+		agentIn.LoopDetection = pc.ModelProfile.Guard.AntiLoop
+	}
+
+	out := e.guardEngine.CheckAgent(guardengine.Input{
+		Messages:       pc.NormalizedRequest.Messages,
+		ResponseFormat: pc.NormalizedRequest.ResponseFormat,
+		RuntimeMode:    string(pc.RuntimeMode),
+		ContextReport:  pc.ContextReport,
+		ModelProfile:   pc.ModelProfile,
+	}, agentIn)
+
+	pc.GuardReport = &out.Report
+	pc.AgentWarnings = append(pc.AgentWarnings, out.Warnings...)
+
+	pc.AddEvent("guard", "agent_step_check", SeverityInfo, "agent step budget check", map[string]string{
+		"step_count": fmt.Sprintf("%d", pc.StepCount),
+		"max_steps":  fmt.Sprintf("%d", agentCfg.MaxSteps),
+	})
+
+	if out.Report.Blocked {
+		pc.LoopDetected = true
+		pc.AddEvent("guard", "agent_tool_loop_check", SeverityWarning, "agent tool call loop detected", map[string]string{
+			"loop_detected": "true",
+		})
+		return e.fail(pc, out.Error, "agent guard blocked request")
+	}
+
+	if out.Report.Decision == guardengine.DecisionWarn {
+		pc.LoopDetected = true
+		pc.AddEvent("guard", "agent_tool_loop_check", SeverityWarning, "agent tool call loop warning", map[string]string{
+			"loop_detected": "true",
+		})
+		// Inject loop-break hint into system prompt.
+		loopHint := "You appear to be repeating the same tool call. Try a different approach or report the blockage to the user."
+		messages := pc.NormalizedRequest.Messages
+		for i, msg := range messages {
+			if msg.Role == "system" {
+				if s, ok := msg.Content.(string); ok {
+					messages[i].Content = s + "\n\n" + loopHint
+				}
+				break
+			}
+		}
+	}
+
+	pc.AddEvent("guard", "agent_guard_completed", SeverityInfo, "agent guard checks completed", map[string]string{
+		"decision": string(out.Report.Decision),
+	})
+	return Result{}
+}
+
+// checkAgentContextCompaction estimates token usage and emits a compaction
+// hint if the estimated tokens exceed the threshold of the model's context limit.
+func (e *Engine) checkAgentContextCompaction(pc *Context) {
+	agentCfg := e.cfg.Runtime.Agent
+	threshold := agentCfg.ContextCompactionThreshold
+	if threshold <= 0 {
+		threshold = 0.85
+	}
+
+	contextLimit := 32000
+	if pc.ModelProfile != nil && pc.ModelProfile.ContextLimit > 0 {
+		contextLimit = pc.ModelProfile.ContextLimit
+	}
+
+	estimated := contextengine.EstimateMessages(pc.NormalizedRequest.Messages)
+	limit := int(float64(contextLimit) * threshold)
+
+	if estimated >= limit {
+		pc.ContextCompactionCount++
+		pc.AddEvent("context", "agent_context_compaction_hint", SeverityInfo, "context compaction recommended", map[string]string{
+			"estimated_tokens": fmt.Sprintf("%d", estimated),
+			"threshold_tokens": fmt.Sprintf("%d", limit),
+			"context_limit":    fmt.Sprintf("%d", contextLimit),
+		})
+
+		// Inject compaction hint into system prompt.
+		compactionHint := "The conversation is approaching the model's context limit. Summarize key findings and trim redundant information."
+		messages := pc.NormalizedRequest.Messages
+		for i, msg := range messages {
+			if msg.Role == "system" {
+				if s, ok := msg.Content.(string); ok {
+					messages[i].Content = s + "\n\n" + compactionHint
+				}
+				break
+			}
+		}
+	}
+}
+
+// agentPostProcess runs agent-specific post-generation processing:
+// strip reasoning, normalize tool response, validate tool-call JSON.
+func (e *Engine) agentPostProcess(pc *Context) {
+	if pc.FinalResponse == nil || len(pc.FinalResponse.Choices) == 0 {
+		return
+	}
+
+	// Always strip reasoning content in agent mode.
+	e.stripReasoningContent(pc)
+
+	// Normalize tool response (same as stabilized mode).
+	e.normalizeToolResponse(pc)
+
+	// Validate tool-call JSON.
+	msg := &pc.FinalResponse.Choices[0].Message
+	for _, call := range msg.ToolCalls {
+		if call.Function.Arguments == "" {
+			continue
+		}
+		pc.ToolCallValidated = true
+		pc.AddEvent("agent", "agent_tool_call_validated", SeverityInfo, "tool call JSON validated", map[string]string{
+			"tool_name": call.Function.Name,
+		})
+
+		if !json.Valid([]byte(call.Function.Arguments)) {
+			// Try repair.
+			repaired, err := e.repair.RepairJSONString(call.Function.Arguments)
+			if err == nil && repaired != call.Function.Arguments {
+				call.Function.Arguments = repaired
+				pc.ToolCallRepaired = true
+				pc.AddEvent("agent", "agent_tool_call_repaired", SeverityInfo, "tool call JSON repaired", map[string]string{
+					"tool_name": call.Function.Name,
+				})
+			} else {
+				pc.AddEvent("agent", "agent_invalid_tool_call", SeverityWarning, "tool call JSON invalid and could not be repaired", map[string]string{
+					"tool_name": call.Function.Name,
+				})
+			}
+		}
+	}
+
+	// Record telemetry for agent-specific fields.
+	pc.ThinkingTelemetry = resolveThinkingTelemetry(pc)
+}
+
+// agentPostProcessStream runs agent-specific post-processing on the accumulated
+// stream buffer. It validates tool-call JSON if the tool shim was active.
+func (e *Engine) agentPostProcessStream(pc *Context) {
+	if pc.StreamBuffer == "" || !pc.ToolShimActive {
+		return
+	}
+
+	// Parse the accumulated stream buffer as a potential tool call.
+	parsed := toolengine.NormalizeAssistantContent(pc.StreamBuffer)
+	if !parsed.IsToolCall {
+		return
+	}
+
+	for _, call := range parsed.ToolCalls {
+		if call.Function.Arguments == "" {
+			continue
+		}
+		pc.ToolCallValidated = true
+		pc.AddEvent("agent", "agent_tool_call_validated", SeverityInfo, "streaming tool call JSON validated", map[string]string{
+			"tool_name": call.Function.Name,
+		})
+
+		if !json.Valid([]byte(call.Function.Arguments)) {
+			repaired, err := e.repair.RepairJSONString(call.Function.Arguments)
+			if err == nil && repaired != call.Function.Arguments {
+				pc.ToolCallRepaired = true
+				pc.AddEvent("agent", "agent_tool_call_repaired", SeverityInfo, "streaming tool call JSON repaired", map[string]string{
+					"tool_name": call.Function.Name,
+				})
+			} else {
+				pc.AddEvent("agent", "agent_invalid_tool_call", SeverityWarning, "streaming tool call JSON invalid and could not be repaired", map[string]string{
+					"tool_name": call.Function.Name,
+				})
+			}
+		}
+	}
 }
 
 func (e *Engine) resolveProviderAndProfile(ctx context.Context, pc *Context) Result {

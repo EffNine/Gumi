@@ -31,12 +31,21 @@ type Config struct {
 
 // RuntimeConfig controls the core API server behaviour.
 type RuntimeConfig struct {
-	Name        string `json:"name" yaml:"name"`
-	Mode        string `json:"mode" yaml:"mode"`
-	Host        string `json:"host" yaml:"host"`
-	Port        int    `json:"port" yaml:"port"`
-	Environment string `json:"environment" yaml:"environment"`
-	LogLevel    string `json:"log_level" yaml:"log_level"`
+	Name        string      `json:"name" yaml:"name"`
+	Mode        string      `json:"mode" yaml:"mode"`
+	Host        string      `json:"host" yaml:"host"`
+	Port        int         `json:"port" yaml:"port"`
+	Environment string      `json:"environment" yaml:"environment"`
+	LogLevel    string      `json:"log_level" yaml:"log_level"`
+	Agent       AgentConfig `json:"agent" yaml:"agent"`
+}
+
+// AgentConfig controls the agent mode governance layer.
+type AgentConfig struct {
+	MaxSteps                  int     `yaml:"max_steps" json:"max_steps"`
+	ToolCallTimeoutSeconds    int     `yaml:"tool_call_timeout_seconds" json:"tool_call_timeout_seconds"`
+	ContextCompactionThreshold float64 `yaml:"context_compaction_threshold" json:"context_compaction_threshold"`
+	LoopDetection             string  `yaml:"loop_detection" json:"loop_detection"`
 }
 
 // DashboardConfig controls the local dashboard.
@@ -90,6 +99,12 @@ func DefaultConfig() *Config {
 			Port:        8787,
 			Environment: "local",
 			LogLevel:    "info",
+			Agent: AgentConfig{
+				MaxSteps:                  30,
+				ToolCallTimeoutSeconds:    120,
+				ContextCompactionThreshold: 0.85,
+				LoopDetection:             "strict",
+			},
 		},
 		Dashboard: DashboardConfig{
 			Enabled: true,

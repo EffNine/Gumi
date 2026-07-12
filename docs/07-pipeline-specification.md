@@ -639,19 +639,58 @@ Unless explicitly disabled.
 
 ## 8.4 Agent Mode
 
-Agent Mode is reserved for future versions.
+Agent Mode is a coding-agent governance layer implemented in Sprint 14 (v0.2.0-alpha).
 
-It will support:
+It extends stabilized mode with four additional governance layers:
 
-- step budgets
-- tool monitoring
-- repeated action detection
-- rollback hints
-- progress scoring
-- planning checks
-- tool-call validation
+### 8.4.1 Step Budget Enforcement
 
-V1 may define Agent Mode but does not need full implementation.
+Agent frameworks send multiple requests within a session. Agent mode enforces a step budget by counting `assistant` messages in the incoming request. When the count exceeds `max_steps` (default: 30), the pipeline returns `AGENT_STEP_LIMIT_EXCEEDED` (HTTP 429).
+
+The calling agent framework should manage its own step counter and stop when Novexa returns this error.
+
+### 8.4.2 Tool-Call Loop Detection
+
+The guard engine's `hasToolCallLoop` check runs on every agent request. If the same tool call (same name + arguments) repeats:
+
+- **2+ times** (standard detection): a loop-break hint is injected into the system prompt.
+- **3+ times** (strict/aggressive detection): the request is blocked with `AGENT_TOOL_CALL_LOOP` (HTTP 409).
+
+The loop detection level is configured via `runtime.agent.loop_detection` (default: `strict`).
+
+### 8.4.3 Tool-Call JSON Validation + Repair
+
+When the provider returns an assistant message with `tool_calls`:
+
+1. Each `tool_call.arguments` is validated as valid JSON via `json.Unmarshal`.
+2. If invalid, the repair engine attempts to extract and fix the JSON.
+3. If repair succeeds, the tool call is patched. If repair fails, the response is flagged with `AGENT_INVALID_TOOL_CALL` (HTTP 422).
+
+### 8.4.4 Context Compaction Hints
+
+After every request, the estimated token count of the full message list is compared against `context_compaction_threshold` (default: 0.85) of the model's context limit. If exceeded, a system hint is injected: "The conversation is approaching the model's context limit. Summarize key findings and trim redundant information."
+
+The message list is not modified — only warned/hinted. The agent framework decides when to compact.
+
+### 8.4.5 Streaming Support
+
+Unlike structured mode, agent mode supports streaming. Governance checks run pre-generation (step budget, loop detection). Tool-call validation runs post-hoc on the accumulated stream buffer.
+
+### 8.4.6 V1 Scope
+
+**Included:**
+- Step budget enforcement (per-request)
+- Tool-call loop detection (inline, per-turn)
+- Tool-call JSON validation + repair
+- Context compaction hints
+- Streaming support
+- Telemetry (agent_step_count, agent_loop_detected)
+
+**Deferred (Year 2+):**
+- Rollback hints
+- Progress scoring
+- Planning checks
+- Session-level step tracking
 
 ---
 

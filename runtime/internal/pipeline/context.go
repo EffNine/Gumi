@@ -133,6 +133,16 @@ type Context struct {
 	InstructionHintInjected  bool                     `json:"instruction_hint_injected"`
 	InstructionRetryCount    int                       `json:"instruction_retry_count"`
 
+	// Agent mode governance state.
+	StepCount              int      `json:"step_count,omitempty"`
+	MaxSteps               int      `json:"max_steps,omitempty"`
+	ToolCallHistory        []string `json:"tool_call_history,omitempty"`
+	ContextCompactionCount int      `json:"context_compaction_count,omitempty"`
+	AgentWarnings          []string `json:"agent_warnings,omitempty"`
+	LoopDetected           bool     `json:"loop_detected,omitempty"`
+	ToolCallValidated      bool     `json:"tool_call_validated,omitempty"`
+	ToolCallRepaired       bool     `json:"tool_call_repaired,omitempty"`
+
 	ProviderResponse *api.ChatCompletionResponse `json:"provider_response,omitempty"`
 	ProviderError    *provider.ProviderError     `json:"provider_error,omitempty"`
 	ProviderLatency  time.Duration               `json:"provider_latency,omitempty"`

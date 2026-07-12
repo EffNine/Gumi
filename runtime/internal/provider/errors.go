@@ -33,6 +33,12 @@ const (
 	ValidationFailed ProviderErrorCode = "VALIDATION_FAILED"
 	// ProviderMisconfigured means the adapter configuration is invalid.
 	ProviderMisconfigured ProviderErrorCode = "PROVIDER_MISCONFIGURED"
+	// AGENT_STEP_LIMIT_EXCEEDED means the agent has exceeded its step budget.
+	AGENT_STEP_LIMIT_EXCEEDED ProviderErrorCode = "AGENT_STEP_LIMIT_EXCEEDED"
+	// AGENT_TOOL_CALL_LOOP means the agent is repeating the same tool call.
+	AGENT_TOOL_CALL_LOOP ProviderErrorCode = "AGENT_TOOL_CALL_LOOP"
+	// AGENT_INVALID_TOOL_CALL means the agent returned an invalid tool call.
+	AGENT_INVALID_TOOL_CALL ProviderErrorCode = "AGENT_INVALID_TOOL_CALL"
 	// ProviderUnknownError is a catch-all for unrecognized failures.
 	ProviderUnknownError ProviderErrorCode = "PROVIDER_UNKNOWN_ERROR"
 )

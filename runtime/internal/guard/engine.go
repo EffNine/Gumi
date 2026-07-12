@@ -2,6 +2,7 @@
 package guard
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/novexa/novexa/runtime/internal/api"
@@ -37,6 +38,12 @@ type Input struct {
 	RuntimeMode    string
 	ContextReport  *contextengine.Report
 	ModelProfile   *profiles.Profile
+}
+
+// AgentInput is the agent-specific guard configuration.
+type AgentInput struct {
+	MaxSteps      int
+	LoopDetection string
 }
 
 // Output is the Guard Engine result.
@@ -105,6 +112,100 @@ func (e *Engine) Check(in Input) Output {
 		Report:   report,
 		Warnings: warnings,
 	}
+}
+
+// CheckAgent validates agent-mode requests with step budget and tool-call
+// loop detection. It returns a block decision when the step budget is exceeded
+// or when strict loop detection finds 3+ repeated tool calls.
+func (e *Engine) CheckAgent(in Input, agentIn AgentInput) Output {
+	// Step budget check: count assistant messages. If >= maxSteps, block.
+	assistantCount := 0
+	for _, msg := range in.Messages {
+		if msg.Role == "assistant" {
+			assistantCount++
+		}
+	}
+	if agentIn.MaxSteps > 0 && assistantCount >= agentIn.MaxSteps {
+		return Output{
+			Report: Report{
+				Decision: DecisionBlock,
+				Blocked:  true,
+				Reason:   string(provider.AGENT_STEP_LIMIT_EXCEEDED),
+			},
+			Error: provider.ProviderError{
+				Code:       provider.AGENT_STEP_LIMIT_EXCEEDED,
+				Message:    fmt.Sprintf("Agent step budget exhausted (%d/%d). Reset the session or increase max_steps.", assistantCount, agentIn.MaxSteps),
+				Suggestion: "Reset the session or increase max_steps in the agent configuration.",
+			},
+		}
+	}
+
+	// Tool-call loop check: count repeated tool calls.
+	warnings := []string{}
+	loopDetected := false
+	loopCount := countRepeatedToolCalls(in.Messages)
+	if loopCount > 0 {
+		loopDetected = true
+		warnings = append(warnings, fmt.Sprintf("tool call loop detected: same tool call repeated %d times", loopCount))
+	}
+
+	// Strict loop detection: 3+ repetitions → block.
+	loopDetection := strings.ToLower(agentIn.LoopDetection)
+	if loopDetected && loopCount >= 3 && (loopDetection == "strict" || loopDetection == "aggressive") {
+		return Output{
+			Report: Report{
+				Decision: DecisionBlock,
+				Blocked:  true,
+				Reason:   string(provider.AGENT_TOOL_CALL_LOOP),
+				Warnings: warnings,
+			},
+			Error: provider.ProviderError{
+				Code:       provider.AGENT_TOOL_CALL_LOOP,
+				Message:    fmt.Sprintf("Agent tool call loop detected: same tool call repeated %d times. The agent framework must intervene.", loopCount),
+				Suggestion: "The agent is repeating the same tool call. Try a different approach or report the blockage.",
+			},
+		}
+	}
+
+	// Standard loop detection: 2+ repetitions → warn.
+	if loopDetected && loopCount >= 2 {
+		warnings = append(warnings, "You appear to be repeating the same tool call. Try a different approach or report the blockage to the user.")
+	}
+
+	report := Report{
+		Decision: DecisionAllow,
+		Warnings: warnings,
+	}
+	if len(warnings) > 0 {
+		report.Decision = DecisionWarn
+	}
+	return Output{
+		Report:   report,
+		Warnings: warnings,
+	}
+}
+
+// countRepeatedToolCalls returns the maximum repetition count of any tool call
+// (same name + arguments) across all assistant messages.
+func countRepeatedToolCalls(messages []api.Message) int {
+	counts := map[string]int{}
+	maxCount := 0
+	for _, msg := range messages {
+		if msg.Role != "assistant" {
+			continue
+		}
+		for _, call := range msg.ToolCalls {
+			if call.Function.Name == "" {
+				continue
+			}
+			sig := call.Function.Name + "\x00" + strings.TrimSpace(call.Function.Arguments)
+			counts[sig]++
+			if counts[sig] > maxCount {
+				maxCount = counts[sig]
+			}
+		}
+	}
+	return maxCount
 }
 
 func latestUserMessage(messages []api.Message) string {

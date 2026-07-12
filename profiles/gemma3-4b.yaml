@@ -1,22 +1,23 @@
-id: gemma-4-e4b
-name: Gemma 4 4B
+id: gemma3-4b
+name: Gemma 3 4B
 version: 1
 family: gemma
 size: 4b
 type: instruct
 
 aliases:
-  - gemma-4:4b
-  - gemma-4:latest
+  - gemma3:4b
+  - gemma3:latest
 
 models:
   ollama:
-    - gemma-4:4b
-    - gemma-4:latest
+    - gemma3:4b
+    - gemma3:latest
   lmstudio:
-    - google/gemma-4-e4b
+    - gemma-3-4b
+    - gemma-3-4b-it
   openai_compatible_local:
-    - gemma-4-e4b
+    - gemma-3-4b
 
 capabilities:
   chat: true
@@ -67,6 +68,8 @@ guard:
   repetition_detection: true
 
 notes:
-  - Good mid-size general chat option.
-  - Requires strict exact-format instruction.
-  - Validated with LM Studio model google/gemma-4-e4b.
+  - Mid-size 4B model. Good for general chat and simple tasks.
+  - Thinking is disabled by default to avoid exhausting max_tokens on reasoning.
+  - Requires strict instruction formatting for JSON output.
+  - Validated with Ollama model gemma3:4b. D-Stabilized passes factual and JSON; E-Structured passes JSON.
+  - Concise math prompts may return "Four" instead of "4" (model-level behavior).

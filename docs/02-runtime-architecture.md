@@ -669,18 +669,20 @@ Additional features:
 
 ## 10.5 Agent Mode
 
-Future mode.
-
-Used for coding agents and tool-driven workflows.
+Implemented in Sprint 14 (v0.2.0-alpha). A coding-agent governance layer.
 
 Additional features:
 
-- step budget
-- tool call monitoring
-- loop detection
-- rollback hints
-- progress scoring
-- action validation
+- step budget enforcement (per-request, default 30 steps)
+- tool call loop detection (inline, per-turn)
+- tool-call JSON validation and repair
+- context compaction hints
+- streaming support (governance per-turn, not on final body)
+- telemetry (agent_step_count, agent_loop_detected)
+
+Agent mode forces thinking OFF (reasoning wastes context budget and breaks tool-call parsing).
+
+See `docs/07-pipeline-specification.md §8.4` for full specification.
 
 ---
 

@@ -1,10 +1,13 @@
 // Package cli implements the Novexa command-line interface.
 //
-// Sprint 1 supports two commands:
+// Sprint 1 supports four commands:
 //
 //   - version: prints the runtime version.
-//   - start:   loads configuration, prints startup information, runs a
-//     placeholder loop, and shuts down gracefully on SIGINT/SIGTERM.
+//   - start:   loads configuration, starts the gateway and dashboard servers,
+//     and shuts down gracefully on SIGINT/SIGTERM.
+//   - stop:    sends SIGTERM to the running runtime, with a 30s graceful
+//     timeout before falling back to SIGKILL.
+//   - restart: stops the running runtime and starts a new instance.
 package cli
 
 import (
@@ -13,6 +16,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -41,6 +46,10 @@ func Execute() {
 		runVersion(os.Args[2:])
 	case "start":
 		runStart(os.Args[2:])
+	case "stop":
+		runStop(os.Args[2:])
+	case "restart":
+		runRestart(os.Args[2:])
 	case "status", "doctor", "providers", "models", "benchmark", "logs":
 		runUtilityCommand(os.Args[1], os.Args[2:])
 	case "config":
@@ -65,6 +74,8 @@ func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  novexa version [--verbose]")
 	fmt.Println("  novexa start [flags]")
+	fmt.Println("  novexa stop")
+	fmt.Println("  novexa restart [flags]")
 	fmt.Println("  novexa status [--json]")
 	fmt.Println("  novexa doctor [--json]")
 	fmt.Println("  novexa config show [--json]")
@@ -73,7 +84,7 @@ func printUsage() {
 	fmt.Println("  novexa benchmark [--json]")
 	fmt.Println("  novexa logs [--tail int]")
 	fmt.Println()
-	fmt.Println("Flags for start:")
+	fmt.Println("Flags for start and restart:")
 	fmt.Println("  --config string         Path to configuration file")
 	fmt.Println("  --port int              Override API port")
 	fmt.Println("  --host string           Override API bind host")
@@ -100,7 +111,79 @@ func runVersion(args []string) {
 	}
 }
 
+// pidFilePath returns the canonical PID file path (~/.novexa/novexa.pid).
+func pidFilePath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
+	return filepath.Join(home, ".novexa", "novexa.pid")
+}
+
+// ensurePidDir creates the ~/.novexa directory if it does not exist.
+func ensurePidDir() {
+	dir := filepath.Dir(pidFilePath())
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not create PID directory %s: %v\n", dir, err)
+	}
+}
+
+// isProcessRunning returns true if a process with the given PID exists and is
+// not a zombie. It uses os.FindProcess + Signal(0) which is portable across
+// Unix systems.
+func isProcessRunning(pid int) bool {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	return proc.Signal(syscall.Signal(0)) == nil
+}
+
+// writePidFile writes the current process PID to the PID file.
+func writePidFile() {
+	ensurePidDir()
+	pid := os.Getpid()
+	if err := os.WriteFile(pidFilePath(), []byte(fmt.Sprintf("%d\n", pid)), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not write PID file: %v\n", err)
+	}
+}
+
+// removePidFile deletes the PID file, logging a warning on failure.
+func removePidFile() {
+	if err := os.Remove(pidFilePath()); err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "warning: could not remove PID file: %v\n", err)
+	}
+}
+
+// checkExistingPid checks whether a PID file exists with a live process.
+// If so, it prints an error and exits with code 1.
+func checkExistingPid() {
+	data, err := os.ReadFile(pidFilePath())
+	if err != nil {
+		return
+	}
+	var pid int
+	if _, err := fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &pid); err != nil {
+		return
+	}
+	if isProcessRunning(pid) {
+		fmt.Fprintf(os.Stderr, "Novexa is already running (PID %d). Use 'novexa stop' to stop it first.\n", pid)
+		os.Exit(1)
+	}
+}
+
+// runStart parses flags, loads config, checks for an existing running instance,
+// writes the PID file, starts the servers, and blocks until shutdown.
 func runStart(args []string) {
+	cfg, log := parseStartFlags(args)
+	checkExistingPid()
+	writePidFile()
+	startServers(cfg, log)
+}
+
+// parseStartFlags parses the common start/restart flags and returns the
+// resolved config and logger.
+func parseStartFlags(args []string) (*config.Config, *logger.Logger) {
 	fs := flag.NewFlagSet("start", flag.ContinueOnError)
 
 	var configPath string
@@ -172,6 +255,14 @@ func runStart(args []string) {
 	}
 
 	log := logger.New(cfg.Runtime.LogLevel)
+	return cfg, log
+}
+
+// startServers creates the gateway and dashboard servers, starts them, blocks
+// until a signal or startup error, then shuts down gracefully. It also removes
+// the PID file on shutdown.
+func startServers(cfg *config.Config, log *logger.Logger) {
+	defer removePidFile()
 
 	printStartupBanner(cfg)
 	log.Info("Novexa Runtime started",
@@ -218,6 +309,90 @@ func runStart(args []string) {
 		}
 	}
 	log.Info("Novexa Runtime stopped")
+}
+
+// stopProcess reads the PID file, sends SIGTERM to the running process, waits
+// up to 30 seconds for graceful shutdown, and falls back to SIGKILL. It
+// returns true if the process was successfully stopped (or was already gone),
+// and false if stopping failed. The PID file is always removed on success.
+func stopProcess() bool {
+	data, err := os.ReadFile(pidFilePath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("Novexa does not appear to be running (no PID file found).")
+			return true
+		}
+		fmt.Fprintf(os.Stderr, "failed to read PID file: %v\n", err)
+		return false
+	}
+
+	var pid int
+	if _, err := fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &pid); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid PID file content: %s\n", strings.TrimSpace(string(data)))
+		return false
+	}
+
+	if !isProcessRunning(pid) {
+		fmt.Printf("Novexa does not appear to be running (PID %d not found).\n", pid)
+		removePidFile()
+		return true
+	}
+
+	fmt.Printf("Stopping Novexa (PID %d)...\n", pid)
+
+	// Send SIGTERM for graceful shutdown.
+	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to signal Novexa (PID %d): %v\n", pid, err)
+		return false
+	}
+
+	// Poll up to 30 seconds for the process to exit.
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		if !isProcessRunning(pid) {
+			removePidFile()
+			fmt.Printf("Novexa stopped (PID %d).\n", pid)
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// Graceful timeout reached — send SIGKILL.
+	fmt.Println("Graceful shutdown timed out, sending SIGKILL...")
+	if err := syscall.Kill(pid, syscall.SIGKILL); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to stop Novexa (PID %d).\n", pid)
+		return false
+	}
+
+	// Wait 2 seconds for SIGKILL to take effect.
+	time.Sleep(2 * time.Second)
+	if !isProcessRunning(pid) {
+		removePidFile()
+		fmt.Printf("Novexa forcefully stopped (PID %d).\n", pid)
+		return true
+	}
+
+	fmt.Fprintf(os.Stderr, "Failed to stop Novexa (PID %d).\n", pid)
+	return false
+}
+
+// runStop sends SIGTERM to the running runtime process, waits up to 30 seconds
+// for graceful shutdown, and falls back to SIGKILL if needed.
+func runStop(args []string) {
+	_ = args // stop takes no flags
+	if !stopProcess() {
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+// runRestart stops the running runtime and starts a new instance with the
+// provided flags.
+func runRestart(args []string) {
+	stopProcess()
+	cfg, log := parseStartFlags(args)
+	writePidFile()
+	startServers(cfg, log)
 }
 
 func printStartupBanner(cfg *config.Config) {

@@ -13,6 +13,11 @@ do not have to.
 - Novexa lightweight mode is optimised for agentic coding workloads — minimal
   prompt overhead, 24 % faster than Novexa stabilised mode, 70 % fewer prompt
   tokens.
+- Novexa agent mode (v0.2.0+) provides stricter governance for coding agents:
+  step budget enforcement, tool-call loop detection, tool-call JSON validation,
+  and context compaction hints. Use `"novexa":{"mode":"agent"}` in your request
+  to enable it. Lightweight mode remains the recommended default for most
+  agentic clients.
 
 ## Prerequisites
 

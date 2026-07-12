@@ -260,25 +260,15 @@ cd /path/to/novexa
 ./novexa start
 ```
 
-## Unsupported streaming
+## Streaming
 
-Streaming responses are not implemented in this alpha. Requests with
-`"stream": true` return:
+Streaming chat completions (`stream: true`) are now supported through SSE.
 
-```json
-{
-  "error": {
-    "code": "STREAMING_UNSUPPORTED",
-    "message": "streaming chat completions are not supported in this release",
-    "type": "runtime_error",
-    "engine": "pipeline",
-    "suggestion": "Set stream=false until streaming support is implemented.",
-    "request_id": "req_..."
-  }
-}
-```
+However, structured mode + streaming is rejected (post-hoc repair is impossible
+mid-stream). Use `stream: false` with `response_format` for structured output.
 
-Fix: send non-streaming requests (`"stream": false`, or omit the field).
+If you get a `STREAMING_UNSUPPORTED` error with structured mode:
+set `"stream": false` (or omit `stream`) and retry with `response_format` set.
 
 ## macOS executable quarantine warning
 

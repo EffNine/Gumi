@@ -3,6 +3,7 @@ package repair
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/novexa/novexa/runtime/internal/api"
@@ -48,6 +49,25 @@ func (e *Engine) Repair(resp *api.ChatCompletionResponse, validationReport valid
 	default:
 		return report
 	}
+}
+
+// RepairJSONString attempts to repair a malformed JSON string by extracting
+// a valid JSON candidate. Returns the repaired string or the original if
+// repair is not possible.
+func (e *Engine) RepairJSONString(s string) (string, error) {
+	candidate := validation.ExtractJSONCandidate(s)
+	if candidate == "" {
+		return s, fmt.Errorf("no JSON candidate found")
+	}
+	var decoded interface{}
+	if err := json.Unmarshal([]byte(candidate), &decoded); err != nil {
+		return s, fmt.Errorf("extracted candidate is not valid JSON: %w", err)
+	}
+	clean, err := json.Marshal(decoded)
+	if err != nil {
+		return s, fmt.Errorf("failed to marshal repaired JSON: %w", err)
+	}
+	return string(clean), nil
 }
 
 func repairJSON(resp *api.ChatCompletionResponse, report Report) Report {

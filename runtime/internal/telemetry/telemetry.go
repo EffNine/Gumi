@@ -115,6 +115,8 @@ type RequestRecord struct {
 	ResponsePreview         string
 	ThinkingEnabled         string
 	ReasoningContentPresent bool
+	AgentStepCount          int  `json:"agent_step_count,omitempty"`
+	AgentLoopDetected       bool `json:"agent_loop_detected,omitempty"`
 }
 
 // PipelineEventRecord captures one pipeline event for storage.
@@ -140,8 +142,9 @@ func (w *Writer) RecordRequest(ctx context.Context, r RequestRecord) {
 			status, stream, latency_ms, provider_latency_ms, prompt_tokens,
 			completion_tokens, total_tokens, context_compressed, validation_passed,
 			repair_applied, retry_count, error_code, prompt_logged, response_logged,
-			prompt_preview, response_preview, thinking_enabled, reasoning_content_present
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			prompt_preview, response_preview, thinking_enabled, reasoning_content_present,
+			agent_step_count, agent_loop_detected
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			workspace_id = excluded.workspace_id,
 			session_id = excluded.session_id,
@@ -165,7 +168,9 @@ func (w *Writer) RecordRequest(ctx context.Context, r RequestRecord) {
 			prompt_preview = excluded.prompt_preview,
 			response_preview = excluded.response_preview,
 			thinking_enabled = excluded.thinking_enabled,
-			reasoning_content_present = excluded.reasoning_content_present
+			reasoning_content_present = excluded.reasoning_content_present,
+			agent_step_count = excluded.agent_step_count,
+			agent_loop_detected = excluded.agent_loop_detected
 	`,
 		r.RequestID,
 		r.CreatedAt.UTC().Format(time.RFC3339),
@@ -192,6 +197,8 @@ func (w *Writer) RecordRequest(ctx context.Context, r RequestRecord) {
 		nullableString(r.ResponsePreview),
 		nullableString(r.ThinkingEnabled),
 		boolToInt(r.ReasoningContentPresent),
+		r.AgentStepCount,
+		boolToInt(r.AgentLoopDetected),
 	)
 	if err != nil && w.log != nil {
 		w.log.Error("telemetry: failed to record request", err, "request_id", r.RequestID)

@@ -48,6 +48,7 @@ It provides:
 - anti-loop and safety guards
 - instruction-following assist (auto-detects 14 constraint types)
 - local telemetry
+- agent mode (step budget enforcement, tool-call loop detection, tool-call JSON validation, context compaction hints)
 - CLI diagnostics
 - local dashboard
 
@@ -66,6 +67,20 @@ make build
 
 Or download a pre-built archive from
 [GitHub Releases](https://github.com/EffNine/Novexa/releases).
+
+### Docker
+
+```bash
+docker build -t novexa:0.1.0-alpha .
+docker run -d --name novexa \
+  -p 127.0.0.1:8787:8787 \
+  -p 127.0.0.1:8788:8788 \
+  -v novexa-data:/data \
+  novexa:0.1.0-alpha
+```
+
+The runtime stores telemetry at `/data/.novexa/novexa.db` on a persistent Docker
+volume. See [Installation → Docker](./docs/installation.md#docker) for details.
 
 Default endpoints:
 
@@ -110,6 +125,8 @@ Recommended model choices:
 | Agentic coding | `lmstudio:ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
 | Fast chat | `lmstudio:qwen/qwen3-1.7b` | `qwen3-1.7b` |
 | Mid-size chat | `lmstudio:google/gemma-4-e4b` | `gemma-4-e4b` |
+| Ollama fast chat | `ollama:llama3.2:3b` | `llama3.2-3b` |
+| Ollama mid-size | `ollama:gemma3:4b` | `gemma3-4b` |
 
 Apps should only need:
 
@@ -466,11 +483,6 @@ novexa models
 novexa benchmark
 novexa logs
 novexa version
-```
-
-Not implemented yet:
-
-```bash
 novexa stop
 novexa restart
 ```
@@ -513,10 +525,6 @@ responses unless explicitly configured. It does not send external telemetry.
 
 Novexa `0.1.0-alpha` is usable, but not feature-complete:
 
-- YAML configuration loading is not implemented yet; the runtime uses safe
-  defaults and environment overrides.
-- `novexa stop` and `novexa restart` are not implemented yet.
-- Streaming responses are not implemented yet.
 - Continue tab autocomplete should use LM Studio directly for now.
 - Dockerfile exists, but Docker image verification may vary by host.
 - Profile Doctor is read-only.

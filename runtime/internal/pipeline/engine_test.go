@@ -1171,6 +1171,196 @@ func TestRunChatCompletionToolShimForWeakModels(t *testing.T) {
 	assertEvent(t, result.Context, "tool_shim_parsed")
 }
 
+func TestAgentModeStepLimitExceeded(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeAgent)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	messages := make([]api.Message, 0, 35)
+	for i := 0; i < 35; i++ {
+		messages = append(messages, api.Message{Role: "assistant", Content: "step"})
+	}
+	messages = append(messages, api.Message{Role: "user", Content: "continue"})
+
+	result := engine.RunChatCompletion(context.Background(), "req_agent_step_limit", api.ChatCompletionRequest{
+		Model:    "local:auto",
+		Messages: messages,
+	})
+
+	if result.Error.Code != provider.AGENT_STEP_LIMIT_EXCEEDED {
+		t.Fatalf("expected AGENT_STEP_LIMIT_EXCEEDED, got %s", result.Error.Code)
+	}
+	assertEvent(t, result.Context, "agent_mode_selected")
+	assertEvent(t, result.Context, "agent_step_check")
+	assertEvent(t, result.Context, "pipeline_failed")
+}
+
+func TestAgentModeAllowsNormalRequest(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeAgent)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_agent_normal", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.RuntimeMode != ModeAgent {
+		t.Fatalf("expected agent mode, got %s", result.Context.RuntimeMode)
+	}
+	assertEvent(t, result.Context, "agent_mode_selected")
+	assertEvent(t, result.Context, "agent_thinking_disabled")
+	assertEvent(t, result.Context, "agent_guard_completed")
+	assertEvent(t, result.Context, "agent_completed")
+}
+
+func TestAgentModeForcesThinkingOff(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeAgent)
+	adapter := &fakeAdapter{
+		name:   "ollama",
+		models: []provider.ModelInfo{{Name: "qwen3.5:2b"}},
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_agent_think", api.ChatCompletionRequest{
+		Model: "ollama:qwen3.5:2b",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	assertEvent(t, result.Context, "agent_thinking_disabled")
+	// Thinking should be disabled even though the profile allows it.
+	if result.Context.ThinkingMode != "disabled" {
+		t.Fatalf("expected thinking disabled in agent mode, got %s", result.Context.ThinkingMode)
+	}
+}
+
+func TestAgentModeDetectsRepeatedToolCallStrict(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeAgent)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	messages := []api.Message{
+		{Role: "user", Content: "read the file"},
+		{Role: "assistant", Content: "", ToolCalls: []api.ToolCall{{Function: api.ToolFunction{Name: "read_file", Arguments: `{"path":"main.go"}`}}}},
+		{Role: "tool", Content: "package main", ToolCallID: "call_1"},
+		{Role: "assistant", Content: "", ToolCalls: []api.ToolCall{{Function: api.ToolFunction{Name: "read_file", Arguments: `{"path":"main.go"}`}}}},
+		{Role: "tool", Content: "package main", ToolCallID: "call_2"},
+		{Role: "assistant", Content: "", ToolCalls: []api.ToolCall{{Function: api.ToolFunction{Name: "read_file", Arguments: `{"path":"main.go"}`}}}},
+	}
+
+	result := engine.RunChatCompletion(context.Background(), "req_agent_loop", api.ChatCompletionRequest{
+		Model:    "local:auto",
+		Messages: messages,
+	})
+
+	if result.Error.Code != provider.AGENT_TOOL_CALL_LOOP {
+		t.Fatalf("expected AGENT_TOOL_CALL_LOOP, got %s", result.Error.Code)
+	}
+	assertEvent(t, result.Context, "agent_tool_loop_check")
+	assertEvent(t, result.Context, "pipeline_failed")
+}
+
+func TestAgentModeStreaming(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeAgent)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	chunkCh := make(chan api.ChatCompletionChunk, 10)
+	done := make(chan StreamResult, 1)
+	go func() {
+		done <- engine.RunChatCompletionStream(context.Background(), "req_agent_stream", api.ChatCompletionRequest{
+			Model:  "local:auto",
+			Stream: true,
+			Messages: []api.Message{{
+				Role:    "user",
+				Content: "Hello",
+			}},
+		}, chunkCh)
+	}()
+	for range chunkCh {
+	}
+	result := <-done
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.RuntimeMode != ModeAgent {
+		t.Fatalf("expected agent mode, got %s", result.Context.RuntimeMode)
+	}
+	assertEvent(t, result.Context, "agent_mode_selected")
+	assertEvent(t, result.Context, "agent_thinking_disabled")
+	assertEvent(t, result.Context, "streaming_agent_completed")
+}
+
+func TestAgentModeStreamingStepLimitExceeded(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeAgent)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	messages := make([]api.Message, 0, 35)
+	for i := 0; i < 35; i++ {
+		messages = append(messages, api.Message{Role: "assistant", Content: "step"})
+	}
+	messages = append(messages, api.Message{Role: "user", Content: "continue"})
+
+	chunkCh := make(chan api.ChatCompletionChunk, 10)
+	result := engine.RunChatCompletionStream(context.Background(), "req_agent_stream_limit", api.ChatCompletionRequest{
+		Model:    "local:auto",
+		Stream:   true,
+		Messages: messages,
+	}, chunkCh)
+
+	if result.Error.Code != provider.AGENT_STEP_LIMIT_EXCEEDED {
+		t.Fatalf("expected AGENT_STEP_LIMIT_EXCEEDED, got %s", result.Error.Code)
+	}
+	assertEvent(t, result.Context, "agent_step_check")
+	assertEvent(t, result.Context, "pipeline_failed")
+}
+
+func TestAgentModeAppliesProfileDefaults(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeAgent)
+	adapter := &fakeAdapter{
+		name:   "ollama",
+		models: []provider.ModelInfo{{Name: "qwen3.5:2b"}},
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_agent_profile", api.ChatCompletionRequest{
+		Model: "ollama:qwen3.5:2b",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Hello",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	assertEvent(t, result.Context, "profile_defaults_applied")
+	if adapter.seenReq.Temperature == nil {
+		t.Fatal("expected profile temperature default to be applied")
+	}
+}
+
 func assertEvent(t *testing.T, ctx *Context, event string) {
 	t.Helper()
 	for _, item := range ctx.Events {

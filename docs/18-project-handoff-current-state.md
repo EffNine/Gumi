@@ -69,7 +69,19 @@ Novexa improves local model providers. It should not compete with Ollama, LM Stu
 
 ## 3. Current Implementation State
 
-Sprints 1-12 are complete and committed.
+Sprints 1-14 are complete and committed.
+
+Sprint 14 (2026-07-13) added:
+- Agent mode pipeline (non-streaming + streaming)
+- Step budget enforcement (default 30 steps, configurable)
+- Tool-call loop detection (strict/standard/off)
+- Tool-call JSON validation + repair
+- Context compaction hints
+- Agent-specific error codes (AGENT_STEP_LIMIT_EXCEEDED, AGENT_TOOL_CALL_LOOP, AGENT_INVALID_TOOL_CALL)
+- Agent telemetry fields (agent_step_count, agent_loop_detected)
+- Agent config block in novexa.example.yaml
+- Guard engine CheckAgent with tests
+- Pipeline tests for all agent mode scenarios
 
 Sprint 12 (2026-07-12) added:
 - P0: Retry backoff for LM Studio model-loading errors
@@ -183,13 +195,16 @@ qwen3.5-9b.yaml
 qwen2.5-coder-7b.yaml
 deepseek-r1-8b.yaml
 llama3.1-8b.yaml
+llama3.2-3b.yaml          ← Ollama validated, new
 gemma3-12b.yaml
+gemma3-4b.yaml            ← Ollama validated, new
+gemma3-1b.yaml            ← Ollama validated, new
 mistral-small.yaml
-qwen3-1.7b.yaml          ← LM Studio validated, thinking benchmarked
-ornith-1.0-9b-q4-km.yaml ← LM Studio validated, TB benchmarked
-qwen3.5-9b.yaml          ← LM Studio validated, post-fix re-benchmarked
-gemma-4-e4b.yaml         ← LM Studio validated
-essentialai-rnj-1.yaml   ← new, reasoning model, post-fix validated
+qwen3-1.7b.yaml           ← LM Studio validated, thinking benchmarked
+ornith-1.0-9b-q4-km.yaml  ← LM Studio validated, TB benchmarked
+qwen3.5-9b.yaml           ← LM Studio validated, post-fix re-benchmarked
+gemma-4-e4b.yaml          ← LM Studio validated, needs tuning
+essentialai-rnj-1.yaml    ← reasoning model, validated
 ```
 
 ### LM Studio Validated Profiles
@@ -203,7 +218,17 @@ Benchmark matrix run on 2026-07-12 against `http://192.168.0.164:1234/v1` (3 att
 | `essentialai-rnj-1` | `essentialai/rnj-1` | — | **Reasoning** | 9/9 (100%) | 3/3 (100%) | Good baseline (caveat) |
 | `qwen2.5-coder-7b` | `qwen2.5-coder-7b-instruct` | 7B | **Coding** | 9/9 (100%) | 3/3 (100%) | Good baseline |
 | `qwen3-1.7b` | `qwen/qwen3-1.7b` | 1.7B | **Fast chat** | 9/9 (100%) | 3/3 (100%) | Good baseline |
-| `gemma-4-e4b` | `google/gemma-4-e4b` | 4B | **Mid-size** | — | — | Needs tuning |
+| `gemma-4-e4b` | `google/gemma-4-e4b` | 4B | **Mid-size** | 6/9 (67%) | 3/3 (100%) | Needs tuning |
+
+### Ollama Validated Profiles
+
+Benchmark matrix run on 2026-07-12 against `http://localhost:11434` (3 attempts per model):
+
+| Profile | Ollama Model | Size | Role | D-Stabilized | E-Structured | Doctor |
+|---------|-------------|------|------|-------------|-------------|--------|
+| `llama3.2-3b` | `llama3.2:3b` | 3B | **Fast chat** | 7/9 (78%) | 3/3 (100%) | Needs tuning |
+| `gemma3-4b` | `gemma3:4b` | 4B | **Mid-size** | 6/9 (67%) | 3/3 (100%) | Needs tuning |
+| `gemma3-1b` | `gemma3:1b` | 1B | **Small chat** | 6/9 (67%) | 3/3 (100%) | Needs tuning |
 
 **Managed Thinking Benchmark Results:**
 
@@ -230,6 +255,8 @@ Benchmark matrix run on 2026-07-12 against `http://192.168.0.164:1234/v1` (3 att
 | Fast general chat | `qwen/qwen3-1.7b` | `qwen3-1.7b` |
 | Mid-size general chat | `google/gemma-4-e4b` | `gemma-4-e4b` |
 | Quality alternative | `ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
+| Ollama fast chat | `llama3.2:3b` | `llama3.2-3b` |
+| Ollama mid-size | `gemma3:4b` | `gemma3-4b` |
 
 **Benchmark mode notes:**
 - **A-LMStudioDirect** — raw provider pass-through. Diagnostic only; not a quality gate.
@@ -450,8 +477,8 @@ make check-release
 Known limitations documented:
 
 - YAML config parsing is implemented (`~/.novexa/novexa.yaml`, `./novexa.yaml`, `--config` flag).
-- `novexa stop` and `novexa restart` are not implemented.
-- Dockerfile exists, but Docker image was not manually built/tested in the environment where packaging was done.
+- `novexa stop` and `novexa restart` are implemented (PID file at `~/.novexa/novexa.pid`, SIGTERM with 30s graceful timeout).
+- Docker image built and smoke-tested. See `docs/installation.md` for Docker usage.
 - Cross-platform artifacts are cross-compiled, not manually run on every target.
 
 ---
@@ -561,14 +588,10 @@ direct       = raw-ish provider path for debugging/benchmarking
 lightweight = shared tuning with minimal wrapper
 stabilized  = reliability-focused normal app mode
 structured  = JSON/schema mode with validation and repair
-agent       = future coding-agent governance mode
+agent       = coding-agent governance mode (step budget, loop detection, tool-call validation, context compaction hints)
 ```
 
-Current implementation does not yet have `lightweight` mode. It is now documented in:
-
-- `docs/02-runtime-architecture.md`
-- `docs/07-pipeline-specification.md`
-- `docs/17-long-term-plan.md`
+Agent mode is implemented in Sprint 14 (v0.2.0-alpha). See `docs/07-pipeline-specification.md §8.4` for the full specification.
 
 ---
 
