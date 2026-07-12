@@ -12,6 +12,7 @@ Thumbs.db
 
 # Private/internal Novexa documentation
 private-docs/
+docs/
 
 # Playwright / browser test artifacts
 test-results/
