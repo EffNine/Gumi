@@ -1,6 +1,9 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -70,5 +73,81 @@ func TestLoadAppliesProviderEnvOverrides(t *testing.T) {
 	}
 	if lmstudio.TimeoutSeconds != 120 {
 		t.Fatalf("expected timeout override 120, got %d", lmstudio.TimeoutSeconds)
+	}
+}
+
+func TestLoadFromYAMLFile(t *testing.T) {
+	// Create a temp YAML file matching the example.yaml format.
+	yamlContent := []byte(`
+runtime:
+  mode: lightweight
+  port: 8790
+  log_level: debug
+
+provider:
+  default: lmstudio
+
+providers:
+  lmstudio:
+    enabled: true
+    url: http://192.168.0.164:1234/v1
+    default_model: ornith-1.0-9b@q4_k_m
+    timeout_seconds: 120
+`)
+	yamlPath := filepath.Join(t.TempDir(), "novexa.yaml")
+	if err := os.WriteFile(yamlPath, yamlContent, 0644); err != nil {
+		t.Fatalf("failed to write temp yaml: %v", err)
+	}
+
+	cfg, err := Load(yamlPath)
+	if err != nil {
+		t.Fatalf("Load from yaml returned error: %v", err)
+	}
+
+	if cfg.Runtime.Mode != "lightweight" {
+		t.Errorf("expected runtime mode 'lightweight' from yaml, got %q", cfg.Runtime.Mode)
+	}
+	if cfg.Runtime.Port != 8790 {
+		t.Errorf("expected runtime port 8790 from yaml, got %d", cfg.Runtime.Port)
+	}
+	if cfg.Runtime.LogLevel != "debug" {
+		t.Errorf("expected log level 'debug' from yaml, got %q", cfg.Runtime.LogLevel)
+	}
+	if cfg.Provider.Default != "lmstudio" {
+		t.Errorf("expected provider default 'lmstudio' from yaml, got %q", cfg.Provider.Default)
+	}
+	lmstudio := cfg.Providers["lmstudio"]
+	if lmstudio.URL != "http://192.168.0.164:1234/v1" {
+		t.Errorf("expected lmstudio URL from yaml, got %q", lmstudio.URL)
+	}
+	if lmstudio.DefaultModel != "ornith-1.0-9b@q4_k_m" {
+		t.Errorf("expected lmstudio model from yaml, got %q", lmstudio.DefaultModel)
+	}
+	if lmstudio.TimeoutSeconds != 120 {
+		t.Errorf("expected lmstudio timeout 120 from yaml, got %d", lmstudio.TimeoutSeconds)
+	}
+}
+
+func TestLoadYAMLWithHomeDirExpansion(t *testing.T) {
+	// The config should expand ~/ in database_path.
+	yamlContent := []byte(`
+storage:
+  database_path: ~/.novexa/novexa.db
+`)
+	yamlPath := filepath.Join(t.TempDir(), "novexa.yaml")
+	if err := os.WriteFile(yamlPath, yamlContent, 0644); err != nil {
+		t.Fatalf("failed to write temp yaml: %v", err)
+	}
+
+	cfg, err := Load(yamlPath)
+	if err != nil {
+		t.Fatalf("Load from yaml returned error: %v", err)
+	}
+
+	if cfg.Storage.DBPath == "~/.novexa/novexa.db" {
+		t.Error("expected database_path ~ to be expanded to home directory, but it was left as-is")
+	}
+	if !strings.Contains(cfg.Storage.DBPath, ".novexa/novexa.db") {
+		t.Errorf("expected database_path to contain '.novexa/novexa.db', got %q", cfg.Storage.DBPath)
 	}
 }

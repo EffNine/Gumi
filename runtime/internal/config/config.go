@@ -1,13 +1,21 @@
 // Package config provides Novexa runtime configuration loading.
 //
-// In Sprint 1 this is intentionally a placeholder: it returns safe local
-// defaults when no configuration file is provided and ignores any provided
-// path. Full YAML config parsing will be added in a later sprint.
+// Config is loaded from the first available source:
+//  1. YAML file at the given configPath (via --config flag)
+//  2. ~/.novexa/novexa.yaml
+//  3. ./novexa.yaml (project-local)
+//  4. Safe defaults (no file needed)
+//
+// Environment variables override any YAML values (see applyEnvOverrides).
 package config
 
 import (
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Config is the top-level runtime configuration.
@@ -131,22 +139,60 @@ func DefaultConfig() *Config {
 
 // Load returns the runtime configuration.
 //
-// If configPath is empty or the file does not exist, safe defaults are used.
-// This placeholder does not yet parse YAML; that support will be added when
-// the config loader is fully implemented.
+// Config is loaded from the first available source:
+//  1. YAML file at the given configPath (via --config flag)
+//  2. ~/.novexa/novexa.yaml
+//  3. ./novexa.yaml (project-local)
+//  4. Safe defaults
+//
+// Environment variables override any YAML values.
 func Load(configPath string) (*Config, error) {
 	cfg := DefaultConfig()
 
-	if configPath != "" {
-		if _, err := os.Stat(configPath); err == nil {
-			// TODO: parse YAML configuration in a later sprint.
-			_ = cfg
+	// Try to load from a YAML file.
+	paths := configSearchPaths(configPath)
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		if data, err := os.ReadFile(p); err == nil {
+			if err := yaml.Unmarshal(data, cfg); err != nil {
+				return nil, err
+			}
+			break
 		}
 	}
+
+	// Expand ~ in the database path since yaml.Unmarshal doesn't do it.
+	cfg.Storage.DBPath = expandHome(cfg.Storage.DBPath)
 
 	applyEnvOverrides(cfg)
 
 	return cfg, nil
+}
+
+// configSearchPaths returns the list of YAML file paths to try, in priority
+// order. The first one that exists is used.
+func configSearchPaths(configPath string) []string {
+	home, _ := os.UserHomeDir()
+	paths := []string{configPath}
+	if home != "" {
+		paths = append(paths, filepath.Join(home, ".novexa", "novexa.yaml"))
+	}
+	paths = append(paths, "novexa.yaml")
+	return paths
+}
+
+// expandHome replaces a leading ~/ with the user's home directory, since
+// yaml.Unmarshal does not expand it.
+func expandHome(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
 }
 
 func applyEnvOverrides(cfg *Config) {

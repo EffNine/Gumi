@@ -1,13 +1,14 @@
-# Novexa example configuration — documentation only for the 0.1.0 alpha.
+# Novexa example configuration
 #
-# IMPORTANT: YAML configuration loading is NOT implemented in this alpha
-# release. The runtime uses hard-coded safe defaults (see below). Edit this file
-# to understand what future configuration will look like; Novexa will parse
-# novexa.yaml in a release after the alpha.
-#
-# Copy this file to one of the following locations once YAML loading is enabled:
+# Copy this file to one of the following locations:
 #   - ~/.novexa/novexa.yaml
 #   - ./novexa.yaml (project-local)
+#
+# Environment variables override any YAML values:
+#   NOVEXA_PROVIDER_DEFAULT=lmstudio
+#   NOVEXA_LMSTUDIO_URL=http://192.168.0.164:1234/v1
+#   NOVEXA_DEFAULT_MODEL=ornith-1.0-9b@q4_k_m
+#   NOVEXA_PROVIDER_TIMEOUT_SECONDS=120
 #
 # This file intentionally contains no real secrets and keeps external telemetry
 # disabled. Prompts and responses are not logged by default.
