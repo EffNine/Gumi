@@ -78,3 +78,4 @@ __pycache__/
 .venv/
 venv/
 .venv-bench/
+docs/1[4-8]-*
