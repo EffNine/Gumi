@@ -24,10 +24,13 @@ if [ -z "$MODEL" ]; then
   exit 1
 fi
 
-OLLAMA_URL="http://localhost:11434"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 LMSTUDIO_URL="${LMSTUDIO_URL:-http://localhost:1234/v1}"
-NOVEXA_URL="http://localhost:8787/v1"
-NOVEXA_HEALTH_URL="http://localhost:8787/health"
+NOVEXA_URL="${NOVEXA_URL:-http://localhost:8787/v1}"
+NOVEXA_HEALTH_URL="${NOVEXA_HEALTH_URL:-${NOVEXA_URL%/v1}/health}"
 
 # Override with environment variable
 ATTEMPTS="${ATTEMPTS:-3}"
@@ -635,11 +638,12 @@ fi
 model_safe_name=$(echo "$MODEL" | sed 's/[^a-zA-Z0-9_-]/-/g')
 timestamp=$(date -u '+%Y%m%dT%H%M%SZ')
 completed_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-report_dir="benchmarks"
-report_file="${report_dir}/${model_safe_name}-${timestamp}.md"
-report_json_file="${report_dir}/${model_safe_name}-${timestamp}.json"
+raw_dir="$HOME/.novexa/benchmarks/local-model"
+report_dir="$REPO_DIR/benchmarks/reports"
+report_file="${report_dir}/${model_safe_name}-local-${timestamp}.md"
+report_json_file="${raw_dir}/${model_safe_name}-${timestamp}.json"
 
-mkdir -p "$report_dir"
+mkdir -p "$raw_dir" "$report_dir"
 
 direct_pass_rate=$(echo "$results_json" | jq --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode and .passed == "true")] | length')
 direct_total=$(echo "$results_json" | jq --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode)] | length')

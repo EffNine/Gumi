@@ -766,6 +766,165 @@ func TestPipelineAppliesProfilePromptInstructions(t *testing.T) {
 	assertEvent(t, result.Context, "profile_prompt_applied")
 }
 
+func TestPipelineManagedThinkingRequestOverride(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeStabilized)
+	adapter := &fakeAdapter{name: "ollama", models: []provider.ModelInfo{{Name: "qwen3.5:2b"}}}
+	engine := testEngine(adapter, cfg)
+
+	trueVal := true
+	result := engine.RunChatCompletion(context.Background(), "req_think_on", api.ChatCompletionRequest{
+		Model: "ollama:qwen3.5:2b",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Explain the trade-offs of using a mutex versus a channel in Go.",
+		}},
+		Novexa: &api.NovexaExtensions{
+			Mode:     string(ModeStabilized),
+			Thinking: &api.ThinkingConfig{Enabled: &trueVal},
+		},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.NormalizedRequest.Novexa == nil || result.Context.NormalizedRequest.Novexa.Thinking == nil || result.Context.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+		t.Fatal("expected thinking enabled from request override")
+	}
+	if !*result.Context.NormalizedRequest.Novexa.Thinking.Enabled {
+		t.Fatal("expected thinking enabled")
+	}
+	if result.Context.ThinkingMode != "full" {
+		t.Fatalf("expected thinking mode full, got %q", result.Context.ThinkingMode)
+	}
+}
+
+func TestPipelineManagedThinkingDisabledForJSONFormat(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeStabilized)
+	adapter := &fakeAdapter{
+		name:     "ollama",
+		models:   []provider.ModelInfo{{Name: "qwen2.5-coder:7b"}},
+		response: response(`{"ok":true}`),
+	}
+	engine := testEngine(adapter, cfg)
+
+	trueVal := true
+	result := engine.RunChatCompletion(context.Background(), "req_think_json", api.ChatCompletionRequest{
+		Model: "ollama:qwen2.5-coder:7b",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "Return a JSON object.",
+		}},
+		ResponseFormat: &api.ResponseFormat{Type: "json_object"},
+		Novexa: &api.NovexaExtensions{
+			Mode:     string(ModeStabilized),
+			Thinking: &api.ThinkingConfig{Enabled: &trueVal},
+		},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.NormalizedRequest.Novexa == nil || result.Context.NormalizedRequest.Novexa.Thinking == nil || result.Context.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+		t.Fatal("expected thinking decision in normalized request")
+	}
+	if *result.Context.NormalizedRequest.Novexa.Thinking.Enabled {
+		t.Fatal("expected thinking disabled for JSON format by policy")
+	}
+	if result.Context.ThinkingMode != "disabled" {
+		t.Fatalf("expected thinking mode disabled, got %q", result.Context.ThinkingMode)
+	}
+}
+
+func TestPipelineStripsReasoningFromResponse(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeStabilized)
+	adapter := &fakeAdapter{
+		name:     "ollama",
+		response: response("```thinking\nI should reason step by step.\n```\nThe answer is 42."),
+	}
+	engine := testEngine(adapter, cfg)
+
+	result := engine.RunChatCompletion(context.Background(), "req_strip_reasoning", api.ChatCompletionRequest{
+		Model: "local:auto",
+		Messages: []api.Message{{
+			Role:    "user",
+			Content: "What is the answer?",
+		}},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	content, _ := result.Response.Choices[0].Message.Content.(string)
+	if strings.Contains(content, "thinking") || strings.Contains(content, "reason step by step") {
+		t.Fatalf("expected reasoning stripped, got %q", content)
+	}
+	if !strings.Contains(content, "The answer is 42.") {
+		t.Fatalf("expected final answer preserved, got %q", content)
+	}
+	if !result.Context.ReasoningContentPresent {
+		t.Fatal("expected reasoning content present metadata")
+	}
+	assertEvent(t, result.Context, "reasoning_content_detected")
+}
+
+func TestRunChatCompletionToolShimForWeakModels(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeLightweight)
+	adapter := &fakeAdapter{
+		name:     "ollama",
+		models:   []provider.ModelInfo{{Name: "qwen3.5:2b"}},
+		response: response(`{"tool": "read_file", "arguments": {"path": "main.go"}}`),
+	}
+	engine := testEngine(adapter, cfg)
+
+	tools := []api.Tool{{
+		Type: "function",
+		Function: api.ToolFunction{
+			Name:        "read_file",
+			Description: "Read a file",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"path": map[string]interface{}{"type": "string"},
+				},
+				"required": []interface{}{"path"},
+			},
+		},
+	}}
+
+	result := engine.RunChatCompletion(context.Background(), "req_tool_shim", api.ChatCompletionRequest{
+		Model:    "ollama:qwen3.5:2b",
+		Messages: []api.Message{{Role: "user", Content: "Read main.go"}},
+		Tools:    tools,
+		Novexa:   &api.NovexaExtensions{Mode: string(ModeLightweight)},
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if adapter.seenReq.Tools != nil && len(adapter.seenReq.Tools) != 0 {
+		t.Fatalf("expected native tools cleared for weak model, got %v", adapter.seenReq.Tools)
+	}
+	if len(adapter.seenMessages) == 0 {
+		t.Fatal("expected provider request to have messages")
+	}
+	system, _ := adapter.seenMessages[0].Content.(string)
+	if !strings.Contains(system, "read_file") || !strings.Contains(system, "JSON object") {
+		t.Fatalf("expected tool instructions in system prompt, got %q", system)
+	}
+	if len(result.Response.Choices[0].Message.ToolCalls) != 1 {
+		t.Fatalf("expected 1 parsed tool call, got %v", result.Response.Choices[0].Message.ToolCalls)
+	}
+	if result.Response.Choices[0].Message.ToolCalls[0].Function.Name != "read_file" {
+		t.Fatalf("expected tool name read_file, got %q", result.Response.Choices[0].Message.ToolCalls[0].Function.Name)
+	}
+	assertEvent(t, result.Context, "tool_shim_enabled")
+	assertEvent(t, result.Context, "tool_shim_parsed")
+}
+
 func assertEvent(t *testing.T, ctx *Context, event string) {
 	t.Helper()
 	for _, item := range ctx.Events {

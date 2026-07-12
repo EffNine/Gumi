@@ -46,6 +46,7 @@ It provides:
 - prompt and context handling
 - JSON validation and repair
 - anti-loop and safety guards
+- instruction-following assist (auto-detects 14 constraint types)
 - local telemetry
 - CLI diagnostics
 - local dashboard
@@ -106,9 +107,9 @@ Recommended model choices:
 | Use case | Model ID | Profile |
 |---|---|---|
 | Coding | `lmstudio:qwen2.5-coder-7b-instruct` | `qwen2.5-coder-7b` |
+| Agentic coding | `lmstudio:ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
 | Fast chat | `lmstudio:qwen/qwen3-1.7b` | `qwen3-1.7b` |
 | Mid-size chat | `lmstudio:google/gemma-4-e4b` | `gemma-4-e4b` |
-| Quality alternative | `lmstudio:ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
 
 Apps should only need:
 
@@ -120,6 +121,52 @@ model: lmstudio:qwen2.5-coder-7b-instruct
 
 Novexa handles profile tuning, thinking policy, provider quirks, JSON handling,
 and runtime behavior.
+
+---
+
+## Benchmarks
+
+Novexa improves local model reliability across multiple dimensions. Full
+report: [`benchmarks/reports/SUMMARY-20260712.md`](benchmarks/reports/SUMMARY-20260712.md).
+
+### Ornith 9B — Agentic Coding (Tool calls + JSON + Multi-turn)
+
+| Metric | Direct LM Studio | Novexa Stabilized | Improvement |
+|---|---|---|---|
+| JSON Validity | 0% | **100%** | +100% |
+| JSON + Required Keys | 0% | **100%** | +100% |
+| Tool Call Accuracy | 100% | 100% | maintained |
+| Latency p50 (JSON) | 2,949ms | 352ms | **8.4× faster** |
+
+### Instruction-Following Assist
+
+Novexa automatically detects formatting constraints (sentence count, word
+restrictions, bullet format, JSON, line count, etc.) and injects explicit
+reminders into the system prompt:
+
+```
+Prompt: "2 sentences, end with 'learning', no word 'language'"
+→ Novexa: "CRITICAL: 1. Exactly 2 sentences. 2. End with 'learning'.
+           3. Do NOT use the word 'language'."
+→ Valid response in 1 attempt ✅
+```
+
+### How Novexa Helps Agent Frameworks
+
+Novexa is not an agent framework. It improves **every turn** inside any
+agent loop (OpenCode, Continue, Claude Code, Terminus-2). When an agent
+makes 30+ turns to solve a task, Novexa's per-turn reliability gains
+compound:
+
+| Per-turn improvement | After 30 turns | Compound effect |
+|---|---|---|
+| JSON: 0% → 100% | Zero parsing failures | Agent never gets stuck on bad JSON |
+| Instruction: 78% → 100% | Fewer wrong file edits | Higher SWE-Bench success rate |
+| Tool calls: 100% maintained | All tool invocations valid | No wasted episodes |
+
+> **Ornith 9B scores 43.1% on Terminal-Bench 2.1 and 69.4% on SWE-Bench
+> Verified when using agent frameworks.** Novexa helps local deployments
+> close the gap with cloud-grade reliability per turn.
 
 ---
 
@@ -252,6 +299,62 @@ If no matching profile exists, Novexa falls back to `generic-local`.
 
 ---
 
+## Agentic Coding
+
+Novexa focuses on three hero models for agentic coding with local AI:
+
+| Role | Model | Profile |
+|---|---|---|
+| Primary fast coder | `lmstudio:qwen2.5-coder-7b-instruct` | `qwen2.5-coder-7b` |
+| Complex reasoning fallback | `lmstudio:qwen/qwen3.5-9b` | `qwen3.5-9b` |
+| Quality alternative | `lmstudio:ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
+
+These models declare `tool_calling: weak` because they do not reliably emit native OpenAI-style `tool_calls`. Novexa adds a prompt-based tool-calling shim for them:
+
+1. Converts `tools` into explicit prompt instructions and a JSON schema.
+2. Asks the model to reply with a JSON tool call object.
+3. Parses the response back into OpenAI-compatible `tool_calls`.
+4. Validates tool names and required arguments.
+5. Repairs or retries when the output is malformed.
+
+Agentic modes also harden structured JSON output, summarize old tool results to save context budget, and detect repeated tool calls.
+
+---
+
+## Managed Thinking (Experimental)
+
+Local reasoning models can behave more like frontier models when they are allowed to think before answering. Novexa adds a **managed thinking** layer so reasoning is controlled, not chaotic:
+
+- `thinking_policy` in model profiles decides when thinking is enabled.
+- Token budget is split into output budget + reasoning budget.
+- Reasoning returned in a separate field (`reasoning_content`) is stripped from the final response.
+- Reasoning wrapped in explicit markers (`<thinking>`, `<reasoning>`, fenced blocks) is stripped.
+- Thinking is automatically disabled for JSON/schema and tool-calling workflows.
+- Telemetry records thinking mode and reasoning presence without storing reasoning text.
+
+Enable per request:
+
+```json
+{
+  "novexa": {
+    "thinking": { "enabled": true }
+  }
+}
+```
+
+Current limitation: some local models emit reasoning as plain prose inside the main content. Novexa strips explicit markers and separate reasoning fields, but cannot yet remove free-form reasoning prose from every model.
+
+Run the managed thinking benchmark:
+
+```bash
+LMSTUDIO_URL=http://localhost:1234/v1 \
+NOVEXA_URL=http://127.0.0.1:8787/v1 \
+ATTEMPTS=1 \
+./scripts/benchmark-managed-thinking.sh qwen/qwen3.5-9b
+```
+
+---
+
 ## Benchmarking
 
 Run a single model benchmark:
@@ -286,6 +389,66 @@ Use Profile Doctor on a JSON report:
 
 Profile Doctor is read-only. It recommends tuning changes but does not edit
 profiles automatically.
+
+### Standard before/after scorecard
+
+For a reproducible comparison against an established benchmark, install the
+EleutherAI LM Evaluation Harness and run IFEval through the direct provider and
+Novexa with identical generation settings:
+
+```bash
+python3 -m venv .venv-bench
+.venv-bench/bin/pip install "lm-eval[api]" langdetect immutabledict
+
+DIRECT_BASE_URL=http://192.168.0.164:1234/v1 \
+NOVEXA_BASE_URL=http://127.0.0.1:8787/v1 \
+NOVEXA_MODEL=lmstudio:qwen/qwen3.5-9b \
+LM_EVAL_BIN="$PWD/.venv-bench/bin/lm_eval" \
+./scripts/benchmark-standard-scorecard.sh qwen/qwen3.5-9b
+```
+
+The default task is `ifeval`, a standard instruction-following benchmark. The
+runner writes raw `lm-eval` output plus a Markdown and JSON scorecard under
+`benchmarks/standard/`. Add supported generation tasks with
+`STANDARD_TASKS=ifeval,<task>`; keep task version, model artifact, few-shot
+count, and generation settings unchanged for every comparison. Start Novexa in
+the mode being measured before running the scorecard; `stabilized` is its
+default mode. For example: `go run ./cmd/novexa start --mode stabilized`.
+Use `LIMIT=50` only for a fast validation run; omit it for the full score.
+
+### Terminal-Bench agent scorecard
+
+Terminal-Bench measures a complete coding agent (model, Novexa, agent loop, and
+terminal tools), rather than the model alone. It requires Docker Desktop and a
+Python 3.13 environment:
+
+```bash
+python3.13 -m venv .venv-terminal
+.venv-terminal/bin/pip install terminal-bench
+
+DIRECT_BASE_URL=http://192.168.0.164:1234/v1 \
+NOVEXA_BASE_URL=http://127.0.0.1:8787/v1 \
+./scripts/benchmark-terminal-bench.sh qwen/qwen3.5-9b
+```
+
+The first run uses five `terminal-bench-core==0.1.1` tasks and the same
+`terminus-2` agent for both endpoints. Increase `TERMINAL_BENCH_TASKS` only
+after the smoke run succeeds.
+
+### Agentic coding benchmark
+
+Run a focused comparison of direct LM Studio vs. Novexa on tool-calling,
+structured JSON, and multi-turn prompts:
+
+```bash
+LMSTUDIO_URL=http://localhost:1234/v1 \
+NOVEXA_URL=http://127.0.0.1:8787/v1 \
+ATTEMPTS=3 \
+./scripts/benchmark-agentic-coding.sh qwen2.5-coder-7b-instruct
+```
+
+Results are written to `benchmarks/agentic/<model>-<timestamp>.md` and
+`benchmarks/agentic/<model>-<timestamp>.json`.
 
 ---
 

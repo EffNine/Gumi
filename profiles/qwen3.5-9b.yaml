@@ -34,8 +34,22 @@ defaults:
   temperature: 0.4
   top_p: 0.9
   repeat_penalty: 1.12
-  max_tokens: 512
+  max_tokens: 4096
   thinking: false
+
+thinking_policy:
+  allowed: true
+  default_mode: disabled
+  strip_reasoning: true
+  reasoning_token_budget: 2048
+  enable_when:
+    - debugging
+    - multi_step_task
+    - unknown_domain
+  disable_when:
+    - response_format_json
+    - tool_calling
+    - one_word_answer
 
 context:
   strategy: hybrid
@@ -47,13 +61,16 @@ prompt:
   style: technical
   instruction_strength: strong
   json_instruction_style: explicit
+  tool_instruction_style: explicit
   system_prompt_style: direct
+  instruction_assist: true
   instructions:
     - Answer technical questions clearly and accurately.
     - For one-word or exact-format prompts, output only the requested final content.
     - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
     - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
     - Avoid repeating the same sentence or explanation.
+    - If you use a tool, return only the JSON tool call object with no markdown fences.
 
 guard:
   anti_loop: aggressive
@@ -61,6 +78,8 @@ guard:
   structured_output: true
   json_repair: true
   repetition_detection: true
+  tool_call_validation: true
+  tool_call_loop_detection: true
 
 notes:
   - Good general-purpose technical local model.

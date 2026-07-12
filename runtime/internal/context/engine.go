@@ -79,6 +79,7 @@ type Report struct {
 	CompressionRatio      float64  `json:"compression_ratio"`
 	ItemsRemoved          int      `json:"items_removed"`
 	DuplicatesRemoved     int      `json:"duplicates_removed"`
+	ToolResultsSummarized int      `json:"tool_results_summarized"`
 	FactsPreserved        int      `json:"facts_preserved"`
 	Warnings              []string `json:"warnings,omitempty"`
 	FallbackUsed          bool     `json:"fallback_used"`
@@ -113,6 +114,7 @@ func (e *Engine) Prepare(in Input) Output {
 	}
 
 	normalized, emptyRemoved := normalizeMessages(in.Messages)
+	normalized, toolSummarized := summarizeOldToolResults(normalized, preserveRecent)
 	before := EstimateMessages(normalized)
 
 	limit := maxInput
@@ -181,6 +183,7 @@ func (e *Engine) Prepare(in Input) Output {
 		CompressionRatio:      ratio,
 		ItemsRemoved:          itemsRemoved,
 		DuplicatesRemoved:     duplicatesRemoved,
+		ToolResultsSummarized: toolSummarized,
 		FactsPreserved:        len(facts),
 		Warnings:              warnings,
 		FallbackUsed:          fallbackUsed,
@@ -227,6 +230,42 @@ func EstimateText(text string) int {
 		return 1
 	}
 	return tokens
+}
+
+// summarizeOldToolResults replaces the content of tool messages that fall
+// outside the recent-message preservation window with a compact summary. This
+// keeps token budgets under control during long agent loops without discarding
+// the fact that a tool was called.
+func summarizeOldToolResults(messages []api.Message, preserveRecent int) ([]api.Message, int) {
+	if preserveRecent <= 0 {
+		preserveRecent = defaultRecentMessages
+	}
+	preserveFrom := len(messages) - preserveRecent
+	if preserveFrom < 0 {
+		preserveFrom = 0
+	}
+	result := make([]api.Message, 0, len(messages))
+	summarized := 0
+	for i, msg := range messages {
+		if msg.Role == "tool" && i < preserveFrom {
+			summary := summarizeToolResult(msg)
+			if summary != "" {
+				msg.Content = summary
+				summarized++
+			}
+		}
+		result = append(result, msg)
+	}
+	return result, summarized
+}
+
+func summarizeToolResult(msg api.Message) string {
+	if msg.ToolCallID == "" {
+		return ""
+	}
+	text := messageText(msg)
+	length := EstimateText(text)
+	return fmt.Sprintf("[Tool result %s: %d tokens omitted]", msg.ToolCallID, length)
 }
 
 func resolveStrategy(raw string, mode string) Strategy {

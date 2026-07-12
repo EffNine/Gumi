@@ -40,6 +40,7 @@ prompt:
   instruction_strength: strict
   json_instruction_style: explicit
   system_prompt_style: direct
+  instruction_assist: true
   instructions:
     - Answer concisely and directly. Do not include reasoning or chain-of-thought.
     - For one-word or exact-format prompts, output only the requested final content.

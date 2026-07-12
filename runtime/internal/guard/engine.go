@@ -75,6 +75,9 @@ func (e *Engine) Check(in Input) Output {
 	if in.RuntimeMode == "structured" || (in.ResponseFormat != nil && in.ResponseFormat.Type != "") {
 		warnings = append(warnings, "structured output validation enabled")
 	}
+	if hasToolCallLoop(in.Messages) {
+		warnings = append(warnings, "tool call loop detected in conversation history")
+	}
 
 	report := Report{Decision: DecisionAllow, Warnings: warnings}
 	if in.ModelProfile != nil {
@@ -117,4 +120,27 @@ func latestUserMessage(messages []api.Message) string {
 		}
 	}
 	return ""
+}
+
+// hasToolCallLoop returns true if an assistant message repeats a tool call
+// (same name and arguments) that already appeared in an earlier assistant
+// message in the same conversation.
+func hasToolCallLoop(messages []api.Message) bool {
+	seen := map[string]bool{}
+	for _, msg := range messages {
+		if msg.Role != "assistant" {
+			continue
+		}
+		for _, call := range msg.ToolCalls {
+			if call.Function.Name == "" {
+				continue
+			}
+			sig := call.Function.Name + "\x00" + strings.TrimSpace(call.Function.Arguments)
+			if seen[sig] {
+				return true
+			}
+			seen[sig] = true
+		}
+	}
+	return false
 }

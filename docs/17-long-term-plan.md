@@ -171,6 +171,7 @@ Novexa Runtime Community
 - Local telemetry
 - CLI doctor
 - Basic dashboard
+- Managed thinking orchestration (experiment)
 
 ## Target Users
 
@@ -193,6 +194,12 @@ Target user sentiment:
 ```text
 I still use Ollama, but I run it through Novexa.
 ```
+
+## Managed Thinking Experiment
+
+Local models are beginning to support reasoning and thinking modes. In Year 1, Novexa should experiment with **managed thinking**: deciding when reasoning helps, reserving tokens for it, and stripping reasoning traces from the final output.
+
+This keeps tool-calling and JSON workflows stable while letting complex debugging or research tasks benefit from longer internal reasoning. The feature starts as an opt-in experiment and becomes a profile-managed default once benchmarks prove it is reliable.
 
 ---
 

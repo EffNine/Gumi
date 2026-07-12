@@ -1,6 +1,7 @@
 package contextengine
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/novexa/novexa/runtime/internal/api"
@@ -63,5 +64,37 @@ func TestEstimateText(t *testing.T) {
 	}
 	if got := EstimateText(""); got != 0 {
 		t.Fatalf("expected 0 tokens, got %d", got)
+	}
+}
+
+func TestPrepareSummarizesOldToolResults(t *testing.T) {
+	engine := New()
+	out := engine.Prepare(Input{
+		RuntimeMode:            "stabilized",
+		Strategy:               "hybrid",
+		PreserveRecentMessages: 2,
+		Messages: []api.Message{
+			{Role: "system", Content: "You are a coding assistant."},
+			{Role: "assistant", Content: "", ToolCalls: []api.ToolCall{{Function: api.ToolFunction{Name: "read_file", Arguments: `{"path":"old.go"}`}}}},
+			{Role: "tool", Content: "very long tool result that should be summarized because it is old", ToolCallID: "call_1"},
+			{Role: "assistant", Content: "ok"},
+			{Role: "user", Content: "now what?"},
+		},
+	})
+
+	if out.Report.ToolResultsSummarized == 0 {
+		t.Fatal("expected old tool result to be summarized")
+	}
+	for _, msg := range out.FinalMessages {
+		if msg.Role == "tool" && msg.ToolCallID == "call_1" {
+			if s, ok := msg.Content.(string); ok {
+				if s == "very long tool result that should be summarized because it is old" {
+					t.Fatal("expected old tool result to be replaced with summary")
+				}
+				if !strings.Contains(s, "[Tool result call_1:") {
+					t.Fatalf("expected summary placeholder, got %q", s)
+				}
+			}
+		}
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/novexa/novexa/runtime/internal/config"
 	contextengine "github.com/novexa/novexa/runtime/internal/context"
 	guardengine "github.com/novexa/novexa/runtime/internal/guard"
+	"github.com/novexa/novexa/runtime/internal/instruction"
 	"github.com/novexa/novexa/runtime/internal/profiles"
 	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
 	"github.com/novexa/novexa/runtime/internal/provider"
@@ -108,6 +109,25 @@ type Context struct {
 	SelectedModel    string            `json:"selected_model,omitempty"`
 	ModelProfile     *profiles.Profile `json:"model_profile,omitempty"`
 
+	// Tool-calling shim state for models with tool_calling: weak.
+	OriginalTools    []api.Tool `json:"original_tools,omitempty"`
+	ToolInstructions string     `json:"tool_instructions,omitempty"`
+	ToolSchemaHint   string     `json:"tool_schema_hint,omitempty"`
+	ToolShimActive   bool       `json:"tool_shim_active"`
+
+	// Managed thinking state.
+	ThinkingMode             string `json:"thinking_mode,omitempty"`
+	ThinkingDecisionReason   string `json:"thinking_decision_reason,omitempty"`
+	ThinkingOutputBudget   int    `json:"thinking_output_budget,omitempty"`
+	ThinkingReasoningBudget int   `json:"thinking_reasoning_budget,omitempty"`
+	ReasoningContentPresent bool   `json:"reasoning_content_present,omitempty"`
+	ReasoningLength         int    `json:"reasoning_length,omitempty"`
+
+	// Instruction-following assist state.
+	InstructionConstraints   []instruction.Constraint `json:"instruction_constraints,omitempty"`
+	InstructionHintInjected  bool                     `json:"instruction_hint_injected"`
+	InstructionRetryCount    int                       `json:"instruction_retry_count"`
+
 	ProviderResponse *api.ChatCompletionResponse `json:"provider_response,omitempty"`
 	ProviderError    *provider.ProviderError     `json:"provider_error,omitempty"`
 	ProviderLatency  time.Duration               `json:"provider_latency,omitempty"`
@@ -129,7 +149,12 @@ type Context struct {
 // Actual reasoning text is never stored.
 type ThinkingTelemetry struct {
 	ThinkingEnabled         string `json:"thinking_enabled"`
+	ThinkingMode            string `json:"thinking_mode,omitempty"`
+	ThinkingDecisionReason  string `json:"thinking_decision_reason,omitempty"`
 	ReasoningContentPresent bool   `json:"reasoning_content_present"`
+	ReasoningLength         int    `json:"reasoning_length,omitempty"`
+	OutputTokenBudget       int    `json:"output_token_budget,omitempty"`
+	ReasoningTokenBudget    int    `json:"reasoning_token_budget,omitempty"`
 }
 
 // AddEvent appends a pipeline event to the context.

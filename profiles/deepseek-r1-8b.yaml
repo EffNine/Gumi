@@ -47,6 +47,7 @@ prompt:
   instruction_strength: standard
   json_instruction_style: explicit
   system_prompt_style: direct
+  instruction_assist: true
   instructions:
     - Show reasoning briefly, then give the final answer.
     - For structured output, return only valid JSON and no explanatory prose.

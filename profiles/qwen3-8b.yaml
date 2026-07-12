@@ -48,6 +48,7 @@ prompt:
   instruction_strength: strong
   json_instruction_style: explicit
   system_prompt_style: direct
+  instruction_assist: true
   instructions:
     - Answer technical questions clearly and accurately.
     - For structured output, return only the requested JSON. Do not wrap it in markdown fences.

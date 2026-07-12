@@ -12,12 +12,13 @@ import (
 
 // Input is the Prompt Engine request.
 type Input struct {
-	RuntimeMode    string
-	Messages       []api.Message
-	ContextPackage contextengine.Package
-	ResponseFormat *api.ResponseFormat
-	ExistingSystem []string
-	ModelProfile   *profiles.Profile
+	RuntimeMode      string
+	Messages         []api.Message
+	ContextPackage   contextengine.Package
+	ResponseFormat   *api.ResponseFormat
+	ExistingSystem   []string
+	ModelProfile     *profiles.Profile
+	ToolInstructions string
 }
 
 // Output is the Prompt Engine result.
@@ -59,7 +60,7 @@ func New() *Engine {
 func (e *Engine) Build(in Input) Output {
 	system := buildSystemPrompt(in)
 	contextBlock := buildContextBlock(in.ContextPackage)
-	formatInstructions := buildFormatInstructions(in.ResponseFormat)
+	formatInstructions := buildFormatInstructions(in.ResponseFormat, in.ModelProfile)
 	profileInstructions := buildProfileInstructions(in.ModelProfile)
 	warnings := []string{}
 
@@ -116,9 +117,14 @@ func buildSystemPrompt(in Input) string {
 		"Preserve the user's intent and do not invent facts.",
 		"If information is missing or uncertain, say so instead of guessing.",
 	}
+	if in.ToolInstructions != "" {
+		lines = append(lines, "", in.ToolInstructions)
+	}
 	if in.RuntimeMode == "structured" {
 		lines = append(lines, "Return only the requested structured output. Avoid prose outside the structure.")
-	} else if in.ResponseFormat == nil || in.ResponseFormat.Type == "" {
+	} else if in.ResponseFormat != nil && in.ResponseFormat.Type != "" {
+		lines = append(lines, "Return only the requested output format. Do not wrap it in markdown fences or add explanatory prose.")
+	} else {
 		lines = append(lines, "Do not convert plain-text answers into JSON, YAML, XML, or another structured format unless the user explicitly asks for that format.")
 		lines = append(lines, "If the user requests one word, one token, or an exact format, output only that requested content.")
 	}
@@ -164,24 +170,54 @@ func buildContextBlock(pkg contextengine.Package) string {
 	return "Novexa context package:\n" + strings.Join(lines, "\n")
 }
 
-func buildFormatInstructions(format *api.ResponseFormat) string {
+func buildFormatInstructions(format *api.ResponseFormat, profile *profiles.Profile) string {
 	if format == nil || format.Type == "" {
 		return ""
 	}
+
+	style := "explicit"
+	if profile != nil && profile.Prompt.JSONInstructionStyle != "" {
+		style = strings.ToLower(profile.Prompt.JSONInstructionStyle)
+	}
+
 	switch format.Type {
 	case "json_object":
-		return "Response format: return a valid JSON object. Do not wrap it in markdown fences."
+		switch style {
+		case "simple":
+			return "Return a valid JSON object."
+		case "schema_first":
+			return "Return a valid JSON object. Do not wrap it in markdown fences or add explanatory prose. The root must be an object."
+		default: // explicit
+			return "Response format: return a valid JSON object. Do not wrap it in markdown fences or add explanatory prose. The root must be an object."
+		}
 	case "json_schema":
 		schema := ""
+		required := ""
 		if format.JSONSchema != nil {
 			if data, err := json.Marshal(format.JSONSchema.Schema); err == nil && len(data) > 0 {
 				schema = string(data)
 			}
+			if req, ok := format.JSONSchema.Schema["required"].([]interface{}); ok && len(req) > 0 {
+				parts := make([]string, 0, len(req))
+				for _, r := range req {
+					if s, ok := r.(string); ok {
+						parts = append(parts, s)
+					}
+				}
+				required = strings.Join(parts, ", ")
+			}
 		}
-		if schema == "" {
-			return "Response format: return JSON matching the requested schema. Do not wrap it in markdown fences."
+		base := "Response format: return JSON matching the requested schema. Do not wrap it in markdown fences or add explanatory prose."
+		if schema != "" {
+			base += "\nSchema: " + schema
 		}
-		return "Response format: return JSON matching this schema. Do not wrap it in markdown fences.\nSchema: " + schema
+		if required != "" {
+			base += "\nRequired top-level keys: " + required
+		}
+		if style == "explicit" || style == "schema_first" {
+			base += "\nReturn ONLY the raw JSON object. No markdown fences, no code blocks, no explanation."
+		}
+		return base
 	default:
 		return "Response format: follow requested response_format type " + format.Type + "."
 	}

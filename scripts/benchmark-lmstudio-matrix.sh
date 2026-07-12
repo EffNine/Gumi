@@ -14,7 +14,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-BENCHMARK_DIR="$REPO_DIR/benchmarks"
+BENCHMARK_DIR="$HOME/.novexa/benchmarks/lmstudio-matrix"
+REPORT_DIR="$REPO_DIR/benchmarks/reports"
 MATRIX_SCRIPT="$SCRIPT_DIR/benchmark-lmstudio-matrix.sh"
 BENCHMARK_SCRIPT="$SCRIPT_DIR/benchmark-local-model.sh"
 DOCTOR_SCRIPT="$SCRIPT_DIR/profile-doctor.sh"
@@ -66,7 +67,7 @@ echo ""
 
 # ── Run matrix ──────────────────────────────────────────────────────
 matrix_timestamp=$(date -u '+%Y%m%dT%H%M%SZ')
-results_dir="$BENCHMARK_DIR"
+results_dir="$HOME/.novexa/benchmarks/local-model"
 mkdir -p "$results_dir"
 
 declare -a summary_rows=()
@@ -154,7 +155,7 @@ for model in "${model_list[@]}"; do
 done
 
 # ── Generate summary markdown ──────────────────────────────────────
-summary_file="$BENCHMARK_DIR/lmstudio-matrix-${matrix_timestamp}.md"
+summary_file="$REPORT_DIR/lmstudio-matrix-${matrix_timestamp}.md"
 
 {
   echo "# LM Studio Benchmark Matrix"

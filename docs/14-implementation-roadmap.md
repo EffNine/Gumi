@@ -1008,7 +1008,86 @@ New user can install and use Novexa with Ollama in under 10 minutes
 
 ---
 
-# 31. Minimum Viable Release
+# 31. Sprint 11: Managed Thinking Experiment (Post-V1)
+
+## Goal
+
+Turn local model thinking/reasoning into a reliable, observable feature instead of a source of broken output and runaway latency.
+
+## Background
+
+Local models with reasoning support (Qwen3, DeepSeek-R1, Gemma with thinking, etc.) can behave more like frontier models when they are allowed to perform internal "research" before answering. However, naive thinking causes:
+
+- reasoning traces that exhaust `max_tokens`
+- reasoning leaking into JSON / tool calls / chat output
+- unpredictable latency spikes
+- corrupted structured output
+
+Novexa should manage thinking the same way it manages context, prompts, and validation: as part of the intelligence layer around the model.
+
+## Hypothesis
+
+If Novexa can decide **when** thinking is useful, **reserve tokens** for it, and **strip reasoning blocks** from the final response, then a 7B–9B local model with thinking enabled can match frontier-model behaviour on complex tasks without breaking tool-calling or JSON workflows.
+
+## Experiment Tasks
+
+```text
+[x] Add thinking_policy section to model profiles
+[x] Support reasoning_budget and output_budget split
+[x] Detect reasoning content in provider responses
+[x] Strip reasoning blocks before validation/repair
+[x] Keep thinking disabled by default in lightweight and structured modes
+[x] Allow per-request override via novexa.thinking.enabled
+[x] Add telemetry event for thinking duration and token reservation
+[x] Benchmark direct vs. managed-thinking on complex coding/debugging tasks
+[ ] Strip free-form reasoning prose from models that do not use explicit markers
+```
+
+## Proposed Profile Schema
+
+```yaml
+defaults:
+  thinking: false
+
+thinking_policy:
+  allowed: true
+  default_mode: disabled            # disabled | light | full
+  strip_reasoning: true
+  reasoning_token_budget: 2048
+  enable_when:
+    - context_too_large
+    - multi_step_task
+    - debugging
+    - unknown_domain
+  disable_when:
+    - response_format_json
+    - tool_calling
+    - one_word_answer
+```
+
+## Acceptance Criteria
+
+```text
+Managed thinking does not break existing tool-calling or JSON benchmarks
+Reasoning traces are never returned to the client by default
+Latency overhead from thinking is reported in telemetry
+User can enable/disable thinking per request
+Benchmark shows improvement on complex tasks when thinking is enabled
+```
+
+## Why It Fits Novexa
+
+This aligns with:
+
+- Principle 4: Intelligence Before Models
+- Vision: "make local AI more stable, smarter, easier to integrate"
+- Tagline: "Run any local model like it's a premium AI"
+
+Thinking is not a model change. It is a usage pattern that Novexa can orchestrate.
+
+---
+
+# 32. Minimum Viable Release
 
 The minimum public V1 release should include:
 

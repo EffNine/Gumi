@@ -167,8 +167,12 @@ func newLMStudioChatRequest(req api.ChatCompletionRequest) lmStudioChatRequest {
 		Metadata:         req.Metadata,
 	}
 
-	if req.Novexa != nil && req.Novexa.Thinking != nil && req.Novexa.Thinking.Enabled != nil && !*req.Novexa.Thinking.Enabled {
-		payload.ReasoningEffort = "none"
+	if req.Novexa != nil && req.Novexa.Thinking != nil && req.Novexa.Thinking.Enabled != nil {
+		if *req.Novexa.Thinking.Enabled {
+			payload.ReasoningEffort = "medium"
+		} else {
+			payload.ReasoningEffort = "none"
+		}
 	}
 
 	return payload

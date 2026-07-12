@@ -22,9 +22,10 @@ type Profile struct {
 	Capabilities Capabilities        `yaml:"capabilities,omitempty"`
 	Defaults     Defaults            `yaml:"defaults,omitempty"`
 	Context      ContextSettings     `yaml:"context,omitempty"`
-	Prompt       PromptSettings      `yaml:"prompt,omitempty"`
-	Guard        GuardSettings       `yaml:"guard,omitempty"`
-	Notes        []string            `yaml:"notes,omitempty"`
+	Prompt         PromptSettings      `yaml:"prompt,omitempty"`
+	Guard          GuardSettings       `yaml:"guard,omitempty"`
+	ThinkingPolicy ThinkingPolicy      `yaml:"thinking_policy,omitempty"`
+	Notes          []string            `yaml:"notes,omitempty"`
 }
 
 // Capabilities describes what a model is expected to handle well.
@@ -64,18 +65,37 @@ type PromptSettings struct {
 	Style                string   `yaml:"style,omitempty"`
 	InstructionStrength  string   `yaml:"instruction_strength,omitempty"`
 	JSONInstructionStyle string   `yaml:"json_instruction_style,omitempty"`
+	ToolInstructionStyle string   `yaml:"tool_instruction_style,omitempty"`
 	SystemPromptStyle    string   `yaml:"system_prompt_style,omitempty"`
 	Instructions         []string `yaml:"instructions,omitempty"`
+	InstructionAssist    bool     `yaml:"instruction_assist,omitempty"`
 }
 
 // GuardSettings describes reliability guard preferences for the model.
 type GuardSettings struct {
-	AntiLoop            string `yaml:"anti_loop,omitempty"`
-	ContextOverflow     bool   `yaml:"context_overflow,omitempty"`
-	StructuredOutput    bool   `yaml:"structured_output,omitempty"`
-	JSONRepair          bool   `yaml:"json_repair,omitempty"`
-	RepetitionDetection bool   `yaml:"repetition_detection,omitempty"`
+	AntiLoop              string `yaml:"anti_loop,omitempty"`
+	ContextOverflow       bool   `yaml:"context_overflow,omitempty"`
+	StructuredOutput      bool   `yaml:"structured_output,omitempty"`
+	JSONRepair            bool   `yaml:"json_repair,omitempty"`
+	RepetitionDetection   bool   `yaml:"repetition_detection,omitempty"`
+	ToolCallValidation    bool   `yaml:"tool_call_validation,omitempty"`
+	ToolCallLoopDetection bool   `yaml:"tool_call_loop_detection,omitempty"`
 }
+
+// ThinkingPolicy controls when and how a model may use internal reasoning.
+// Reasoning text is never stored by Novexa; only safe metadata is recorded.
+type ThinkingPolicy struct {
+	Allowed              bool     `yaml:"allowed,omitempty"`
+	DefaultMode          string   `yaml:"default_mode,omitempty"`
+	StripReasoning       bool     `yaml:"strip_reasoning,omitempty"`
+	ReasoningTokenBudget int      `yaml:"reasoning_token_budget,omitempty"`
+	EnableWhen           []string `yaml:"enable_when,omitempty"`
+	DisableWhen          []string `yaml:"disable_when,omitempty"`
+}
+
+// DefaultReasoningTokenBudget is the number of tokens reserved for reasoning
+// when a profile enables managed thinking but does not specify a budget.
+const DefaultReasoningTokenBudget = 2048
 
 // Validate checks that a loaded profile is internally consistent.
 // Invalid profiles are skipped by the loader rather than crashing the runtime.
@@ -116,6 +136,12 @@ func Validate(p *Profile) error {
 	}
 	if p.Prompt.JSONInstructionStyle != "" && !isJSONInstructionStyle(p.Prompt.JSONInstructionStyle) {
 		return fmt.Errorf("profile %q has unknown json_instruction_style %q", p.ID, p.Prompt.JSONInstructionStyle)
+	}
+	if p.Prompt.ToolInstructionStyle != "" && !isToolInstructionStyle(p.Prompt.ToolInstructionStyle) {
+		return fmt.Errorf("profile %q has unknown tool_instruction_style %q", p.ID, p.Prompt.ToolInstructionStyle)
+	}
+	if p.ThinkingPolicy.DefaultMode != "" && !isThinkingMode(p.ThinkingPolicy.DefaultMode) {
+		return fmt.Errorf("profile %q has unknown thinking_policy.default_mode %q", p.ID, p.ThinkingPolicy.DefaultMode)
 	}
 	return nil
 }
@@ -163,6 +189,22 @@ func isInstructionStrength(v string) bool {
 func isJSONInstructionStyle(v string) bool {
 	switch strings.ToLower(v) {
 	case "none", "simple", "explicit", "schema_first":
+		return true
+	}
+	return false
+}
+
+func isToolInstructionStyle(v string) bool {
+	switch strings.ToLower(v) {
+	case "none", "simple", "explicit", "schema_first":
+		return true
+	}
+	return false
+}
+
+func isThinkingMode(v string) bool {
+	switch strings.ToLower(v) {
+	case "disabled", "light", "full":
 		return true
 	}
 	return false

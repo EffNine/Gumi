@@ -84,11 +84,12 @@ type TelemetryExtension struct {
 
 // Message represents a chat message in OpenAI format.
 type Message struct {
-	Role       string      `json:"role"`
-	Content    interface{} `json:"content"`
-	Name       string      `json:"name,omitempty"`
-	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
-	ToolCallID string      `json:"tool_call_id,omitempty"`
+	Role            string      `json:"role"`
+	Content         interface{} `json:"content"`
+	ReasoningContent string     `json:"reasoning_content,omitempty"`
+	Name            string      `json:"name,omitempty"`
+	ToolCalls       []ToolCall  `json:"tool_calls,omitempty"`
+	ToolCallID      string      `json:"tool_call_id,omitempty"`
 }
 
 // ResponseFormat describes the requested response format.
@@ -110,11 +111,14 @@ type Tool struct {
 	Function ToolFunction `json:"function"`
 }
 
-// ToolFunction holds the function definition for a tool.
+// ToolFunction holds the function definition for a tool, or the arguments of a
+// tool call. For tool definitions Parameters is the JSON Schema. For tool calls
+// Arguments is the serialized JSON arguments object.
 type ToolFunction struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description,omitempty"`
 	Parameters  map[string]interface{} `json:"parameters,omitempty"`
+	Arguments   string                 `json:"arguments,omitempty"`
 }
 
 // ToolCall represents a tool invocation in an assistant message.

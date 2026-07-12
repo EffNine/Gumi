@@ -266,8 +266,9 @@ func (o *OllamaAdapter) Generate(ctx context.Context, req api.ChatCompletionRequ
 			{
 				Index: 0,
 				Message: api.Message{
-					Role:    "assistant",
-					Content: content,
+					Role:             "assistant",
+					Content:          content,
+					ReasoningContent: thinking,
 				},
 				FinishReason: "stop",
 			},

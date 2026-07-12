@@ -64,6 +64,7 @@ func New() *Engine {
 // Validate checks empty, incomplete, repetition, and structured JSON output.
 func (e *Engine) Validate(in Input) Report {
 	content, finish := AssistantContent(in.Response)
+	hasToolCalls := hasToolCalls(in.Response)
 	report := Report{
 		Passed:     true,
 		Severity:   "info",
@@ -73,20 +74,20 @@ func (e *Engine) Validate(in Input) Report {
 		},
 	}
 
-	if strings.TrimSpace(content) == "" {
+	if strings.TrimSpace(content) == "" && !hasToolCalls {
 		report.add(IssueEmptyResponse, "assistant response is empty", "choices[0].message.content", "error", true, StrategyRetryGeneration)
 		return report
 	}
 
-	if finish == "length" || hasUnclosedCodeFence(content) {
+	if !hasToolCalls && (finish == "length" || hasUnclosedCodeFence(content)) {
 		report.add(IssueIncompleteResponse, "assistant response appears incomplete", "choices[0]", "warning", true, StrategyRetryGeneration)
 	}
 
-	if hasRepetition(content) {
+	if !hasToolCalls && hasRepetition(content) {
 		report.add(IssueRepetition, "assistant response contains repeated lines or sentences", "choices[0].message.content", "error", true, StrategyRegexCleanup)
 	}
 
-	if requiresJSON(in.ResponseFormat, in.RuntimeMode, content) {
+	if !hasToolCalls && requiresJSON(in.ResponseFormat, in.RuntimeMode, content) {
 		trimmed := strings.TrimSpace(content)
 		candidate := ExtractJSONCandidate(content)
 		if candidate == "" || !json.Valid([]byte(candidate)) {
@@ -100,9 +101,40 @@ func (e *Engine) Validate(in Input) Report {
 				report.add(IssueInvalidJSON, "assistant response JSON root is not an object", "choices[0].message.content", "error", true, StrategyLocalParseRepair)
 			}
 		}
+
+		if in.ResponseFormat != nil && in.ResponseFormat.Type == "json_schema" && in.ResponseFormat.JSONSchema != nil {
+			var decoded map[string]interface{}
+			_ = json.Unmarshal([]byte(candidate), &decoded)
+			if missing := missingRequiredKeys(in.ResponseFormat.JSONSchema.Schema, decoded); len(missing) > 0 {
+				report.add(IssueInvalidJSON, "assistant response JSON is missing required keys: "+strings.Join(missing, ", "), "choices[0].message.content", "error", true, StrategyLocalParseRepair)
+			}
+		}
 	}
 
 	return report
+}
+
+// missingRequiredKeys returns the required top-level schema keys that are absent
+// from the decoded response object.
+func missingRequiredKeys(schema map[string]interface{}, decoded map[string]interface{}) []string {
+	if len(schema) == 0 {
+		return nil
+	}
+	req, ok := schema["required"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var missing []string
+	for _, r := range req {
+		key, ok := r.(string)
+		if !ok {
+			continue
+		}
+		if _, present := decoded[key]; !present {
+			missing = append(missing, key)
+		}
+	}
+	return missing
 }
 
 func (r *Report) add(code IssueCode, message string, location string, severity string, repairable bool, strategy Strategy) {
@@ -118,6 +150,13 @@ func (r *Report) add(code IssueCode, message string, location string, severity s
 	if r.Confidence == 0 {
 		r.Confidence = 0.9
 	}
+}
+
+func hasToolCalls(resp *api.ChatCompletionResponse) bool {
+	if resp == nil || len(resp.Choices) == 0 {
+		return false
+	}
+	return len(resp.Choices[0].Message.ToolCalls) > 0
 }
 
 // AssistantContent returns the first assistant content and finish reason.

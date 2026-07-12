@@ -2,6 +2,42 @@
 
 All notable changes to Novexa are documented in this file.
 
+## 0.1.0-alpha — Sprint 11: Instruction Assist & Benchmarks
+
+### Added
+
+- **Instruction-Following Assist Engine** (`runtime/internal/instruction/`):
+  - Auto-detects 14 constraint types from user prompts (sentences, words, lines,
+    bullets, forbidden words, end-with, capital-start, JSON, min chars, min
+    words, no commas, no markdown, sections, no rhyme).
+  - Injects explicit numbered reminders into the system prompt.
+  - Post-generation validation with automatic retry (max 2) on constraint
+    violations.
+  - 26 unit tests covering extraction, validation, and retry hints.
+- `instruction_assist` profile field (`prompt.instruction_assist`) — enabled for
+  Ornith 9B and Qwen 3.5 9B profiles.
+- **Benchmark suite restructure**: raw data goes to `~/.novexa/benchmarks/`,
+  summary reports stay in `benchmarks/reports/`.
+- **Comprehensive benchmark report** (`benchmarks/reports/SUMMARY-20260712.md`):
+  Agentic Coding + Local Model benchmarks for Ornith 9B and Qwen 3.5 9B.
+- **`benchmarks/README.md`** documenting methodology and quick start.
+
+### Benchmark Results (Ornith 9B)
+
+| Metric | Direct | Novexa | Improvement |
+|---|---|---|---|
+| JSON Validity (Agentic) | 0% | **100%** | +100% |
+| JSON Validity (Local) | 0% | **100%** | +100% |
+| Instruction Following | 78% | **100%** | +22% |
+| Tool Call Accuracy | 100% | 100% | maintained |
+| Latency p50 (JSON) | 2,949ms | 352ms | 8.4× faster |
+
+### Changed
+
+- All benchmark scripts now output raw data to `~/.novexa/benchmarks/` (outside
+  repo) and summary reports to `benchmarks/reports/`.
+- Archived 60+ historical benchmark files to `benchmarks/archive/`.
+
 ## 0.1.0-alpha — Sprint 10: Packaging and Release
 
 ### Added

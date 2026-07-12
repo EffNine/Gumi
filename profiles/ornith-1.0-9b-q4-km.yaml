@@ -1,6 +1,6 @@
 id: ornith-1.0-9b-q4-km
 name: Ornith 1.0 9B Q4_K_M
-version: 1
+version: 2
 family: ornith
 size: 9b
 type: chat
@@ -25,45 +25,70 @@ capabilities:
   json_mode: medium
   tool_calling: weak
   vision: false
-  long_context: medium
-  coding: medium
-  reasoning: medium
+  long_context: strong
+  coding: strong
+  reasoning: strong
   creative_writing: medium
 
 defaults:
   temperature: 0.4
   top_p: 0.9
   repeat_penalty: 1.12
-  max_tokens: 1024
+  max_tokens: 4096
   thinking: false
+
+thinking_policy:
+  allowed: true
+  default_mode: disabled
+  strip_reasoning: true
+  reasoning_token_budget: 4096
+  enable_when:
+    - debugging
+    - multi_step_task
+    - unknown_domain
+    - context_too_large
+  disable_when:
+    - response_format_json
+    - tool_calling
+    - one_word_answer
+
+context_limit: 32768
 
 context:
   strategy: hybrid
-  max_input_tokens: 12000
-  preserve_recent_messages: 8
+  max_input_tokens: 32000
+  preserve_recent_messages: 12
   compression: true
 
 prompt:
   style: general
   instruction_strength: strong
   json_instruction_style: explicit
+  tool_instruction_style: explicit
   system_prompt_style: direct
+  instruction_assist: true
   instructions:
-    - Answer concisely and directly. Do not include reasoning or chain-of-thought.
+    - Answer concisely and directly.
     - For one-word or exact-format prompts, output only the requested final content.
     - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
     - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
     - Avoid repeating the same sentence or explanation.
     - If you are uncertain, state uncertainty once and stop.
+    - If you use a tool, return only the JSON tool call object with no markdown fences.
+    - For creative or open-ended questions, provide thoughtful and well-structured answers.
 
 guard:
-  anti_loop: standard
+  anti_loop: aggressive
   context_overflow: true
   structured_output: true
   json_repair: true
   repetition_detection: true
+  tool_call_validation: true
+  tool_call_loop_detection: true
 
 notes:
-  - 9B model with Q4_K_M quantization. Good general-purpose chat model.
-  - Thinking is disabled by default to avoid exhausting max_tokens on reasoning.
+  - 9B model with Q4_K_M quantization. Tuned as all-rounder for agentic coding, reasoning, and general chat.
+  - 32K context budget with hybrid compression.
+  - Thinking is disabled by default but enabled for complex debugging and multi-step tasks.
+  - Tool-calling shim converts weak native tool calling into reliable prompt-based tool calls.
   - Validated with LM Studio model ornith-1.0-9b@q4_k_m (21/21 Novexa passes, Good baseline, direct p50 182ms).

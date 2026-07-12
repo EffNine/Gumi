@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/novexa/novexa/runtime/internal/config"
@@ -58,6 +60,13 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 	pipe := pipeline.New(cfg, mgr, log)
 	pipe.SetTelemetry(tw)
 
+	serverTimeout := 300 * time.Second
+	if v := os.Getenv("NOVEXA_SERVER_TIMEOUT_SECONDS"); v != "" {
+		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
+			serverTimeout = time.Duration(seconds) * time.Second
+		}
+	}
+
 	s := &Server{
 		cfg:       cfg,
 		log:       log,
@@ -70,9 +79,9 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 			Addr:              net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
 			Handler:           mux,
 			ReadHeaderTimeout: 10 * time.Second,
-			ReadTimeout:       120 * time.Second,
-			WriteTimeout:      120 * time.Second,
-			IdleTimeout:       120 * time.Second,
+			ReadTimeout:       serverTimeout,
+			WriteTimeout:      serverTimeout,
+			IdleTimeout:       serverTimeout,
 		},
 	}
 

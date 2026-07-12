@@ -29,3 +29,22 @@ func TestCheckAllowsUsablePrompt(t *testing.T) {
 		t.Fatalf("expected allow, got %s", out.Report.Decision)
 	}
 }
+
+func TestCheckDetectsToolCallLoop(t *testing.T) {
+	messages := []api.Message{
+		{Role: "user", Content: "read the file"},
+		{Role: "assistant", Content: "", ToolCalls: []api.ToolCall{{Function: api.ToolFunction{Name: "read_file", Arguments: `{"path":"main.go"}`}}}},
+		{Role: "tool", Content: "package main", ToolCallID: "call_1"},
+		{Role: "assistant", Content: "", ToolCalls: []api.ToolCall{{Function: api.ToolFunction{Name: "read_file", Arguments: `{"path":"main.go"}`}}}},
+	}
+	out := New().Check(Input{Messages: messages})
+	found := false
+	for _, w := range out.Warnings {
+		if w == "tool call loop detected in conversation history" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected tool call loop warning, got warnings %v", out.Warnings)
+	}
+}

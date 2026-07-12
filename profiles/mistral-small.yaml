@@ -47,6 +47,7 @@ prompt:
   instruction_strength: standard
   json_instruction_style: explicit
   system_prompt_style: direct
+  instruction_assist: true
   instructions:
     - Answer clearly and directly.
     - Return only valid JSON when structured output is requested.
