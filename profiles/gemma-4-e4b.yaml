@@ -1,0 +1,70 @@
+id: gemma-4-e4b
+name: Gemma 4 4B
+version: 1
+family: gemma
+size: 4b
+type: instruct
+
+aliases:
+  - gemma-4:4b
+  - gemma-4:latest
+
+models:
+  ollama:
+    - gemma-4:4b
+    - gemma-4:latest
+  lmstudio:
+    - google/gemma-4-e4b
+  openai_compatible_local:
+    - gemma-4-e4b
+
+capabilities:
+  chat: true
+  streaming: true
+  structured_output: medium
+  json_mode: medium
+  tool_calling: weak
+  vision: false
+  long_context: medium
+  coding: medium
+  reasoning: medium
+  creative_writing: medium
+
+defaults:
+  temperature: 0.4
+  top_p: 0.9
+  repeat_penalty: 1.12
+  max_tokens: 512
+  thinking: false
+
+context:
+  strategy: hybrid
+  max_input_tokens: 8000
+  preserve_recent_messages: 6
+  compression: true
+
+prompt:
+  style: general
+  instruction_strength: strict
+  json_instruction_style: explicit
+  system_prompt_style: direct
+  instruction_assist: true
+  instructions:
+    - Answer concisely and directly. Do not include reasoning or chain-of-thought.
+    - For one-word or exact-format prompts, output only the requested final content.
+    - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
+    - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
+    - Avoid repeating the same sentence or explanation.
+    - If you are uncertain, state uncertainty once and stop.
+
+guard:
+  anti_loop: aggressive
+  context_overflow: true
+  structured_output: true
+  json_repair: true
+  repetition_detection: true
+
+notes:
+  - Good mid-size general chat option.
+  - Requires strict exact-format instruction.
+  - Validated with LM Studio model google/gemma-4-e4b.

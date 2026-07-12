@@ -1,0 +1,65 @@
+id: mistral-small
+name: Mistral Small
+version: 1
+family: mistral
+size: small
+type: instruct
+
+aliases:
+  - mistral-small
+  - mistral-small:latest
+
+models:
+  ollama:
+    - mistral-small
+    - mistral-small:latest
+  lmstudio:
+    - mistral-small
+  openai_compatible_local:
+    - mistral-small
+
+capabilities:
+  chat: true
+  streaming: true
+  structured_output: medium
+  json_mode: medium
+  tool_calling: weak
+  vision: false
+  long_context: medium
+  coding: medium
+  reasoning: medium
+  creative_writing: medium
+
+defaults:
+  temperature: 0.5
+  top_p: 0.9
+  repeat_penalty: 1.1
+  max_tokens: 4096
+
+context:
+  strategy: hybrid
+  max_input_tokens: 24000
+  preserve_recent_messages: 8
+  compression: true
+
+prompt:
+  style: general
+  instruction_strength: standard
+  json_instruction_style: explicit
+  system_prompt_style: direct
+  instruction_assist: true
+  instructions:
+    - Answer clearly and directly.
+    - Return only valid JSON when structured output is requested.
+    - Avoid unnecessary repetition.
+
+guard:
+  anti_loop: standard
+  context_overflow: true
+  structured_output: true
+  json_repair: true
+  repetition_detection: true
+
+notes:
+  - Efficient small instruct model.
+  - Performs well for general chat and light technical tasks.

@@ -33,6 +33,15 @@ logs/
 *.db-shm
 *.db-wal
 
+# Benchmark raw outputs (stored outside repo at ~/.novexa/benchmarks/)
+benchmarks/archive/
+benchmarks/terminal-bench/
+benchmarks/standard/
+benchmarks/agentic/
+benchmarks/thinking/
+benchmarks/local-model/
+benchmarks/lmstudio-matrix/
+
 # Go
 runtime/bin/
 runtime/tmp/
@@ -68,3 +77,4 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.venv-bench/

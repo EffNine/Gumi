@@ -1,0 +1,90 @@
+id: qwen3.5-9b
+name: Qwen 3.5 9B
+version: 2
+family: qwen
+size: 9b
+type: instruct
+
+aliases:
+  - qwen3.5:9b
+  - qwen3.5:latest
+
+models:
+  ollama:
+    - qwen3.5:9b
+    - qwen3.5:latest
+  lmstudio:
+    - qwen/qwen3.5-9b
+  openai_compatible_local:
+    - qwen3.5-9b
+
+capabilities:
+  chat: true
+  streaming: true
+  structured_output: medium
+  json_mode: medium
+  tool_calling: weak
+  vision: false
+  long_context: medium
+  coding: strong
+  reasoning: medium
+  creative_writing: medium
+
+defaults:
+  temperature: 0.4
+  top_p: 0.9
+  repeat_penalty: 1.12
+  max_tokens: 4096
+  thinking: false
+
+thinking_policy:
+  allowed: true
+  default_mode: disabled
+  strip_reasoning: true
+  reasoning_token_budget: 2048
+  enable_when:
+    - debugging
+    - multi_step_task
+    - unknown_domain
+  disable_when:
+    - response_format_json
+    - tool_calling
+    - one_word_answer
+
+context:
+  strategy: hybrid
+  max_input_tokens: 24000
+  preserve_recent_messages: 8
+  compression: true
+
+prompt:
+  style: technical
+  instruction_strength: strong
+  json_instruction_style: explicit
+  tool_instruction_style: explicit
+  system_prompt_style: direct
+  instruction_assist: true
+  instructions:
+    - Answer technical questions clearly and accurately.
+    - For one-word or exact-format prompts, output only the requested final content.
+    - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
+    - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
+    - Avoid repeating the same sentence or explanation.
+    - If you use a tool, return only the JSON tool call object with no markdown fences.
+
+guard:
+  anti_loop: aggressive
+  context_overflow: true
+  structured_output: true
+  json_repair: true
+  repetition_detection: true
+  tool_call_validation: true
+  tool_call_loop_detection: true
+
+notes:
+  - Good general-purpose technical local model.
+  - Thinking is disabled by default to avoid exhausting max_tokens on reasoning.
+  - May repeat when context is too long.
+  - Requires explicit JSON-only instructions for structured output.
+  - May over-explain simple answers.
+  - Validated with LM Studio model qwen/qwen3.5-9b (Good baseline, Novexa 18/21, direct p50 197ms).

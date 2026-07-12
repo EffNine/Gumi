@@ -1,0 +1,87 @@
+id: qwen2.5-coder-7b
+name: Qwen2.5 Coder 7B
+version: 2
+family: qwen
+size: 7b
+type: instruct
+
+aliases:
+  - qwen2.5-coder:7b
+  - qwen2.5-coder:latest
+
+models:
+  ollama:
+    - qwen2.5-coder:7b
+    - qwen2.5-coder:latest
+  lmstudio:
+    - qwen2.5-coder-7b
+    - qwen2.5-coder-7b-instruct
+  openai_compatible_local:
+    - qwen2.5-coder-7b
+
+capabilities:
+  chat: true
+  streaming: true
+  structured_output: medium
+  json_mode: medium
+  tool_calling: weak
+  vision: false
+  long_context: medium
+  coding: strong
+  reasoning: medium
+  creative_writing: weak
+
+defaults:
+  temperature: 0.3
+  top_p: 0.9
+  repeat_penalty: 1.12
+  max_tokens: 4096
+  thinking: false
+
+thinking_policy:
+  allowed: true
+  default_mode: disabled
+  strip_reasoning: true
+  reasoning_token_budget: 2048
+  enable_when:
+    - debugging
+    - multi_step_task
+    - unknown_domain
+  disable_when:
+    - response_format_json
+    - tool_calling
+    - one_word_answer
+
+context:
+  strategy: hybrid
+  max_input_tokens: 20000
+  preserve_recent_messages: 8
+  compression: true
+
+prompt:
+  style: coding
+  instruction_strength: strong
+  json_instruction_style: explicit
+  tool_instruction_style: explicit
+  system_prompt_style: direct
+  instruction_assist: true
+  instructions:
+    - Favor concise, correct code and technical answers.
+    - When returning JSON, output only the JSON object with no markdown fences.
+    - Keep explanations short unless the user asks for detail.
+    - If you use a tool, return only the JSON tool call object with no markdown fences.
+
+guard:
+  anti_loop: standard
+  context_overflow: true
+  structured_output: true
+  json_repair: true
+  repetition_detection: true
+  tool_call_validation: true
+  tool_call_loop_detection: true
+
+notes:
+  - Tuned for coding and debugging tasks.
+  - May need strict formatting for reliable structured output.
+  - Conservative temperature improves code correctness.
+  - Validated with LM Studio model qwen2.5-coder-7b-instruct (21/21 Novexa passes, Good baseline).
