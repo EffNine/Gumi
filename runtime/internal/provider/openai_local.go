@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -65,7 +66,7 @@ func (o *OpenAICompatibleAdapter) Type() string {
 // Capabilities reports adapter capabilities.
 func (o *OpenAICompatibleAdapter) Capabilities() Capabilities {
 	return Capabilities{
-		Streaming:        false,
+		Streaming:        true,
 		ToolUse:          false,
 		StructuredOutput: false,
 	}
@@ -181,6 +182,92 @@ func (o *OpenAICompatibleAdapter) Generate(ctx context.Context, req api.ChatComp
 	}
 
 	return &chatResp, nil
+}
+
+// GenerateStream performs a streaming chat completion via SSE.
+func (o *OpenAICompatibleAdapter) GenerateStream(ctx context.Context, req api.ChatCompletionRequest) (<-chan api.ChatCompletionChunk, <-chan error, error) {
+	url := o.apiPath("/chat/completions")
+
+	req.Stream = true
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, nil, ProviderError{
+			Code:    ProviderBadResponse,
+			Message: "failed to marshal openai-compatible streaming request",
+			Cause:   err,
+		}
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
+
+	resp, err := o.client.Do(httpReq)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, nil, NormalizeHTTPError(resp.StatusCode, nil, "openai-compatible")
+	}
+
+	chunkCh := make(chan api.ChatCompletionChunk, 64)
+	errCh := make(chan error, 1)
+
+	go func() {
+		defer close(chunkCh)
+		defer close(errCh)
+		defer resp.Body.Close()
+
+		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 0, 64*1024), 256*1024)
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" {
+				continue
+			}
+			if !strings.HasPrefix(line, "data: ") {
+				continue
+			}
+
+			data := strings.TrimPrefix(line, "data: ")
+			if data == "[DONE]" {
+				errCh <- nil
+				return
+			}
+
+			var chunk api.ChatCompletionChunk
+			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+				o.log.Debug("openai-compatible: skipping malformed SSE chunk", "error", err)
+				continue
+			}
+
+			select {
+			case chunkCh <- chunk:
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			errCh <- ProviderError{
+				Code:    ProviderBadResponse,
+				Message: "openai-compatible SSE stream read error",
+				Cause:   err,
+			}
+			return
+		}
+
+		errCh <- nil
+	}()
+
+	return chunkCh, errCh, nil
 }
 
 // NormalizeError maps an error to a normalized provider error.

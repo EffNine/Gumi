@@ -269,3 +269,40 @@ func (m *Manager) Generate(ctx context.Context, req api.ChatCompletionRequest) (
 
 	return resp, resolution.ProviderKey, ProviderError{}
 }
+
+// GenerateStream delegates a streaming chat completion to the provider selected
+// by model ID. It returns the chunk channel, the provider key that served it,
+// and any synchronous setup error.
+func (m *Manager) GenerateStream(ctx context.Context, req api.ChatCompletionRequest) (<-chan api.ChatCompletionChunk, string, ProviderError) {
+	resolution, perr := m.ResolveModel(ctx, req.Model)
+	if perr.Code != "" {
+		return nil, "", perr
+	}
+
+	// Replace the requested model ID with the resolved provider model name.
+	req.Model = resolution.ModelName
+
+	chunkCh, errCh, setupErr := resolution.Adapter.GenerateStream(ctx, req)
+	if setupErr != nil {
+		var pe ProviderError
+		if errors.As(setupErr, &pe) {
+			return nil, resolution.ProviderKey, pe
+		}
+		return nil, resolution.ProviderKey, resolution.Adapter.NormalizeError(setupErr)
+	}
+
+	// Wrap the chunk channel to also drain the error channel on completion.
+	// This allows the pipeline to read from a single channel and get the
+	// terminal error via a separate mechanism.
+	wrappedCh := make(chan api.ChatCompletionChunk, 64)
+	go func() {
+		defer close(wrappedCh)
+		for chunk := range chunkCh {
+			wrappedCh <- chunk
+		}
+		// Drain the error channel
+		<-errCh
+	}()
+
+	return wrappedCh, resolution.ProviderKey, ProviderError{}
+}

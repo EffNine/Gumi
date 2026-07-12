@@ -78,9 +78,50 @@ func (f *fakeAdapter) Generate(ctx context.Context, req api.ChatCompletionReques
 	}, nil
 }
 
-func (f *fakeAdapter) Capabilities() provider.Capabilities {
-	return provider.Capabilities{}
+func (f *fakeAdapter) GenerateStream(ctx context.Context, req api.ChatCompletionRequest) (<-chan api.ChatCompletionChunk, <-chan error, error) {
+	f.callCount++
+	f.seenModel = req.Model
+	f.seenMessages = append([]api.Message(nil), req.Messages...)
+	f.seenReq = req
+	if f.err != nil {
+		return nil, nil, f.err
+	}
+	chunkCh := make(chan api.ChatCompletionChunk, 10)
+	errCh := make(chan error, 1)
+	go func() {
+		defer close(chunkCh)
+		defer close(errCh)
+		chunkCh <- api.ChatCompletionChunk{
+			ID:      "chatcmpl_fake_stream",
+			Object:  "chat.completion.chunk",
+			Created: time.Now().Unix(),
+			Model:   req.Model,
+			Choices: []api.ChunkChoice{{
+				Index: 0,
+				Delta: api.Message{Role: "assistant", Content: "hello"},
+			}},
+		}
+		chunkCh <- api.ChatCompletionChunk{
+			ID:      "chatcmpl_fake_stream",
+			Object:  "chat.completion.chunk",
+			Created: time.Now().Unix(),
+			Model:   req.Model,
+			Choices: []api.ChunkChoice{{
+				Index:        0,
+				Delta:        api.Message{Role: "assistant", Content: " from fake"},
+				FinishReason: strPtr("stop"),
+			}},
+		}
+		errCh <- nil
+	}()
+	return chunkCh, errCh, nil
 }
+
+func (f *fakeAdapter) Capabilities() provider.Capabilities {
+	return provider.Capabilities{Streaming: true}
+}
+
+func strPtr(s string) *string { return &s }
 
 func (f *fakeAdapter) NormalizeError(err error) provider.ProviderError {
 	if pe, ok := err.(provider.ProviderError); ok {
@@ -177,22 +218,203 @@ func TestRunChatCompletionStructuredModeFromResponseFormat(t *testing.T) {
 	assertEvent(t, result.Context, "structured_prompt_applied")
 }
 
-func TestRunChatCompletionStreamingUnsupported(t *testing.T) {
+func TestRunChatCompletionStreamDirect(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeDirect)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	chunkCh := make(chan api.ChatCompletionChunk, 10)
+	done := make(chan StreamResult, 1)
+	go func() {
+		done <- engine.RunChatCompletionStream(context.Background(), "req_stream_direct", api.ChatCompletionRequest{
+			Model:  "local:auto",
+			Stream: true,
+			Messages: []api.Message{{
+				Role:    "user",
+				Content: "Hello",
+			}},
+		}, chunkCh)
+	}()
+	// Drain chunks
+	for range chunkCh {
+	}
+	result := <-done
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.RuntimeMode != ModeDirect {
+		t.Fatalf("expected direct mode, got %s", result.Context.RuntimeMode)
+	}
+	assertEvent(t, result.Context, "streaming_mode_selected")
+	assertEvent(t, result.Context, "direct_mode_selected")
+	assertEvent(t, result.Context, "provider_selected")
+	assertEvent(t, result.Context, "pipeline_completed")
+}
+
+func TestRunChatCompletionStreamLightweight(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeLightweight)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	chunkCh := make(chan api.ChatCompletionChunk, 10)
+	done := make(chan StreamResult, 1)
+	go func() {
+		done <- engine.RunChatCompletionStream(context.Background(), "req_stream_light", api.ChatCompletionRequest{
+			Model:  "local:auto",
+			Stream: true,
+			Messages: []api.Message{{
+				Role:    "user",
+				Content: "Hello",
+			}},
+		}, chunkCh)
+	}()
+	for range chunkCh {
+	}
+	result := <-done
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.RuntimeMode != ModeLightweight {
+		t.Fatalf("expected lightweight mode, got %s", result.Context.RuntimeMode)
+	}
+	assertEvent(t, result.Context, "streaming_mode_selected")
+	assertEvent(t, result.Context, "lightweight_mode_selected")
+	assertEvent(t, result.Context, "lightweight_prompt_built")
+	assertEvent(t, result.Context, "pipeline_completed")
+}
+
+func TestRunChatCompletionStreamStabilized(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeStabilized)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	chunkCh := make(chan api.ChatCompletionChunk, 10)
+	done := make(chan StreamResult, 1)
+	go func() {
+		done <- engine.RunChatCompletionStream(context.Background(), "req_stream_stable", api.ChatCompletionRequest{
+			Model:  "local:auto",
+			Stream: true,
+			Messages: []api.Message{{
+				Role:    "user",
+				Content: "Hello",
+			}},
+		}, chunkCh)
+	}()
+	for range chunkCh {
+	}
+	result := <-done
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.RuntimeMode != ModeStabilized {
+		t.Fatalf("expected stabilized mode, got %s", result.Context.RuntimeMode)
+	}
+	assertEvent(t, result.Context, "streaming_mode_selected")
+	assertEvent(t, result.Context, "context_prepared")
+	assertEvent(t, result.Context, "prompt_built")
+	assertEvent(t, result.Context, "pipeline_completed")
+}
+
+func TestRunChatCompletionStreamStructuredRejected(t *testing.T) {
 	engine := testEngine(&fakeAdapter{name: "ollama"}, config.DefaultConfig())
 
-	result := engine.RunChatCompletion(context.Background(), "req_stream", api.ChatCompletionRequest{
+	chunkCh := make(chan api.ChatCompletionChunk, 10)
+	result := engine.RunChatCompletionStream(context.Background(), "req_stream_struct", api.ChatCompletionRequest{
 		Model:  "local:auto",
 		Stream: true,
 		Messages: []api.Message{{
 			Role:    "user",
-			Content: "Hello",
+			Content: "Return JSON",
 		}},
-	})
+		ResponseFormat: &api.ResponseFormat{Type: "json_object"},
+	}, chunkCh)
 
 	if result.Error.Code != provider.StreamingUnsupported {
 		t.Fatalf("expected streaming unsupported, got %s", result.Error.Code)
 	}
-	assertEvent(t, result.Context, "pipeline_failed")
+	assertEvent(t, result.Context, "streaming_structured_rejected")
+}
+
+func TestRunChatCompletionStreamStripsReasoningIncrementally(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeDirect)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	chunkCh := make(chan api.ChatCompletionChunk, 10)
+	done := make(chan StreamResult, 1)
+	go func() {
+		done <- engine.RunChatCompletionStream(context.Background(), "req_stream_reason", api.ChatCompletionRequest{
+			Model:  "local:auto",
+			Stream: true,
+			Messages: []api.Message{{
+				Role:    "user",
+				Content: "Hello",
+			}},
+		}, chunkCh)
+	}()
+	for range chunkCh {
+	}
+	result := <-done
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	assertEvent(t, result.Context, "pipeline_completed")
+}
+
+func TestRunChatCompletionStreamChunksForwarded(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeDirect)
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	chunkCh := make(chan api.ChatCompletionChunk, 10)
+	done := make(chan struct{}, 1)
+	var result StreamResult
+
+	go func() {
+		result = engine.RunChatCompletionStream(context.Background(), "req_stream_chunks", api.ChatCompletionRequest{
+			Model:  "local:auto",
+			Stream: true,
+			Messages: []api.Message{{
+				Role:    "user",
+				Content: "Hello",
+			}},
+		}, chunkCh)
+		close(done)
+	}()
+
+	var chunks []api.ChatCompletionChunk
+	for chunk := range chunkCh {
+		chunks = append(chunks, chunk)
+	}
+	<-done
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if len(chunks) == 0 {
+		t.Fatal("expected at least one chunk")
+	}
+	// Verify chunks have content
+	hasContent := false
+	for _, c := range chunks {
+		for _, choice := range c.Choices {
+			if s, ok := choice.Delta.Content.(string); ok && s != "" {
+				hasContent = true
+			}
+		}
+	}
+	if !hasContent {
+		t.Fatal("expected at least one chunk with non-empty content")
+	}
 }
 
 func TestRunChatCompletionGuardBlocksEmptyPrompt(t *testing.T) {

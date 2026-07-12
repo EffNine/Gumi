@@ -55,6 +55,13 @@ type Result struct {
 	Error        provider.ProviderError
 }
 
+// StreamResult is returned to Gateway Engine after a streaming pipeline execution.
+type StreamResult struct {
+	Context      *Context
+	ProviderName string
+	Error        provider.ProviderError
+}
+
 // New creates a Pipeline Engine and loads built-in model profiles.
 func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Engine {
 	loader := profiles.NewDefaultLoader()
@@ -90,14 +97,6 @@ func (e *Engine) RunChatCompletion(ctx context.Context, requestID string, req ap
 		"mode": string(pc.RuntimeMode),
 	})
 
-	if req.Stream {
-		return e.fail(pc, provider.ProviderError{
-			Code:       provider.StreamingUnsupported,
-			Message:    "streaming chat completions are not supported in this release",
-			Suggestion: "Set stream=false until streaming support is implemented.",
-		}, "streaming is not supported by the current pipeline")
-	}
-
 	pc.AddEvent("workspace", "workspace_resolved", SeverityInfo, "workspace resolved", map[string]string{
 		"workspace_id": pc.WorkspaceID,
 	})
@@ -127,6 +126,341 @@ func (e *Engine) RunChatCompletion(ctx context.Context, requestID string, req ap
 			Message:    fmt.Sprintf("runtime mode %q is not supported", pc.RuntimeMode),
 			Suggestion: "Use direct, lightweight, stabilized, or structured mode.",
 		}, "unsupported runtime mode")
+	}
+}
+
+// RunChatCompletionStream executes a streaming chat completion request.
+// It runs the same pre-generation engines as the non-streaming path, then
+// calls manager.GenerateStream and forwards chunks to the out channel.
+// After the stream completes, it runs post-hoc validation on the accumulated
+// content buffer. Structured mode + streaming is rejected in V1.
+func (e *Engine) RunChatCompletionStream(ctx context.Context, requestID string, req api.ChatCompletionRequest, out chan<- api.ChatCompletionChunk) StreamResult {
+	pc := e.newContext(requestID, req)
+	pc.AddEvent("pipeline", "request_received", SeverityInfo, "streaming chat completion request received", nil)
+	pc.AddEvent("pipeline", "pipeline_started", SeverityInfo, "streaming pipeline execution started", map[string]string{
+		"mode": string(pc.RuntimeMode),
+	})
+	pc.AddEvent("pipeline", "streaming_mode_selected", SeverityInfo, "streaming mode selected", nil)
+
+	// Reject structured mode + streaming in V1 (post-hoc repair impossible mid-stream).
+	if pc.RuntimeMode == ModeStructured {
+		pc.AddEvent("pipeline", "streaming_structured_rejected", SeverityError, "structured output mode requires non-streaming", nil)
+		return StreamResult{
+			Context: pc,
+			Error: provider.ProviderError{
+				Code:       provider.StreamingUnsupported,
+				Message:    "structured output mode requires non-streaming; set stream:false",
+				Suggestion: "Set stream=false or remove response_format to use streaming.",
+			},
+		}
+	}
+
+	pc.AddEvent("workspace", "workspace_resolved", SeverityInfo, "workspace resolved", map[string]string{
+		"workspace_id": pc.WorkspaceID,
+	})
+	pc.AddEvent("config", "config_resolved", SeverityInfo, "request config snapshot resolved", map[string]string{
+		"runtime_mode": string(pc.RuntimeMode),
+	})
+	pc.AddEvent("session", "session_resolved", SeverityInfo, "session resolved", map[string]string{
+		"session_id": pc.SessionID,
+	})
+
+	switch pc.RuntimeMode {
+	case ModeDirect:
+		return e.runStreamDirect(ctx, pc, out)
+	case ModeLightweight:
+		return e.runStreamLightweight(ctx, pc, out)
+	case ModeStabilized:
+		return e.runStreamStabilized(ctx, pc, out)
+	case ModeAgent:
+		return e.failStream(pc, provider.ProviderError{
+			Code:       provider.ProviderMisconfigured,
+			Message:    "agent mode is reserved for a future Novexa release",
+			Suggestion: "Use direct, lightweight, stabilized, or structured mode.",
+		}, "unsupported runtime mode")
+	default:
+		return e.failStream(pc, provider.ProviderError{
+			Code:       provider.ProviderMisconfigured,
+			Message:    fmt.Sprintf("runtime mode %q is not supported", pc.RuntimeMode),
+			Suggestion: "Use direct, lightweight, stabilized, or structured mode.",
+		}, "unsupported runtime mode")
+	}
+}
+
+func (e *Engine) runStreamDirect(ctx context.Context, pc *Context, out chan<- api.ChatCompletionChunk) StreamResult {
+	pc.AddEvent("pipeline", "direct_mode_selected", SeverityInfo, "direct mode selected for streaming", nil)
+	if result := e.resolveProviderAndProfile(ctx, pc); result.Error.Code != "" {
+		return e.failStream(pc, result.Error, "provider selection failed")
+	}
+	if result := e.applyGuard(pc); result.Error.Code != "" {
+		return e.failStream(pc, result.Error, "guard blocked request")
+	}
+	return e.callProviderGenerateStream(ctx, pc, out)
+}
+
+func (e *Engine) runStreamLightweight(ctx context.Context, pc *Context, out chan<- api.ChatCompletionChunk) StreamResult {
+	pc.AddEvent("pipeline", "lightweight_mode_selected", SeverityInfo, "lightweight mode selected for streaming", nil)
+	pc.AddEvent("session", "session_skipped", SeverityInfo, "session resolution skipped in lightweight mode", nil)
+	pc.AddEvent("context", "context_skipped", SeverityInfo, "context compression skipped in lightweight mode", nil)
+	pc.AddEvent("memory", "memory_skipped", SeverityInfo, "memory retrieval skipped in lightweight mode", nil)
+
+	if result := e.resolveProviderAndProfile(ctx, pc); result.Error.Code != "" {
+		return e.failStream(pc, result.Error, "provider selection failed")
+	}
+
+	e.prepareToolShim(pc)
+	e.applyProfileDefaults(pc, &pc.NormalizedRequest)
+	e.applyThinkingPolicy(pc)
+	e.buildLightweightPrompt(pc)
+	e.applyInstructionAssist(pc)
+
+	if result := e.applyLightweightGuard(pc); result.Error.Code != "" {
+		return e.failStream(pc, result.Error, "guard blocked request")
+	}
+
+	return e.callProviderGenerateStream(ctx, pc, out)
+}
+
+func (e *Engine) runStreamStabilized(ctx context.Context, pc *Context, out chan<- api.ChatCompletionChunk) StreamResult {
+	if result := e.resolveProviderAndProfile(ctx, pc); result.Error.Code != "" {
+		return e.failStream(pc, result.Error, "provider selection failed")
+	}
+	e.prepareToolShim(pc)
+	e.applyProfileDefaults(pc, &pc.NormalizedRequest)
+	e.applyThinkingPolicy(pc)
+	e.prepareContext(pc)
+	e.buildPrompt(pc)
+	e.applyInstructionAssist(pc)
+	if result := e.applyGuard(pc); result.Error.Code != "" {
+		return e.failStream(pc, result.Error, "guard blocked request")
+	}
+	return e.callProviderGenerateStream(ctx, pc, out)
+}
+
+// callProviderGenerateStream calls the provider's GenerateStream, forwards
+// chunks to the out channel, accumulates content for post-hoc validation,
+// and performs incremental reasoning-strip across deltas.
+func (e *Engine) callProviderGenerateStream(ctx context.Context, pc *Context, out chan<- api.ChatCompletionChunk) StreamResult {
+	providerReq := pc.NormalizedRequest
+	providerReq.Model = pc.SelectedModel
+
+	if pc.ToolShimActive {
+		providerReq.ResponseFormat = nil
+	}
+
+	pc.AddEvent("provider", "provider_stream_started", SeverityInfo, "provider streaming request started", map[string]string{
+		"provider": pc.SelectedProvider,
+		"model":    pc.SelectedModel,
+	})
+
+	adapter, ok := e.manager.Adapter(pc.SelectedProvider)
+	if !ok {
+		return e.failStream(pc, provider.ProviderError{
+			Code:       provider.ProviderMisconfigured,
+			Message:    fmt.Sprintf("provider %q is no longer available", pc.SelectedProvider),
+			Suggestion: "Restart Novexa or check provider configuration.",
+		}, "provider adapter missing after selection")
+	}
+
+	chunkCh, errCh, setupErr := adapter.GenerateStream(ctx, providerReq)
+	if setupErr != nil {
+		var pe provider.ProviderError
+		if errors.As(setupErr, &pe) {
+			return e.failStream(pc, pe, "provider streaming request failed")
+		}
+		return e.failStream(pc, adapter.NormalizeError(setupErr), "provider streaming request failed")
+	}
+
+	// Reasoning fence tracking for incremental strip
+	var reasoningBuffer string
+	inReasoningFence := false
+
+	// Accumulate full content for post-hoc validation
+	var accumulatedContent string
+	chunkCount := 0
+
+	start := time.Now()
+	errResult := make(chan error, 1)
+
+	go func() {
+		defer close(out)
+		for chunk := range chunkCh {
+			chunkCount++
+
+			// Accumulate content for post-hoc validation
+			for _, choice := range chunk.Choices {
+				if content, ok := choice.Delta.Content.(string); ok {
+					accumulatedContent += content
+				}
+			}
+
+			// Incremental reasoning-strip: buffer incomplete ```thinking fences
+			processedChunk := chunk
+			for i, choice := range processedChunk.Choices {
+				if content, ok := choice.Delta.Content.(string); ok {
+					stripped, fenceActive, buf := e.stripReasoningDelta(content, inReasoningFence, reasoningBuffer)
+					inReasoningFence = fenceActive
+					reasoningBuffer = buf
+					if stripped != content {
+						processedChunk.Choices[i].Delta.Content = stripped
+						pc.ReasoningContentPresent = true
+					}
+				}
+			}
+
+			select {
+			case out <- processedChunk:
+			case <-ctx.Done():
+				errResult <- ctx.Err()
+				return
+			}
+		}
+		// Drain error channel
+		errResult <- <-errCh
+	}()
+
+	streamErr := <-errResult
+	pc.ProviderLatency += time.Since(start)
+
+	if streamErr != nil {
+		var pe provider.ProviderError
+		if errors.As(streamErr, &pe) {
+			return e.failStream(pc, pe, "streaming error")
+		}
+		return e.failStream(pc, provider.ProviderError{
+			Code:    provider.ProviderBadResponse,
+			Message: fmt.Sprintf("streaming error: %v", streamErr),
+		}, "streaming error")
+	}
+	pc.StreamBuffer = accumulatedContent
+	pc.StreamingTokenCount = chunkCount
+
+	// Post-hoc validation on accumulated content
+	pc.StreamingValidation = true
+	pc.AddEvent("pipeline", "streaming_completed", SeverityInfo, "streaming completed", map[string]string{
+		"chunk_count": fmt.Sprintf("%d", chunkCount),
+		"content_length": fmt.Sprintf("%d", len(accumulatedContent)),
+	})
+
+	// Run validation on accumulated content (post-hoc, no repair)
+	if accumulatedContent != "" {
+		// Create a synthetic response for validation
+		syntheticResp := &api.ChatCompletionResponse{
+			ID:      "stream_" + pc.RequestID,
+			Object:  "chat.completion",
+			Created: time.Now().Unix(),
+			Model:   pc.SelectedModel,
+			Choices: []api.Choice{{
+				Index:        0,
+				Message:      api.Message{Role: "assistant", Content: accumulatedContent},
+				FinishReason: "stop",
+			}},
+		}
+
+		report := e.validation.Validate(validationengine.Input{
+			Response:       syntheticResp,
+			ResponseFormat: pc.NormalizedRequest.ResponseFormat,
+			RuntimeMode:    string(pc.RuntimeMode),
+		})
+		pc.ValidationReport = &report
+		pc.ValidationPassed = report.Passed
+
+		pc.AddEvent("pipeline", "streaming_validation_post_hoc", severityForValidation(report), "post-hoc streaming validation completed", map[string]string{
+			"passed":  fmt.Sprintf("%t", report.Passed),
+			"severity": report.Severity,
+		})
+	}
+
+	// Record safe thinking telemetry
+	pc.ThinkingTelemetry = resolveThinkingTelemetry(pc)
+
+	pc.AddEvent("provider", "provider_stream_completed", SeverityInfo, "provider streaming completed", map[string]string{
+		"provider":   pc.SelectedProvider,
+		"model":      pc.SelectedModel,
+		"latency_ms": fmt.Sprintf("%d", pc.ProviderLatency.Milliseconds()),
+	})
+
+	pc.AddEvent("telemetry", "telemetry_recorded", SeverityInfo, "telemetry recorded", nil)
+	pc.AddEvent("pipeline", "pipeline_completed", SeverityInfo, "streaming pipeline completed successfully", nil)
+
+	e.recordTelemetry(ctx, pc)
+
+	return StreamResult{
+		Context:      pc,
+		ProviderName: pc.SelectedProvider,
+	}
+}
+
+// stripReasoningDelta incrementally strips reasoning/thinking content from a
+// streaming delta. It tracks open/close of ```thinking fences across deltas.
+// Returns the cleaned delta, whether we're inside a fence, and the buffer.
+func (e *Engine) stripReasoningDelta(delta string, inFence bool, buffer string) (string, bool, string) {
+	if !inFence && !strings.Contains(delta, "```") {
+		// No reasoning markers at all
+		return delta, false, ""
+	}
+
+	// If we're inside a fence, buffer everything until we see the close
+	if inFence {
+		buffer += delta
+		closeIdx := strings.Index(buffer, "```")
+		if closeIdx >= 0 {
+			// Fence closed — emit everything after the close
+			remaining := buffer[closeIdx+3:]
+			if remaining != "" {
+				return remaining, false, ""
+			}
+			return "", false, ""
+		}
+		// Still inside fence, suppress content
+		return "", true, buffer
+	}
+
+	// Not in fence, but delta contains ``` — check if it's an opening fence
+	openIdx := strings.Index(delta, "```")
+	if openIdx < 0 {
+		return delta, false, ""
+	}
+
+	// Check if this is a thinking fence
+	afterFence := delta[openIdx+3:]
+	if strings.HasPrefix(afterFence, "thinking") || strings.HasPrefix(afterFence, "reasoning") {
+		// Opening fence — emit content before the fence, buffer the rest
+		before := delta[:openIdx]
+		buffer = afterFence
+		// Check if fence closes in the same delta
+		closeIdx := strings.Index(buffer, "```")
+		if closeIdx >= 0 {
+			remaining := buffer[closeIdx+3:]
+			if remaining != "" {
+				return before + remaining, false, ""
+			}
+			return before, false, ""
+		}
+		return before, true, buffer
+	}
+
+	return delta, false, ""
+}
+
+func (e *Engine) failStream(pc *Context, perr provider.ProviderError, message string) StreamResult {
+	pc.ProviderError = &perr
+	pc.Errors = append(pc.Errors, perr.Message)
+	pc.AddEvent("pipeline", "pipeline_failed", SeverityError, message, map[string]string{
+		"code": string(perr.Code),
+	})
+	pc.AddEvent("telemetry", "telemetry_recorded", SeverityInfo, "telemetry recorded", nil)
+
+	e.recordTelemetry(context.Background(), pc)
+
+	if e.log != nil {
+		e.log.Error("streaming pipeline failed", perr, "request_id", pc.RequestID, "code", string(perr.Code))
+	}
+
+	return StreamResult{
+		Context:      pc,
+		ProviderName: pc.SelectedProvider,
+		Error:        perr,
 	}
 }
 

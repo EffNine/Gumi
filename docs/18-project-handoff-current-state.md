@@ -1,11 +1,9 @@
 # Novexa Project Handoff: Current State
 
-Last updated: 2026-07-11  
+Last updated: 2026-07-12  
 Repo: `/Users/afnanrudy/Github-Projects/Novexa`  
 Current branch: `main`  
-Latest verified commit: `d9881c6 feat: add profile doctor`
-
----
+Latest verified commit: `2849550 feat: YAML config parsing; docs: update example.yaml, handoff`
 
 ## 1. What Novexa Is
 
@@ -71,11 +69,23 @@ Novexa improves local model providers. It should not compete with Ollama, LM Stu
 
 ## 3. Current Implementation State
 
-Sprints 1-10 are complete and committed.
+Sprints 1-12 are complete and committed.
+
+Sprint 12 (2026-07-12) added:
+- P0: Retry backoff for LM Studio model-loading errors
+- P1: Validation & repair telemetry to SQLite
+- P2: JSON-aware repetition detection (skip false positives)
+- P3: Non-JSON code fence repair (```python, ```javascript, etc.)
+- YAML config parsing (`~/.novexa/novexa.yaml`)
+- New model profile: `essentialai-rnj-1`
+- Managed thinking benchmark script
+- Terminal-Bench full agent harness comparison
+- Benchmark reports for Ornith 9B, Qwen 3.5 9B, Essential AI RNJ-1, Qwen3 1.7B, Qwen3.5 2B
 
 Latest important commits:
 
 ```text
+2849550 feat: YAML config parsing; docs: update example.yaml, handoff
 d9881c6 feat: add profile doctor
 fa74f31 feat: export benchmark reports
 43b6df9 feat: tune qwen profile and benchmark quality
@@ -169,27 +179,48 @@ Current profiles:
 generic-local.yaml
 qwen3-8b.yaml
 qwen3.5-2b.yaml
+qwen3.5-9b.yaml
 qwen2.5-coder-7b.yaml
 deepseek-r1-8b.yaml
 llama3.1-8b.yaml
 gemma3-12b.yaml
 mistral-small.yaml
-qwen3-1.7b.yaml          ← new, LM Studio validated
-ornith-1.0-9b-q4-km.yaml ← new, LM Studio validated
-gemma-4-e4b.yaml         ← new, LM Studio validated
+qwen3-1.7b.yaml          ← LM Studio validated, thinking benchmarked
+ornith-1.0-9b-q4-km.yaml ← LM Studio validated, TB benchmarked
+qwen3.5-9b.yaml          ← LM Studio validated, post-fix re-benchmarked
+gemma-4-e4b.yaml         ← LM Studio validated
+essentialai-rnj-1.yaml   ← new, reasoning model, post-fix validated
 ```
 
 ### LM Studio Validated Profiles
 
-Benchmark matrix run on 2026-07-11 against `http://192.168.0.164:1234/v1` (3 attempts per model):
+Benchmark matrix run on 2026-07-12 against `http://192.168.0.164:1234/v1` (3 attempts per model, post-fix):
 
-| Profile | LM Studio Model | Size | Role | Novexa Pass | Direct p50 | Doctor |
-|---------|----------------|------|------|-------------|------------|--------|
-| `qwen2.5-coder-7b` | `qwen2.5-coder-7b-instruct` | 7B | **Coding** | 21/21 | 114ms | Good baseline |
-| `qwen3-1.7b` | `qwen/qwen3-1.7b` | 1.7B | **Fast chat** | 21/21 | 94ms | Good baseline |
-| `ornith-1.0-9b-q4-km` | `ornith-1.0-9b@q4_k_m` | 9B | **Quality alt** | 21/21 | 182ms | Good baseline |
-| `qwen3.5-9b` | `qwen/qwen3.5-9b` | 9B | **Technical** | 18/21 | 197ms | Good baseline |
-| `gemma-4-e4b` | `google/gemma-4-e4b` | 4B | **Mid-size** | 15/21 | 175ms | Needs tuning |
+| Profile | LM Studio Model | Size | Role | D-Stabilized | E-Structured | Doctor |
+|---------|----------------|------|------|-------------|-------------|--------|
+| `ornith-1.0-9b-q4-km` | `ornith-1.0-9b@q4_k_m` | 9B | **Quality alt** | 9/9 (100%) | 3/3 (100%) | Good baseline (caveat) |
+| `qwen3.5-9b` | `qwen/qwen3.5-9b` | 9B | **Technical** | 9/9 (100%) | 3/3 (100%) | Good baseline (caveat) |
+| `essentialai-rnj-1` | `essentialai/rnj-1` | — | **Reasoning** | 9/9 (100%) | 3/3 (100%) | Good baseline (caveat) |
+| `qwen2.5-coder-7b` | `qwen2.5-coder-7b-instruct` | 7B | **Coding** | 9/9 (100%) | 3/3 (100%) | Good baseline |
+| `qwen3-1.7b` | `qwen/qwen3-1.7b` | 1.7B | **Fast chat** | 9/9 (100%) | 3/3 (100%) | Good baseline |
+| `gemma-4-e4b` | `google/gemma-4-e4b` | 4B | **Mid-size** | — | — | Needs tuning |
+
+**Managed Thinking Benchmark Results:**
+
+| Model | Pass Rate | Reasoning Leaks | Key Latency Finding |
+|---|---|---|---|
+| `essentialai/rnj-1` | 24/27 (89%) | 0 | No latency benefit from disabling thinking |
+| `qwen/qwen3-1.7b` | 27/27 (100%) | 0 | 20× faster with thinking off |
+| `qwen3.5-2b` | 27/27 (100%) | 0 | 85× faster with thinking off |
+
+**Terminal-Bench Results (Ornith 9B, 5 pinned tasks):**
+
+| Metric | Direct | Novexa | Change |
+|---|---|---|---|
+| Tasks resolved | 2/5 (40%) | 2/5 (40%) | — |
+| JSON parser warnings | 11 | 1 | **−91%** |
+| Agent timeouts | 2 | 1 | **−50%** |
+| Total agent time | 32.0 min | 26.5 min | **−17%** |
 
 **Recommended default model choices:**
 
@@ -279,10 +310,31 @@ ATTEMPTS=3 ./scripts/benchmark-local-model.sh qwen3.5:2b
 
 The script tests:
 
-- A: Ollama direct with `think:false`
+- A: Ollama/LM Studio direct with `think:false`
 - B: Novexa direct mode
-- C: Novexa stabilized mode
-- D: Novexa structured JSON mode
+- C: Novexa lightweight mode
+- D: Novexa stabilized mode
+- E: Novexa structured JSON mode
+
+Agentic coding benchmark:
+
+```bash
+./scripts/benchmark-agentic-coding.sh <model>
+```
+
+Managed thinking benchmark:
+
+```bash
+ATTEMPTS=3 ./scripts/benchmark-managed-thinking.sh <model>
+```
+
+Terminal-Bench comparison (requires Docker + tb CLI):
+
+```bash
+DIRECT_BASE_URL=http://192.168.0.164:1234/v1 \
+NOVEXA_BASE_URL=http://127.0.0.1:8787/v1 \
+./scripts/benchmark-terminal-bench.sh <model>
+```
 
 It scores:
 
@@ -397,11 +449,60 @@ make check-release
 
 Known limitations documented:
 
-- YAML config parsing is not implemented.
+- YAML config parsing is implemented (`~/.novexa/novexa.yaml`, `./novexa.yaml`, `--config` flag).
 - `novexa stop` and `novexa restart` are not implemented.
-- Streaming chat completions are not implemented.
 - Dockerfile exists, but Docker image was not manually built/tested in the environment where packaging was done.
 - Cross-platform artifacts are cross-compiled, not manually run on every target.
+
+---
+
+## 11. Streaming Chat Completions (SSE)
+
+Streaming chat completions (`stream: true`) are now supported through the full Novexa pipeline.
+
+### SSE Format
+
+The gateway emits OpenAI-compatible SSE:
+
+```
+data: {"id":"...","object":"chat.completion.chunk","created":...,"model":"...","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},"finish_reason":null}]}
+
+data: {"id":"...","object":"chat.completion.chunk","created":...,"model":"...","choices":[{"index":0,"delta":{"role":"assistant","content":" world"},"finish_reason":null}]}
+
+data: {"id":"...","object":"chat.completion.chunk","created":...,"model":"...","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":"stop"}]}
+
+data: [DONE]
+```
+
+### Provider Support
+
+| Provider | Streaming Method | Format |
+|----------|----------------|--------|
+| LM Studio | SSE (`data: {...}\n\n`) | OpenAI-compatible chunks |
+| OpenAI-compatible local | SSE (`data: {...}\n\n`) | OpenAI-compatible chunks |
+| Ollama | NDJSON (`{...}\n`) | Full-content → delta diffing |
+
+### Pipeline Integration
+
+Streaming requests pass through the same pre-generation engines as non-streaming:
+- Provider resolution and model profile matching
+- Tool shim (prompt-based tool calling)
+- Profile defaults and thinking policy
+- Context preparation and prompt building (stabilized mode)
+- Guard checks
+
+Post-generation:
+- Content is accumulated server-side for post-hoc validation
+- Validation runs after the stream completes (no mid-stream repair in V1)
+- Reasoning/thinking traces are stripped incrementally across deltas
+
+### Structured Mode + Streaming
+
+Structured output mode (`response_format`) with streaming is **rejected** in V1 with a clear error. Structured mode relies on full-response validation+repair which is impossible mid-stream. Set `stream: false` when using `response_format`.
+
+### Telemetry
+
+Streaming requests record a single summary row at completion with `stream=1`. Token counts are approximate (chunk count used as completion tokens). A `streaming_usage_unavailable` warning event is emitted when the provider does not send usage data.
 
 ---
 

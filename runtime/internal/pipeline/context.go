@@ -109,6 +109,11 @@ type Context struct {
 	SelectedModel    string            `json:"selected_model,omitempty"`
 	ModelProfile     *profiles.Profile `json:"model_profile,omitempty"`
 
+	// Streaming state.
+	StreamBuffer          string `json:"stream_buffer,omitempty"`
+	StreamingValidation   bool   `json:"streaming_validation,omitempty"`
+	StreamingTokenCount   int    `json:"streaming_token_count,omitempty"`
+
 	// Tool-calling shim state for models with tool_calling: weak.
 	OriginalTools    []api.Tool `json:"original_tools,omitempty"`
 	ToolInstructions string     `json:"tool_instructions,omitempty"`

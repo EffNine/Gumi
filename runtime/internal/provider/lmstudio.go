@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -64,7 +65,7 @@ func (l *LMStudioAdapter) Type() string {
 // Capabilities reports LM Studio capabilities.
 func (l *LMStudioAdapter) Capabilities() Capabilities {
 	return Capabilities{
-		Streaming:        false,
+		Streaming:        true,
 		ToolUse:          false,
 		StructuredOutput: false,
 	}
@@ -249,6 +250,107 @@ func (l *LMStudioAdapter) Generate(ctx context.Context, req api.ChatCompletionRe
 	}
 
 	return &chatResp, nil
+}
+
+// GenerateStream performs a streaming chat completion via SSE.
+func (l *LMStudioAdapter) GenerateStream(ctx context.Context, req api.ChatCompletionRequest) (<-chan api.ChatCompletionChunk, <-chan error, error) {
+	url := l.apiPath("/chat/completions")
+
+	payload := newLMStudioChatRequest(req)
+	payload.Stream = true
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, nil, ProviderError{
+			Code:    ProviderBadResponse,
+			Message: "failed to marshal LM Studio streaming request",
+			Cause:   err,
+		}
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
+
+	resp, err := l.client.Do(httpReq)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyPreview := string(bodyBytes)
+		if len(bodyPreview) > 240 {
+			bodyPreview = bodyPreview[:240] + "..."
+		}
+		return nil, nil, NormalizeHTTPError(resp.StatusCode, fmt.Errorf("%s", bodyPreview), "lmstudio")
+	}
+
+	chunkCh := make(chan api.ChatCompletionChunk, 64)
+	errCh := make(chan error, 1)
+
+	go func() {
+		defer close(chunkCh)
+		defer close(errCh)
+		defer resp.Body.Close()
+
+		scanner := bufio.NewScanner(resp.Body)
+		// Increase buffer for large chunks
+		scanner.Buffer(make([]byte, 0, 64*1024), 256*1024)
+
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			// Skip empty lines
+			if line == "" {
+				continue
+			}
+
+			// Check for SSE data prefix
+			if !strings.HasPrefix(line, "data: ") {
+				continue
+			}
+
+			data := strings.TrimPrefix(line, "data: ")
+
+			// Check for stream termination
+			if data == "[DONE]" {
+				errCh <- nil
+				return
+			}
+
+			var chunk api.ChatCompletionChunk
+			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+				// Log and skip malformed chunks
+				l.log.Debug("lmstudio: skipping malformed SSE chunk", "error", err)
+				continue
+			}
+
+			select {
+			case chunkCh <- chunk:
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			errCh <- ProviderError{
+				Code:    ProviderBadResponse,
+				Message: "lmstudio SSE stream read error",
+				Cause:   err,
+			}
+			return
+		}
+
+		errCh <- nil
+	}()
+
+	return chunkCh, errCh, nil
 }
 
 // NormalizeError maps an error to a normalized provider error.

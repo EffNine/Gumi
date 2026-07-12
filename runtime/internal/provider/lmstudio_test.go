@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -227,5 +228,81 @@ func TestLMStudioGenerateMapsJSONObjectResponseFormatToJSONSchema(t *testing.T) 
 	}
 	if _, ok := format["json_schema"].(map[string]interface{}); !ok {
 		t.Fatalf("expected response_format.json_schema object, got %v", format["json_schema"])
+	}
+}
+
+func newLMStudioStreamingTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/chat/completions" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected http.Flusher")
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		// First chunk
+		chunk1 := `{"id":"chatcmpl-lmstudio-stream","object":"chat.completion.chunk","created":1234567890,"model":"lmstudio-model","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},"finish_reason":null}]}`
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", chunk1)
+		flusher.Flush()
+
+		// Second chunk
+		chunk2 := `{"id":"chatcmpl-lmstudio-stream","object":"chat.completion.chunk","created":1234567890,"model":"lmstudio-model","choices":[{"index":0,"delta":{"role":"assistant","content":" world"},"finish_reason":null}]}`
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", chunk2)
+		flusher.Flush()
+
+		// Final chunk with finish_reason
+		chunk3 := `{"id":"chatcmpl-lmstudio-stream","object":"chat.completion.chunk","created":1234567890,"model":"lmstudio-model","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":"stop"}]}`
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", chunk3)
+		flusher.Flush()
+
+		// Termination
+		_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+}
+
+func TestLMStudioGenerateStream(t *testing.T) {
+	server := newLMStudioStreamingTestServer(t)
+	defer server.Close()
+
+	adapter := newLMStudioAdapter(t, server.URL)
+	chunkCh, errCh, setupErr := adapter.GenerateStream(context.Background(), api.ChatCompletionRequest{
+		Model: "lmstudio-model",
+		Messages: []api.Message{
+			{Role: "user", Content: "hi"},
+		},
+	})
+	if setupErr != nil {
+		t.Fatalf("unexpected setup error: %v", setupErr)
+	}
+
+	var chunks []api.ChatCompletionChunk
+	for chunk := range chunkCh {
+		chunks = append(chunks, chunk)
+	}
+
+	// Check terminal error
+	termErr := <-errCh
+	if termErr != nil {
+		t.Fatalf("unexpected terminal error: %v", termErr)
+	}
+
+	if len(chunks) != 3 {
+		t.Fatalf("expected 3 chunks, got %d", len(chunks))
+	}
+	if chunks[0].Choices[0].Delta.Content != "Hello" {
+		t.Fatalf("expected first delta 'Hello', got %q", chunks[0].Choices[0].Delta.Content)
+	}
+	if chunks[1].Choices[0].Delta.Content != " world" {
+		t.Fatalf("expected second delta ' world', got %q", chunks[1].Choices[0].Delta.Content)
+	}
+	if chunks[2].Choices[0].FinishReason == nil || *chunks[2].Choices[0].FinishReason != "stop" {
+		t.Fatalf("expected final chunk finish_reason 'stop', got %v", chunks[2].Choices[0].FinishReason)
 	}
 }

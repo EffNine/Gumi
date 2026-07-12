@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -64,7 +65,7 @@ func (o *OllamaAdapter) Type() string {
 // Capabilities reports Ollama capabilities.
 func (o *OllamaAdapter) Capabilities() Capabilities {
 	return Capabilities{
-		Streaming:        false,
+		Streaming:        true,
 		ToolUse:          false,
 		StructuredOutput: false,
 	}
@@ -157,6 +158,15 @@ type ollamaChatResponse struct {
 	Model   string        `json:"model"`
 	Message ollamaMessage `json:"message"`
 	Done    bool          `json:"done"`
+}
+
+// ollamaStreamResponse is a single streaming response line from /api/chat.
+type ollamaStreamResponse struct {
+	Model           string        `json:"model"`
+	Message         ollamaMessage `json:"message"`
+	Done            bool          `json:"done"`
+	PromptEvalCount int           `json:"prompt_eval_count,omitempty"`
+	EvalCount       int           `json:"eval_count,omitempty"`
 }
 
 // Generate calls the Ollama chat endpoint.
@@ -279,6 +289,168 @@ func (o *OllamaAdapter) Generate(ctx context.Context, req api.ChatCompletionRequ
 			TotalTokens:      0,
 		},
 	}, nil
+}
+
+// GenerateStream performs a streaming chat completion via Ollama NDJSON.
+// Ollama sends the FULL accumulated content in each message.content, not deltas.
+// We diff: emit only the new suffix since the last chunk.
+func (o *OllamaAdapter) GenerateStream(ctx context.Context, req api.ChatCompletionRequest) (<-chan api.ChatCompletionChunk, <-chan error, error) {
+	messages := make([]ollamaMessage, 0, len(req.Messages))
+	for _, m := range req.Messages {
+		content, err := messageContentToString(m.Content)
+		if err != nil {
+			return nil, nil, ProviderError{
+				Code:    ProviderBadResponse,
+				Message: fmt.Sprintf("unsupported message content type: %v", err),
+				Cause:   err,
+			}
+		}
+		messages = append(messages, ollamaMessage{
+			Role:    m.Role,
+			Content: content,
+		})
+	}
+
+	options := make(map[string]interface{})
+	if req.Temperature != nil {
+		options["temperature"] = *req.Temperature
+	}
+	if req.TopP != nil {
+		options["top_p"] = *req.TopP
+	}
+	if req.MaxTokens != nil {
+		options["num_predict"] = *req.MaxTokens
+	}
+
+	payload := ollamaChatRequest{
+		Model:    req.Model,
+		Messages: messages,
+		Stream:   true,
+		Options:  options,
+	}
+
+	if req.Novexa != nil && req.Novexa.Thinking != nil && req.Novexa.Thinking.Enabled != nil {
+		payload.Think = req.Novexa.Thinking.Enabled
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, nil, ProviderError{
+			Code:    ProviderBadResponse,
+			Message: "failed to marshal Ollama streaming request",
+			Cause:   err,
+		}
+	}
+
+	url := o.baseURL + "/api/chat"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := o.client.Do(httpReq)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, nil, NormalizeHTTPError(resp.StatusCode, nil, "ollama")
+	}
+
+	chunkCh := make(chan api.ChatCompletionChunk, 64)
+	errCh := make(chan error, 1)
+
+	go func() {
+		defer close(chunkCh)
+		defer close(errCh)
+		defer resp.Body.Close()
+
+		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 0, 64*1024), 256*1024)
+
+		created := time.Now().Unix()
+		lastSentContent := ""
+		var finalChunk *api.ChatCompletionChunk
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" {
+				continue
+			}
+
+			var streamResp ollamaStreamResponse
+			if err := json.Unmarshal([]byte(line), &streamResp); err != nil {
+				o.log.Debug("ollama: skipping malformed NDJSON line", "error", err)
+				continue
+			}
+
+			// Compute delta: Ollama sends full accumulated content
+			fullContent := streamResp.Message.Content
+			delta := ""
+			if len(fullContent) > len(lastSentContent) {
+				delta = fullContent[len(lastSentContent):]
+			}
+			lastSentContent = fullContent
+
+			finishReason := (*string)(nil)
+			if streamResp.Done {
+				s := "stop"
+				finishReason = &s
+			}
+
+			chunk := api.ChatCompletionChunk{
+				ID:      "chatcmpl_ollama_" + randomID(),
+				Object:  "chat.completion.chunk",
+				Created: created,
+				Model:   streamResp.Model,
+				Choices: []api.ChunkChoice{{
+					Index: 0,
+					Delta: api.Message{
+						Role:    "assistant",
+						Content: delta,
+					},
+					FinishReason: finishReason,
+				}},
+			}
+
+			if streamResp.Done {
+				finalChunk = &chunk
+				break
+			}
+
+			select {
+			case chunkCh <- chunk:
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			errCh <- ProviderError{
+				Code:    ProviderBadResponse,
+				Message: "ollama NDJSON stream read error",
+				Cause:   err,
+			}
+			return
+		}
+
+		// Send final chunk with finish_reason
+		if finalChunk != nil {
+			select {
+			case chunkCh <- *finalChunk:
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			}
+		}
+
+		errCh <- nil
+	}()
+
+	return chunkCh, errCh, nil
 }
 
 // NormalizeError maps an error to a normalized provider error.

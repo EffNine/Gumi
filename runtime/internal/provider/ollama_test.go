@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -221,5 +222,86 @@ func TestOllamaGenerateEmptyContentWithThinkingReturnsError(t *testing.T) {
 	}
 	if pe.Suggestion == "" {
 		t.Error("expected a suggestion in the error")
+	}
+}
+
+func newOllamaStreamingTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/chat" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected http.Flusher")
+		}
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		w.WriteHeader(http.StatusOK)
+
+		// Ollama sends full accumulated content, not deltas
+		line1 := `{"model":"ollama-model","message":{"role":"assistant","content":"Hel"},"done":false}`
+		_, _ = fmt.Fprintln(w, line1)
+		flusher.Flush()
+
+		line2 := `{"model":"ollama-model","message":{"role":"assistant","content":"Hello"},"done":false}`
+		_, _ = fmt.Fprintln(w, line2)
+		flusher.Flush()
+
+		line3 := `{"model":"ollama-model","message":{"role":"assistant","content":"Hello world"},"done":false}`
+		_, _ = fmt.Fprintln(w, line3)
+		flusher.Flush()
+
+		line4 := `{"model":"ollama-model","message":{"role":"assistant","content":"Hello world"},"done":true,"prompt_eval_count":5,"eval_count":3}`
+		_, _ = fmt.Fprintln(w, line4)
+		flusher.Flush()
+	}))
+}
+
+func TestOllamaGenerateStream(t *testing.T) {
+	server := newOllamaStreamingTestServer(t)
+	defer server.Close()
+
+	adapter := newOllamaAdapter(t, server.URL)
+	chunkCh, errCh, setupErr := adapter.GenerateStream(context.Background(), api.ChatCompletionRequest{
+		Model: "ollama-model",
+		Messages: []api.Message{
+			{Role: "user", Content: "hi"},
+		},
+	})
+	if setupErr != nil {
+		t.Fatalf("unexpected setup error: %v", setupErr)
+	}
+
+	var chunks []api.ChatCompletionChunk
+	for chunk := range chunkCh {
+		chunks = append(chunks, chunk)
+	}
+
+	termErr := <-errCh
+	if termErr != nil {
+		t.Fatalf("unexpected terminal error: %v", termErr)
+	}
+
+	// Ollama sends full content, we diff: "Hel" -> "Hello" -> "Hello world"
+	// So deltas should be: "Hel", "lo", " world"
+	if len(chunks) != 4 {
+		t.Fatalf("expected 4 chunks, got %d", len(chunks))
+	}
+	if chunks[0].Choices[0].Delta.Content != "Hel" {
+		t.Fatalf("expected first delta 'Hel', got %q", chunks[0].Choices[0].Delta.Content)
+	}
+	if chunks[1].Choices[0].Delta.Content != "lo" {
+		t.Fatalf("expected second delta 'lo', got %q", chunks[1].Choices[0].Delta.Content)
+	}
+	if chunks[2].Choices[0].Delta.Content != " world" {
+		t.Fatalf("expected third delta ' world', got %q", chunks[2].Choices[0].Delta.Content)
+	}
+	// Final chunk (done:true) should have empty delta and finish_reason
+	if chunks[3].Choices[0].Delta.Content != "" {
+		t.Fatalf("expected final chunk empty delta, got %q", chunks[3].Choices[0].Delta.Content)
+	}
+	if chunks[3].Choices[0].FinishReason == nil || *chunks[3].Choices[0].FinishReason != "stop" {
+		t.Fatalf("expected final chunk finish_reason 'stop', got %v", chunks[3].Choices[0].FinishReason)
 	}
 }

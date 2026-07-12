@@ -60,6 +60,13 @@ type ProviderAdapter interface {
 	// Generate performs a non-streaming chat completion.
 	Generate(ctx context.Context, req api.ChatCompletionRequest) (*api.ChatCompletionResponse, error)
 
+	// GenerateStream performs a streaming chat completion. It returns:
+	//   - chunkCh: receives ChatCompletionChunk values as they arrive
+	//   - errCh: receives exactly one terminal error or nil when the stream closes
+	//   - setupErr: a synchronous error if the stream could not be started
+	// Adapters that cannot stream return provider.StreamingUnsupported from setupErr.
+	GenerateStream(ctx context.Context, req api.ChatCompletionRequest) (chunkCh <-chan api.ChatCompletionChunk, errCh <-chan error, setupErr error)
+
 	// Capabilities reports adapter capabilities.
 	Capabilities() Capabilities
 

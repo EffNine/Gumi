@@ -55,6 +55,7 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 
 // handleChatCompletions validates the HTTP request shape and delegates request
 // execution to Pipeline Engine. Request metadata is recorded to local telemetry.
+// When req.Stream is true, it uses SSE (Server-Sent Events) to stream chunks.
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	reqID := requestIDFromContext(r.Context())
 
@@ -81,6 +82,11 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if req.Stream {
+		s.handleStreamChatCompletion(w, r, reqID, req)
+		return
+	}
+
 	start := time.Now()
 	result := s.pipeline.RunChatCompletion(r.Context(), reqID, req)
 	latency := time.Since(start)
@@ -103,6 +109,119 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result.Response)
+}
+
+// handleStreamChatCompletion handles a streaming chat completion request via SSE.
+func (s *Server) handleStreamChatCompletion(w http.ResponseWriter, r *http.Request, reqID string, req api.ChatCompletionRequest) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		s.writeError(w, http.StatusInternalServerError, api.NewRuntimeError("STREAMING_NOT_SUPPORTED", "streaming is not supported by the response writer", reqID))
+		return
+	}
+
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	// Create a buffered chunk channel
+	chunkCh := make(chan api.ChatCompletionChunk, 64)
+
+	// Run the streaming pipeline in a goroutine
+	streamResultCh := make(chan pipeline.StreamResult, 1)
+	ctx := r.Context()
+	go func() {
+		streamResultCh <- s.pipeline.RunChatCompletionStream(ctx, reqID, req, chunkCh)
+	}()
+
+	start := time.Now()
+	var streamResult pipeline.StreamResult
+
+	// Read chunks and write SSE events
+	for chunk := range chunkCh {
+		data, err := json.Marshal(chunk)
+		if err != nil {
+			s.log.Error("failed to marshal SSE chunk", err, "request_id", reqID)
+			continue
+		}
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
+		flusher.Flush()
+	}
+
+	// Get the stream result
+	streamResult = <-streamResultCh
+
+	// Handle terminal error
+	if streamResult.Error.Code != "" {
+		errData, _ := json.Marshal(map[string]interface{}{
+			"error": map[string]interface{}{
+				"code":    string(streamResult.Error.Code),
+				"message": streamResult.Error.Message,
+				"type":    "runtime_error",
+			},
+		})
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", errData)
+		flusher.Flush()
+	}
+
+	// End the stream
+	_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
+	flusher.Flush()
+
+	// Record telemetry
+	latency := time.Since(start)
+	s.recordStreamTelemetry(ctx, reqID, start, req, streamResult, latency)
+}
+
+// recordStreamTelemetry records telemetry for a streaming request.
+func (s *Server) recordStreamTelemetry(ctx context.Context, reqID string, start time.Time, req api.ChatCompletionRequest, result pipeline.StreamResult, latency time.Duration) {
+	if s.telemetry == nil {
+		return
+	}
+
+	record := telemetry.RequestRecord{
+		RequestID:   reqID,
+		CreatedAt:   start,
+		WorkspaceID: "default",
+		RuntimeMode: string(s.cfg.Runtime.Mode),
+		Provider:    result.ProviderName,
+		Status:      "success",
+		Stream:      true,
+		LatencyMs:   latency.Milliseconds(),
+	}
+
+	if result.Context != nil {
+		record.RuntimeMode = string(result.Context.RuntimeMode)
+		record.SessionID = result.Context.SessionID
+		record.ProviderLatencyMs = result.Context.ProviderLatency.Milliseconds()
+		record.ValidationPassed = result.Context.ValidationPassed
+		record.ContextCompressed = result.Context.ContextCompressed
+		if result.Context.SelectedModel != "" {
+			record.Model = result.Context.SelectedModel
+		}
+		if result.Context.ThinkingTelemetry != nil {
+			record.ThinkingEnabled = result.Context.ThinkingTelemetry.ThinkingEnabled
+			record.ReasoningContentPresent = result.Context.ThinkingTelemetry.ReasoningContentPresent
+		}
+		// Streaming token counts from accumulated content
+		record.PromptTokens = 0
+		record.CompletionTokens = result.Context.StreamingTokenCount
+		record.TotalTokens = result.Context.StreamingTokenCount
+	}
+
+	if result.Error.Code != "" {
+		record.Status = "error"
+		record.ErrorCode = string(result.Error.Code)
+		record.ValidationPassed = false
+	}
+
+	logPrompts := s.cfg.Telemetry.LogPrompts
+	record.PromptLogged = logPrompts
+	record.ResponseLogged = false // streaming responses are not logged
+	record.PromptPreview = telemetry.ExtractContentPreview(req, logPrompts)
+
+	s.telemetry.RecordRequest(ctx, record)
 }
 
 // recordRequestTelemetry writes the request summary row to local telemetry.

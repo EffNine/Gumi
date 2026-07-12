@@ -1,9 +1,11 @@
 package gateway
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -226,11 +228,32 @@ func newOllamaMockServer(t *testing.T) *httptest.Server {
 			})
 		case "/api/chat":
 			var payload struct {
+				Stream   bool `json:"stream"`
 				Messages []struct {
 					Content string `json:"content"`
 				} `json:"messages"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&payload)
+
+			if payload.Stream {
+				// Streaming response: NDJSON
+				flusher, ok := w.(http.Flusher)
+				if !ok {
+					http.Error(w, "no flusher", http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/x-ndjson")
+				w.WriteHeader(http.StatusOK)
+
+				_, _ = fmt.Fprintln(w, `{"model":"llama3","message":{"role":"assistant","content":"Hello"},"done":false}`)
+				flusher.Flush()
+				_, _ = fmt.Fprintln(w, `{"model":"llama3","message":{"role":"assistant","content":"Hello from"},"done":false}`)
+				flusher.Flush()
+				_, _ = fmt.Fprintln(w, `{"model":"llama3","message":{"role":"assistant","content":"Hello from mock ollama"},"done":true,"prompt_eval_count":5,"eval_count":3}`)
+				flusher.Flush()
+				return
+			}
+
 			content := "hello from mock ollama"
 			for _, msg := range payload.Messages {
 				if strings.Contains(msg.Content, "Return JSON") {
@@ -523,8 +546,20 @@ func TestModelsEndpointIncludesLocalAuto(t *testing.T) {
 	}
 }
 
-func TestStreamingRejected(t *testing.T) {
-	srv, _, _ := testServer(t, "disabled")
+func TestStreamingChatCompletions(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Auth.Mode = "disabled"
+	cfg.Runtime.Host = "127.0.0.1"
+	cfg.Runtime.Port = 0
+
+	mock := newOllamaMockServer(t)
+	defer mock.Close()
+
+	settings := cfg.Providers["ollama"]
+	settings.URL = mock.URL
+	cfg.Providers["ollama"] = settings
+
+	srv := testServerWithConfig(t, cfg)
 
 	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Hello"}],"stream":true}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
@@ -532,16 +567,103 @@ func TestStreamingRejected(t *testing.T) {
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	// The responseWriter wrapper now implements http.Flusher, so streaming
+	// should succeed and produce SSE output.
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var body api.ErrorResponse
-	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
-		t.Fatalf("failed to decode error response: %v", err)
+	body := rr.Body.String()
+	if !strings.Contains(body, "data: ") {
+		t.Fatal("expected SSE data events in response")
 	}
-	if body.Error.Code != "STREAMING_UNSUPPORTED" {
-		t.Errorf("expected STREAMING_UNSUPPORTED, got %s", body.Error.Code)
+	if !strings.Contains(body, "[DONE]") {
+		t.Fatal("expected [DONE] termination event")
+	}
+}
+
+func TestStreamingChatCompletionsWithRealServer(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Auth.Mode = "disabled"
+	cfg.Runtime.Host = "127.0.0.1"
+	cfg.Runtime.Port = 0
+
+	mock := newOllamaMockServer(t)
+	defer mock.Close()
+
+	settings := cfg.Providers["ollama"]
+	settings.URL = mock.URL
+	cfg.Providers["ollama"] = settings
+
+	srv := testServerWithConfig(t, cfg)
+	errCh := srv.Start()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(ctx)
+		<-errCh
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	url := "http://" + srv.Addr() + "/v1/chat/completions"
+	payload := `{"model":"ollama:llama3","messages":[{"role":"user","content":"Hello"}],"stream":true}`
+
+	resp, err := http.Post(url, "application/json", strings.NewReader(payload))
+	if err != nil {
+		t.Fatalf("failed to send streaming request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		// Read the error body for debugging
+		bodyBytes := make([]byte, 1024)
+		n, _ := resp.Body.Read(bodyBytes)
+		t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(bodyBytes[:n]))
+	}
+
+	// Verify SSE headers
+	ct := resp.Header.Get("Content-Type")
+	if ct != "text/event-stream" {
+		t.Errorf("expected Content-Type text/event-stream, got %s", ct)
+	}
+	if resp.Header.Get("Cache-Control") != "no-cache" {
+		t.Errorf("expected Cache-Control no-cache, got %s", resp.Header.Get("Cache-Control"))
+	}
+	if resp.Header.Get("X-Accel-Buffering") != "no" {
+		t.Errorf("expected X-Accel-Buffering no, got %s", resp.Header.Get("X-Accel-Buffering"))
+	}
+
+	// Read SSE events
+	scanner := bufio.NewScanner(resp.Body)
+	var events []string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "data: ") {
+			events = append(events, strings.TrimPrefix(line, "data: "))
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatalf("error reading SSE stream: %v", err)
+	}
+
+	// Should have at least one chunk and a [DONE] event
+	if len(events) < 2 {
+		t.Fatalf("expected at least 2 SSE events (chunks + DONE), got %d", len(events))
+	}
+
+	// Last event should be [DONE]
+	lastEvent := events[len(events)-1]
+	if lastEvent != "[DONE]" {
+		t.Errorf("expected last event to be [DONE], got %s", lastEvent)
+	}
+
+	// First event should be a valid ChatCompletionChunk
+	var firstChunk api.ChatCompletionChunk
+	if err := json.Unmarshal([]byte(events[0]), &firstChunk); err != nil {
+		t.Fatalf("failed to decode first chunk: %v", err)
+	}
+	if firstChunk.Object != "chat.completion.chunk" {
+		t.Errorf("expected object chat.completion.chunk, got %s", firstChunk.Object)
 	}
 }
 

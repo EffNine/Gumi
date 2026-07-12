@@ -39,7 +39,7 @@ Novexa improves the layer around the model instead of replacing the model.
 
 It provides:
 
-- OpenAI-compatible `/v1/chat/completions`
+- OpenAI-compatible `/v1/chat/completions` (streaming and non-streaming) (streaming and non-streaming)
 - local provider adapters
 - model profiles
 - runtime modes
