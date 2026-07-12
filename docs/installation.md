@@ -4,8 +4,10 @@ This guide covers installing Novexa from a release archive or as a Docker
 container. Novexa is a local-first runtime, so every installation method keeps
 the API and dashboard bound to `127.0.0.1` by default.
 
-Novexa is distributed as a pre-built binary release. The source code is not
-publicly available.
+Novexa is distributed as pre-built binary releases. The public repository
+contains reference source code and documentation; building from source
+requires the private development branch which includes additional internal
+packages not present in the public tree.
 
 ## Requirements
 
@@ -48,10 +50,22 @@ novexa-<version>-<os>-<arch>/
 
 ## Docker
 
-Build the image from the private source branch (source not publicly available):
+A `Dockerfile` is included in the private development branch. If you have
+access, build the image:
 
 ```bash
 docker build -t novexa:0.1.0-alpha .
+```
+
+Alternatively, use the pre-built binary inside a minimal image:
+
+```dockerfile
+FROM alpine:latest
+COPY novexa /usr/local/bin/
+COPY dashboard/dist/ /opt/novexa/dashboard/dist/
+COPY profiles/ /opt/novexa/profiles/
+EXPOSE 8787 8788
+CMD ["novexa", "start"]
 ```
 
 Run with the API and dashboard published only to localhost, and persist the

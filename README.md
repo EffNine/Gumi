@@ -55,17 +55,19 @@ It provides:
 
 ## Get Started
 
-Build from source:
+Download a pre-built archive from
+[GitHub Releases](https://github.com/EffNine/Novexa/releases):
 
 ```bash
-git clone https://github.com/EffNine/Novexa.git
-cd Novexa
-make build
+# macOS Apple Silicon example
+tar -xzf novexa-0.1.0-alpha-darwin-arm64.tar.gz
+cd novexa-0.1.0-alpha-darwin-arm64
 ./novexa start
 ```
 
-Or download a pre-built archive from
-[GitHub Releases](https://github.com/EffNine/Novexa/releases).
+Pre-built binaries are available for macOS (arm64/amd64), Linux (amd64/arm64),
+and Windows (amd64). Building from source requires the private development
+branch; the public repository contains reference source and documentation.
 
 Default endpoints:
 
