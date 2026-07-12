@@ -12,7 +12,10 @@ Thumbs.db
 
 # Private/internal Novexa documentation
 private-docs/
-docs/
+
+# Internal spec/architecture docs (not for public repo)
+docs/specs/
+docs/guides/release-checklist.md
 
 # Playwright / browser test artifacts
 test-results/
