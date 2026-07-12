@@ -402,12 +402,17 @@ func checkCapitalStart(response string) (bool, string) {
 
 func checkJSON(response string) (bool, string) {
 	trimmed := strings.TrimSpace(response)
-	// Strip markdown fences if present
+	// Strip markdown fences if present (handles any language tag: ```json, ```python, etc.)
 	if strings.HasPrefix(trimmed, "```") {
-		trimmed = strings.TrimPrefix(trimmed, "```json")
-		trimmed = strings.TrimPrefix(trimmed, "```")
-		trimmed = strings.TrimSuffix(trimmed, "```")
-		trimmed = strings.TrimSpace(trimmed)
+		if idx := strings.Index(trimmed, "\n"); idx >= 0 {
+			fenceLine := trimmed[:idx]
+			rest := strings.TrimSpace(trimmed[idx+1:])
+			if fenceLine == "```" || (strings.HasPrefix(fenceLine, "```") && !strings.ContainsAny(fenceLine[3:], " \t")) {
+				trimmed = rest
+			}
+		}
+		// Strip the closing fence.
+		trimmed = strings.TrimSpace(strings.TrimSuffix(trimmed, "```"))
 	}
 	if len(trimmed) == 0 || (trimmed[0] != '{' && trimmed[0] != '[') {
 		return false, "response is not JSON (must start with { or [)"

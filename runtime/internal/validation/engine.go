@@ -185,22 +185,38 @@ func requiresJSON(format *api.ResponseFormat, mode string, content string) bool 
 		return true
 	}
 	trimmed := strings.TrimSpace(content)
-	return strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "```json")
+	// Detect bare JSON or any language-tagged fence (```json, ```python, etc.).
+	// Models like RNJ-1 wrap JSON in ```python blocks, so we need to catch
+	// those and let ExtractJSONCandidate + repair extract the inner JSON.
+	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "```") {
+		return true
+	}
+	return false
 }
 
 // ExtractJSONCandidate extracts a JSON object from markdown fences or prose.
+// Handles any language-tagged fence (```json, ```python, ```javascript, etc.)
+// since some models (e.g. Essential AI RNJ-1) wrap JSON inside ```python blocks.
 func ExtractJSONCandidate(content string) string {
 	trimmed := strings.TrimSpace(content)
 	if trimmed == "" {
 		return ""
 	}
 	if strings.HasPrefix(trimmed, "```") {
-		trimmed = strings.TrimPrefix(trimmed, "```json")
-		trimmed = strings.TrimPrefix(trimmed, "```")
-		if idx := strings.LastIndex(trimmed, "```"); idx >= 0 {
-			trimmed = trimmed[:idx]
+		// Strip the opening fence along with any language tag (json, python, etc.).
+		// The fence is ``` optionally followed by a language identifier and a newline.
+		if idx := strings.Index(trimmed, "\n"); idx >= 0 {
+			fenceLine := trimmed[:idx]
+			rest := strings.TrimSpace(trimmed[idx+1:])
+			// Only strip if the fence line is ``` or ```<lang> (no spaces in the tag).
+			if fenceLine == "```" || (strings.HasPrefix(fenceLine, "```") && !strings.ContainsAny(fenceLine[3:], " \t")) {
+				trimmed = rest
+			}
 		}
-		trimmed = strings.TrimSpace(trimmed)
+		// Strip the closing fence if present.
+		if idx := strings.LastIndex(trimmed, "```"); idx >= 0 {
+			trimmed = strings.TrimSpace(trimmed[:idx])
+		}
 	}
 	if json.Valid([]byte(trimmed)) {
 		return trimmed

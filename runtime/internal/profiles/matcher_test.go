@@ -177,3 +177,120 @@ func TestResolverAlwaysIncludesGenericFallback(t *testing.T) {
 		t.Fatalf("expected generic-local, got %q", m.Profile.ID)
 	}
 }
+
+func TestResolveFamilyPicksBestMatchBySize(t *testing.T) {
+	profiles := []*Profile{
+		{
+			ID:     "qwen3.5-9b",
+			Family: "qwen",
+			Size:   "9b",
+		},
+		{
+			ID:     "qwen3.5-2b",
+			Family: "qwen",
+			Size:   "2b",
+		},
+	}
+	r := NewResolver(profiles)
+	m := r.Resolve("ollama", "qwen3.5:2b")
+	if m.Profile.ID != "qwen3.5-2b" {
+		t.Fatalf("expected qwen3.5-2b (size 2b matches :2b), got %q", m.Profile.ID)
+	}
+	if m.IsFallback {
+		t.Fatal("expected a real match, not fallback")
+	}
+}
+
+func TestResolveFamilyPicksBestMatchByID(t *testing.T) {
+	profiles := []*Profile{
+		{
+			ID:     "qwen2.5-coder-7b",
+			Family: "qwen",
+			Size:   "7b",
+		},
+		{
+			ID:     "qwen3.5-2b",
+			Family: "qwen",
+			Size:   "2b",
+		},
+	}
+	r := NewResolver(profiles)
+	m := r.Resolve("ollama", "qwen3.5:2b")
+	if m.Profile.ID != "qwen3.5-2b" {
+		t.Fatalf("expected qwen3.5-2b (id match), got %q", m.Profile.ID)
+	}
+	if m.IsFallback {
+		t.Fatal("expected a real match, not fallback")
+	}
+}
+
+func TestResolveFamilyTieBreaksByLongestFamily(t *testing.T) {
+	// Edge case: two profiles with different-length families, no size/id
+	// disambiguation. The longer family should win.
+	profiles := []*Profile{
+		{
+			ID:     "short-family",
+			Family: "ab",
+		},
+		{
+			ID:     "long-family",
+			Family: "abc",
+		},
+	}
+	r := NewResolver(profiles)
+	// Model contains both "ab" and "abc" — "abc" is longer, so it wins.
+	m := r.Resolve("ollama", "abc-model")
+	if m.Profile.ID != "long-family" {
+		t.Fatalf("expected long-family (longer family 'abc'), got %q", m.Profile.ID)
+	}
+	if m.IsFallback {
+		t.Fatal("expected a real match, not fallback")
+	}
+}
+
+func TestResolveFamilyFallsBackWhenNoFamilyMatch(t *testing.T) {
+	profiles := []*Profile{
+		{
+			ID:     "qwen3-8b",
+			Family: "qwen",
+		},
+	}
+	r := NewResolver(profiles)
+	m := r.Resolve("ollama", "llama3.1:8b")
+	if m.Profile.ID != "generic-local" {
+		t.Fatalf("expected generic-local fallback, got %q", m.Profile.ID)
+	}
+	if !m.IsFallback {
+		t.Fatal("expected fallback match")
+	}
+}
+
+func TestResolveFamilyOrderIndependence(t *testing.T) {
+	// Two profiles with same family "qwen", sizes "2b" and "7b".
+	// Model "qwen3.5:2b" must resolve to the 2b profile regardless of
+	// which profile appears first in the list.
+	small := &Profile{
+		ID:     "qwen3.5-2b",
+		Family: "qwen",
+		Size:   "2b",
+	}
+	large := &Profile{
+		ID:     "qwen3.5-9b",
+		Family: "qwen",
+		Size:   "9b",
+	}
+
+	// Order 1: small first.
+	r1 := NewResolver([]*Profile{small, large})
+	m1 := r1.Resolve("ollama", "qwen3.5:2b")
+	if m1.Profile.ID != "qwen3.5-2b" {
+		t.Fatalf("(small first) expected qwen3.5-2b, got %q", m1.Profile.ID)
+	}
+
+	// Order 2: large first.
+	r2 := NewResolver([]*Profile{large, small})
+	m2 := r2.Resolve("ollama", "qwen3.5:2b")
+	if m2.Profile.ID != "qwen3.5-2b" {
+		t.Fatalf("(large first) expected qwen3.5-2b, got %q", m2.Profile.ID)
+	}
+}

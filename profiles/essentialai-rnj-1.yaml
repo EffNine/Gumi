@@ -1,0 +1,89 @@
+id: essentialai-rnj-1
+name: Essential AI RNJ-1
+version: 1
+family: essentialai
+size: unknown
+type: reasoning
+
+aliases:
+  - essentialai/rnj-1
+  - rnj-1
+
+models:
+  lmstudio:
+    - essentialai/rnj-1
+  openai_compatible_local:
+    - essentialai/rnj-1
+
+capabilities:
+  chat: true
+  streaming: true
+  structured_output: weak
+  json_mode: weak
+  tool_calling: unknown
+  vision: false
+  long_context: unknown
+  coding: unknown
+  reasoning: strong
+  creative_writing: unknown
+
+defaults:
+  temperature: 0.4
+  top_p: 0.9
+  repeat_penalty: 1.12
+  max_tokens: 4096
+  thinking: false
+
+thinking_policy:
+  allowed: true
+  default_mode: disabled
+  strip_reasoning: true
+  reasoning_token_budget: 4096
+  enable_when:
+    - debugging
+    - multi_step_task
+    - unknown_domain
+  disable_when:
+    - response_format_json
+    - tool_calling
+    - one_word_answer
+
+context:
+  strategy: hybrid
+  max_input_tokens: 16000
+  preserve_recent_messages: 8
+  compression: true
+
+prompt:
+  style: reasoning
+  instruction_strength: strong
+  json_instruction_style: explicit
+  tool_instruction_style: explicit
+  system_prompt_style: direct
+  instruction_assist: true
+  instructions:
+    - Answer concisely and directly.
+    - For one-word or exact-format prompts, output only the requested final content.
+    - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
+    - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
+    - Avoid repeating the same sentence or explanation.
+    - If you are uncertain, state uncertainty once and stop.
+    - If you use a tool, return only the JSON tool call object with no markdown fences.
+    - For creative or open-ended questions, provide thoughtful and well-structured answers.
+
+guard:
+  anti_loop: aggressive
+  context_overflow: true
+  structured_output: true
+  json_repair: true
+  repetition_detection: true
+  tool_call_validation: true
+  tool_call_loop_detection: true
+
+notes:
+  - Essential AI RNJ-1 reasoning model. Returns reasoning_content field (similar to DeepSeek R1).
+  - Clean concise output for simple prompts ("4" for 2+2).
+  - Raw JSON output is poor — wraps JSON in Python code blocks. Novexa JSON repair should help significantly.
+  - Conservative settings applied until capabilities are validated.
+  - Thinking benchmark (Sprint 12): 24/27 pass, 0 reasoning leaks. Intermittent empty responses on long planning prompts (model limitation).
+  - Disabling thinking does not reduce latency for RNJ-1 (unlike Qwen3 models) — reasoning is always inline.

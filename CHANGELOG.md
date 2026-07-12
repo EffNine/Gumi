@@ -2,7 +2,7 @@
 
 All notable changes to Novexa are documented in this file.
 
-## 0.1.0-alpha — Sprint 12: Reliability Fixes & Telemetry Improvements
+## 0.1.0-alpha — Sprint 12: Reliability Fixes, Telemetry & JSON Repair
 
 ### Fixed
 
@@ -41,8 +41,39 @@ All notable changes to Novexa are documented in this file.
   - Plain-text repetition detection is unchanged (still catches actual loops).
   - 2 new tests: `TestValidateRepetitionSkipsJSON`,
     `TestValidateRepetitionSkipsStructuredMode`.
+- **P3: JSON repair only handled ```json fences, not other language tags**.
+  Models like Essential AI RNJ-1 wrap JSON in ```python code blocks. The
+  `ExtractJSONCandidate` and `requiresJSON` functions in
+  `runtime/internal/validation/engine.go` only detected ```json fences, so
+  JSON validation/repair never triggered for python-fenced (or other
+  language-tagged) JSON.
+  - `ExtractJSONCandidate` now strips any language-tagged code fence
+    (```python, ```javascript, bare ```, etc.), not just ```json.
+  - `requiresJSON` now detects any ```-fenced content as a potential JSON
+    candidate, triggering validation and repair.
+  - `checkJSON` in `runtime/internal/instruction/engine.go` similarly handles
+    any language-tagged fence.
+  - 4 new tests: `TestExtractJSONCandidatePythonFence`,
+    `TestExtractJSONCandidateBareFence`, `TestRequiresJSONDetectsPythonFence`,
+    `TestRepairJSONExtractsFromPythonFence`.
+  - Result: RNJ-1 stabilized JSON went from 0/3 → **3/3 (100%)**; Ornith 9B
+    direct JSON went from 0/3 → **3/3 (100%)**.
 
-### Benchmark Results (Post-Sprint-12, Ornith 9B)
+### Added
+
+- **New model profile: `essentialai-rnj-1`** (`profiles/essentialai-rnj-1.yaml`).
+  Essential AI RNJ-1 reasoning model with `reasoning_content` field support.
+  Conservative settings until capabilities are validated.
+- **Managed thinking benchmark** (`scripts/benchmark-managed-thinking.sh`):
+  Tests 3 configurations (direct with thinking on, Novexa with thinking on,
+  Novexa with thinking off) across debugging, planning, and JSON prompts.
+  Detects reasoning leaks and measures latency impact of thinking on/off.
+- **Terminal-Bench comparison**: Full agent harness evaluation using
+  terminus-2 agent on 5 pinned terminal-bench-core tasks. Compares direct
+  LM Studio vs Novexa stabilized mode. Measures task resolution, episode
+  counts, parser warnings, and per-task timing.
+
+### Benchmark Results (Post-Sprint-12, all fixes applied)
 
 | Metric | Pre-Sprint-12 | Post-Sprint-12 |
 |---|---|---|
@@ -51,6 +82,20 @@ All notable changes to Novexa are documented in this file.
 | Validation reports stored | 0 | **15+ per benchmark run** |
 | Repair reports stored | 0 | **7+ per benchmark run** |
 | Error details_json for VALIDATION_FAILED | `{}` | Issue code + message + location |
+| RNJ-1 stabilized JSON valid | 0/3 (0%) | **3/3 (100%)** |
+| Ornith 9B direct JSON valid | 0/3 (0%) | **3/3 (100%)** |
+| Terminal-Bench JSON parser warnings | 11 | **1** (−91%) |
+| Terminal-Bench agent timeouts | 2/5 | **1/5** (−50%) |
+
+### Models Benchmarked (Sprint 12)
+
+| Model | Local Model | Agentic | Managed Thinking | Terminal-Bench | Profile Doctor |
+|---|---|---|---|---|---|
+| Ornith 9B (q4_k_m) | ✅ post-fix | ✅ post-fix | ✅ (archive) | ✅ | Good baseline (caveat) |
+| Qwen 3.5 9B | ✅ post-fix | ✅ post-fix | ✅ (archive) | — | Good baseline (caveat) |
+| Essential AI RNJ-1 | ✅ post-fix | ✅ | ✅ | — | Good baseline (caveat) |
+| Qwen3 1.7B | — | — | ✅ | — | — |
+| Qwen3.5 2B | — | — | ✅ | — | — |
 
 ## 0.1.0-alpha — Sprint 11: Instruction Assist & Benchmarks
 

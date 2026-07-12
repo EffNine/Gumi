@@ -78,6 +78,31 @@ func TestExtractJSONCandidate(t *testing.T) {
 	}
 }
 
+func TestExtractJSONCandidatePythonFence(t *testing.T) {
+	// RNJ-1 wraps JSON in ```python blocks with surrounding code.
+	content := "```python\nimport json\n\ndata = {\n    \"name\": \"test\",\n    \"value\": 42\n}\n\njson_object = json.dumps(data)\nprint(json_object)\n```"
+	got := ExtractJSONCandidate(content)
+	if got != "{\n    \"name\": \"test\",\n    \"value\": 42\n}" {
+		t.Fatalf("unexpected candidate from python fence: %q", got)
+	}
+}
+
+func TestExtractJSONCandidateBareFence(t *testing.T) {
+	got := ExtractJSONCandidate("```\n{\"ok\":true}\n```")
+	if got != "{\"ok\":true}" {
+		t.Fatalf("unexpected candidate from bare fence: %q", got)
+	}
+}
+
+func TestRequiresJSONDetectsPythonFence(t *testing.T) {
+	// In stabilized mode (no response_format), content wrapped in ```python
+	// should be detected as requiring JSON validation so repair can extract it.
+	content := "```python\nimport json\ndata = {\"name\": \"test\"}\n```"
+	if !requiresJSON(nil, "stabilized", content) {
+		t.Fatal("requiresJSON should return true for python-fenced content")
+	}
+}
+
 func responseWithContent(content string, finish string) *api.ChatCompletionResponse {
 	return &api.ChatCompletionResponse{
 		Choices: []api.Choice{{

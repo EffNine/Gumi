@@ -23,6 +23,23 @@ func TestRepairJSONExtractsFencedObject(t *testing.T) {
 	}
 }
 
+func TestRepairJSONExtractsFromPythonFence(t *testing.T) {
+	// RNJ-1 wraps JSON in ```python blocks with surrounding code.
+	resp := response("```python\nimport json\n\ndata = {\n    \"name\": \"test\",\n    \"value\": 42\n}\nprint(data)\n```")
+	report := New().Repair(resp, validation.Report{
+		Repairable:              true,
+		SuggestedRepairStrategy: validation.StrategyLocalParseRepair,
+	})
+
+	if !report.Success {
+		t.Fatalf("expected repair success: %#v", report)
+	}
+	content, _ := validation.AssistantContent(resp)
+	if content != "{\"name\":\"test\",\"value\":42}" {
+		t.Fatalf("expected compact JSON extracted from python fence, got %q", content)
+	}
+}
+
 func TestRepairRepetitionRemovesExtraLines(t *testing.T) {
 	resp := response("a\na\na\na")
 	report := New().Repair(resp, validation.Report{
