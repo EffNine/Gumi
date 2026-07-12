@@ -39,6 +39,38 @@ func TestValidateRepetition(t *testing.T) {
 	}
 }
 
+func TestValidateRepetitionSkipsJSON(t *testing.T) {
+	engine := New()
+	// JSON with repeated structural elements should NOT trigger repetition.
+	jsonContent := `{"items":[{"type":"a"},{"type":"a"},{"type":"a"}]}`
+	report := engine.Validate(Input{
+		Response:       responseWithContent(jsonContent, "stop"),
+		ResponseFormat: &api.ResponseFormat{Type: "json_object"},
+		RuntimeMode:    "stabilized",
+	})
+	for _, iss := range report.Issues {
+		if iss.Code == IssueRepetition {
+			t.Fatalf("repetition should not fire for JSON output, got issue: %s", iss.Message)
+		}
+	}
+}
+
+func TestValidateRepetitionSkipsStructuredMode(t *testing.T) {
+	engine := New()
+	// Structured mode forces JSON; repetition should not fire even without
+	// explicit response_format.
+	jsonContent := `{"a":1,"b":1,"c":1}`
+	report := engine.Validate(Input{
+		Response:    responseWithContent(jsonContent, "stop"),
+		RuntimeMode: "structured",
+	})
+	for _, iss := range report.Issues {
+		if iss.Code == IssueRepetition {
+			t.Fatalf("repetition should not fire in structured mode, got issue: %s", iss.Message)
+		}
+	}
+}
+
 func TestExtractJSONCandidate(t *testing.T) {
 	got := ExtractJSONCandidate("Here:\n```json\n{\"ok\":true}\n```")
 	if got != "{\"ok\":true}" {

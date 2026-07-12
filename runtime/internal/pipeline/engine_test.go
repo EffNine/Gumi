@@ -249,13 +249,14 @@ func TestRunChatCompletionRepairsFencedJSON(t *testing.T) {
 }
 
 func TestRunChatCompletionRetriesInvalidStructuredOutput(t *testing.T) {
-	engine := testEngine(&fakeAdapter{
+	adapter := &fakeAdapter{
 		name: "ollama",
 		responses: []*api.ChatCompletionResponse{
 			response("not json"),
 			response("{\"ok\":true}"),
 		},
-	}, config.DefaultConfig())
+	}
+	engine := testEngine(adapter, config.DefaultConfig())
 
 	result := engine.RunChatCompletion(context.Background(), "req_retry", api.ChatCompletionRequest{
 		Model: "local:auto",
@@ -274,6 +275,29 @@ func TestRunChatCompletionRetriesInvalidStructuredOutput(t *testing.T) {
 	}
 	assertEvent(t, result.Context, "retry_requested")
 	assertEvent(t, result.Context, "validation_completed_after_retry")
+
+	// Regression: retry must merge with the existing system prompt, not prepend a
+	// second system message. Providers such as LM Studio reject multiple leading
+	// system messages with "System message must be at the beginning".
+	if len(adapter.seenMessages) == 0 {
+		t.Fatal("expected provider request to have messages")
+	}
+	if adapter.seenMessages[0].Role != "system" {
+		t.Fatalf("expected first message to be system, got %s", adapter.seenMessages[0].Role)
+	}
+	systemCount := 0
+	for _, m := range adapter.seenMessages {
+		if m.Role == "system" {
+			systemCount++
+		}
+	}
+	if systemCount != 1 {
+		t.Fatalf("expected exactly one system message on retry, got %d: %#v", systemCount, adapter.seenMessages)
+	}
+	system, _ := adapter.seenMessages[0].Content.(string)
+	if !strings.Contains(system, "Retry because the previous output failed validation") {
+		t.Fatalf("expected retry instruction merged into system prompt, got %q", system)
+	}
 }
 
 func TestRunChatCompletionRepairsRepeatedLines(t *testing.T) {

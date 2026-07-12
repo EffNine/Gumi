@@ -148,6 +148,68 @@ func TestExtractJSON(t *testing.T) {
 	}
 }
 
+func TestExtractJSONFormatResponse(t *testing.T) {
+	// "Format your response as JSON" — used by Terminus-2 agent system prompts.
+	result := New().Extract("Format your response as JSON with the following structure:")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints for 'Format your response as JSON'")
+	}
+	hasJSON := false
+	for _, c := range result.Constraints {
+		if c.Type == "json" {
+			hasJSON = true
+			break
+		}
+	}
+	if !hasJSON {
+		t.Error("expected json constraint for 'Format your response as JSON'")
+	}
+}
+
+func TestExtractJSONRespondIn(t *testing.T) {
+	// "Respond in JSON" — another common agent pattern.
+	result := New().Extract("You must respond in JSON format.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints for 'Respond in JSON'")
+	}
+	hasJSON := false
+	for _, c := range result.Constraints {
+		if c.Type == "json" {
+			hasJSON = true
+			break
+		}
+	}
+	if !hasJSON {
+		t.Error("expected json constraint for 'Respond in JSON'")
+	}
+}
+
+func TestExtractJSONFromSystemPrompt(t *testing.T) {
+	// Simulates Terminus-2 system prompt + user message.
+	systemPrompt := `You are an AI assistant. Format your response as JSON with the following structure:
+{
+  "analysis": "...",
+  "plan": "...",
+  "commands": [...]
+}`
+	userMsg := "The user wants to fix a bug in separability_matrix."
+	combined := systemPrompt + "\n" + userMsg
+	result := New().Extract(combined)
+	if !result.HasConstraints {
+		t.Fatal("expected constraints from combined system+user message")
+	}
+	hasJSON := false
+	for _, c := range result.Constraints {
+		if c.Type == "json" {
+			hasJSON = true
+			break
+		}
+	}
+	if !hasJSON {
+		t.Error("expected json constraint from system prompt containing 'Format your response as JSON'")
+	}
+}
+
 func TestExtractNoCommas(t *testing.T) {
 	result := New().Extract("Write a paragraph. Do not use any commas.")
 	if !result.HasConstraints {

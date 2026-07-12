@@ -2,6 +2,56 @@
 
 All notable changes to Novexa are documented in this file.
 
+## 0.1.0-alpha — Sprint 12: Reliability Fixes & Telemetry Improvements
+
+### Fixed
+
+- **P0: Intermittent 502 errors from LM Studio model loading** (404 errors in
+  DB). Root cause: LM Studio returns `"Failed to load model ... Engine protocol
+  startup was aborted"` when swapping models in/out of memory. The old retry
+  logic used a flat 500ms backoff (too short for model loading, which takes
+  3-10 seconds) and unconditionally stripped `response_format` on every retry
+  (degrading JSON quality even when the format wasn't the problem).
+  - `generateOnce` now uses exponential backoff: 3s → 6s for model-loading
+    errors, 2s → 4s for other retryable errors.
+  - `response_format` is only stripped when the error message specifically
+    mentions `response_format`, `json_schema`, or `json_object`.
+  - Two new helper functions: `isModelLoadingError` and `isResponseFormatError`
+    classify the error to choose the right retry strategy.
+- **P1: Validation failure details were stored as `{}`** in the errors table.
+  The `validation_reports` and `repair_reports` tables existed in the schema but
+  were never written to.
+  - Added `telemetry.RecordValidationReport` — writes validation outcome
+    (passed, severity, issues with code/message/location) to
+    `validation_reports` table.
+  - Added `telemetry.RecordRepairReport` — writes repair outcome (attempted,
+    strategy, success, changes, retry requested) to `repair_reports` table.
+  - `VALIDATION_FAILED` errors now include a human-readable issue summary in
+    `details_json` (e.g., `"REPETITION at choices[0].message.content: assistant
+    response contains repeated lines or sentences"`).
+  - Validation reports are recorded at all outcomes: pass, pass-after-repair,
+    pass-after-retry, and final failure.
+- **P2: Repetition false positives on JSON output** (113 validation failures in
+  stabilized mode). The `hasRepetition` function flagged any line appearing 3+
+  times, but JSON structural elements (`}`, `"type":`, repeated keys across
+  array objects) legitimately repeat.
+  - `hasRepetition` now accepts the response format and runtime mode, and
+    skips repetition detection for `json_object`, `json_schema`, `structured`
+    mode, and any content that parses as valid JSON.
+  - Plain-text repetition detection is unchanged (still catches actual loops).
+  - 2 new tests: `TestValidateRepetitionSkipsJSON`,
+    `TestValidateRepetitionSkipsStructuredMode`.
+
+### Benchmark Results (Post-Sprint-12, Ornith 9B)
+
+| Metric | Pre-Sprint-12 | Post-Sprint-12 |
+|---|---|---|
+| HTTP/curl errors | ~50% failure rate | **0** |
+| Repetition false positives | 113 validation failures | **0** |
+| Validation reports stored | 0 | **15+ per benchmark run** |
+| Repair reports stored | 0 | **7+ per benchmark run** |
+| Error details_json for VALIDATION_FAILED | `{}` | Issue code + message + location |
+
 ## 0.1.0-alpha — Sprint 11: Instruction Assist & Benchmarks
 
 ### Added

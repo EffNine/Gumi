@@ -229,6 +229,98 @@ func (w *Writer) RecordPipelineEvents(ctx context.Context, events []PipelineEven
 	}
 }
 
+// ValidationReportRecord is the telemetry projection of a validation report.
+// It avoids importing the validation package directly to prevent cycles.
+type ValidationReportRecord struct {
+	RequestID                  string
+	Passed                     bool
+	Severity                   string
+	Repairable                 bool
+	SuggestedRepairStrategy    string
+	Issues                     []ValidationIssueRecord
+	Metadata                   map[string]string
+}
+
+// ValidationIssueRecord is the telemetry projection of a validation issue.
+type ValidationIssueRecord struct {
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	Location string `json:"location,omitempty"`
+}
+
+// RecordValidationReport persists a validation report to the validation_reports
+// table so that validation failures can be diagnosed after the fact.
+func (w *Writer) RecordValidationReport(ctx context.Context, r ValidationReportRecord) {
+	if w == nil || w.store == nil || !w.Enabled() {
+		return
+	}
+
+	issuesJSON, err := json.Marshal(r.Issues)
+	if err != nil {
+		issuesJSON = []byte("[]")
+	}
+
+	metadataJSON, err := json.Marshal(redactMap(r.Metadata))
+	if err != nil {
+		metadataJSON = []byte("{}")
+	}
+
+	_, err = w.store.DB().ExecContext(ctx, `
+		INSERT INTO validation_reports (request_id, created_at, passed, severity, repairable, suggested_repair_strategy, issues_json, metadata_json)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		r.RequestID,
+		time.Now().UTC().Format(time.RFC3339),
+		boolToInt(r.Passed),
+		r.Severity,
+		boolToInt(r.Repairable),
+		r.SuggestedRepairStrategy,
+		string(issuesJSON),
+		string(metadataJSON),
+	)
+	if err != nil && w.log != nil {
+		w.log.Error("telemetry: failed to record validation report", err, "request_id", r.RequestID)
+	}
+}
+
+// RepairReportRecord is the telemetry projection of a repair report.
+type RepairReportRecord struct {
+	RequestID        string
+	Attempted        bool
+	Success          bool
+	Strategy         string
+	RetryRequested   bool
+	ChangesApplied   int
+	RemainingIssues  int
+}
+
+// RecordRepairReport persists a repair report to the repair_reports table.
+func (w *Writer) RecordRepairReport(ctx context.Context, r RepairReportRecord) {
+	if w == nil || w.store == nil || !w.Enabled() {
+		return
+	}
+
+	changesJSON := fmt.Sprintf(`{"count":%d}`, r.ChangesApplied)
+	remainingJSON := fmt.Sprintf(`{"count":%d}`, r.RemainingIssues)
+
+	_, err := w.store.DB().ExecContext(ctx, `
+		INSERT INTO repair_reports (request_id, created_at, attempted, strategy, success, changes_json, remaining_issues_json, retry_requested)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		r.RequestID,
+		time.Now().UTC().Format(time.RFC3339),
+		boolToInt(r.Attempted),
+		r.Strategy,
+		boolToInt(r.Success),
+		changesJSON,
+		remainingJSON,
+		boolToInt(r.RetryRequested),
+	)
+	if err != nil && w.log != nil {
+		w.log.Error("telemetry: failed to record repair report", err, "request_id", r.RequestID)
+	}
+}
+
 // RecordError persists a normalized runtime or provider error.
 func (w *Writer) RecordError(ctx context.Context, requestID string, engine string, perr provider.ProviderError) {
 	if w == nil || w.store == nil || !w.Enabled() {

@@ -83,7 +83,7 @@ func (e *Engine) Validate(in Input) Report {
 		report.add(IssueIncompleteResponse, "assistant response appears incomplete", "choices[0]", "warning", true, StrategyRetryGeneration)
 	}
 
-	if !hasToolCalls && hasRepetition(content) {
+	if !hasToolCalls && hasRepetition(content, in.ResponseFormat, in.RuntimeMode) {
 		report.add(IssueRepetition, "assistant response contains repeated lines or sentences", "choices[0].message.content", "error", true, StrategyRegexCleanup)
 	}
 
@@ -217,7 +217,25 @@ func hasUnclosedCodeFence(content string) bool {
 	return strings.Count(content, "```")%2 != 0
 }
 
-func hasRepetition(content string) bool {
+func hasRepetition(content string, format *api.ResponseFormat, mode string) bool {
+	// Skip repetition detection for JSON output. JSON structural elements
+	// (braces, brackets, repeated keys across objects in an array) are
+	// legitimate and should not be flagged as repetition. JSON validity is
+	// checked separately by the JSON validation block.
+	if format != nil && (format.Type == "json_object" || format.Type == "json_schema") {
+		return false
+	}
+	if mode == "structured" {
+		return false
+	}
+	// Also skip if the content looks like JSON even without an explicit format.
+	trimmed := strings.TrimSpace(content)
+	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
+		if json.Valid([]byte(trimmed)) {
+			return false
+		}
+	}
+
 	lines := strings.Split(content, "\n")
 	counts := map[string]int{}
 	for _, line := range lines {

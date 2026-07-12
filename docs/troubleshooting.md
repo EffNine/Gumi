@@ -157,6 +157,96 @@ Fix:
 3. For very large context windows or slow hardware, use a smaller model or
    fewer messages.
 
+## Intermittent 502 errors (LM Studio model loading)
+
+Symptom: approximately 50% of requests through Novexa fail with:
+
+```json
+{
+  "error": {
+    "code": "PROVIDER_BAD_RESPONSE",
+    "message": "lmstudio rejected the request",
+    "suggestion": "Review the request payload and provider logs."
+  }
+}
+```
+
+And the Novexa error database shows:
+
+```text
+"Failed to load model ... Engine protocol startup was aborted"
+```
+
+Cause: LM Studio unloads and reloads models from memory between requests. When
+a model is being loaded, the server returns a 400 error for 3-10 seconds. This
+is a transient condition, not a request payload problem.
+
+Fix: Novexa Sprint 12+ automatically retries with exponential backoff
+(3s → 6s for model-loading errors). If you still see frequent 502s:
+
+1. In LM Studio, enable **Keep model in memory** to prevent model swapping.
+2. Reduce the number of models loaded simultaneously in LM Studio.
+3. Ensure sufficient RAM for the model size (9B Q4 models need ~6GB).
+4. Check the error database for details:
+
+```bash
+sqlite3 ~/.novexa/novexa.db \
+  "SELECT code, COUNT(*) FROM errors GROUP BY code ORDER BY COUNT(*) DESC;"
+```
+
+## LM Studio provider not reachable
+
+Symptom:
+
+```text
+PROVIDER_UNAVAILABLE: lmstudio is not reachable (connection refused)
+```
+
+Cause: Novexa defaults to the Ollama provider. To use LM Studio, set the
+provider and URL via environment variables:
+
+```bash
+NOVEXA_PROVIDER_DEFAULT=lmstudio \
+NOVEXA_LMSTUDIO_URL=http://localhost:1234/v1 \
+NOVEXA_DEFAULT_MODEL=ornith-1.0-9b@q4_k_m \
+./novexa start --verbose
+```
+
+If LM Studio runs on a different machine (e.g. LAN), use that IP:
+
+```bash
+NOVEXA_LMSTUDIO_URL=http://192.168.0.164:1234/v1
+```
+
+Verify LM Studio is running:
+
+```bash
+curl http://localhost:1234/v1/models
+```
+
+## Validation failures on JSON output
+
+Symptom: requests in stabilized or structured mode return `VALIDATION_FAILED`
+even though the response looks like valid JSON.
+
+Cause (pre-Sprint 12): the repetition detector flagged JSON structural elements
+(`}`, repeated keys across array objects) as repetition. This is fixed in
+Sprint 12 — repetition detection is skipped for JSON output.
+
+To diagnose validation failures, query the validation reports table:
+
+```bash
+sqlite3 ~/.novexa/novexa.db \
+  "SELECT request_id, passed, severity, issues_json FROM validation_reports WHERE passed=0 ORDER BY id DESC LIMIT 5;"
+```
+
+And the error details:
+
+```bash
+sqlite3 ~/.novexa/novexa.db \
+  "SELECT request_id, details_json FROM errors WHERE code='VALIDATION_FAILED' ORDER BY created_at DESC LIMIT 5;"
+```
+
 ## Profiles directory missing
 
 If the `profiles/` directory is not next to the `novexa` binary, Novexa falls

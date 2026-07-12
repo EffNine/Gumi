@@ -54,7 +54,7 @@ var (
 	reNoWord       = regexp.MustCompile(`(?i)(?:do\s+not\s+(?:use|say|include|write|mention)\s+(?:the\s+)?(?:word|term|phrase)?\s*['"]?(\w+)['"]?)|(?:avoid\s+(?:the\s+)?(?:word|term|phrase)?\s*['"]?(\w+)['"]?)`)
 	reEndWith      = regexp.MustCompile(`(?i)(?:end|finish|conclude)\s+(?:with|in)\s+(?:the\s+)?(?:word|phrase)?\s*['"]?([a-zA-Z0-9.]+)['"]?`)
 	reStartWith    = regexp.MustCompile(`(?i)(?:start|begin)\s+(?:each\s+line\s+)?(?:with|in)\s+(?:a\s+)?(capital\s*letter|uppercase)`)
-	reJSON         = regexp.MustCompile(`(?i)(?:return|output|respond\s+with)\s+(?:only\s+)?(?:valid\s+)?json`)
+	reJSON         = regexp.MustCompile(`(?i)(?:return|output|respond\s+with|format\s+your\s+response\s+as|respond\s+in)\s+(?:only\s+)?(?:valid\s+)?json`)
 	reMinChars     = regexp.MustCompile(`(?i)(?:at\s+least|minimum\s+of|more\s+than|over)\s+(\d+)\s+(?:characters?|chars?|letters?)`)
 	reMinWords     = regexp.MustCompile(`(?i)(?:at\s+least|minimum\s+of|more\s+than|over)\s+(\d+)\s+words?`)
 	reNoCommas     = regexp.MustCompile(`(?i)(?:do\s+not\s+use\s+(?:any\s+)?commas?|no\s+commas?|without\s+commas?)`)

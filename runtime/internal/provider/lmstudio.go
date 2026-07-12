@@ -222,10 +222,6 @@ func (l *LMStudioAdapter) Generate(ctx context.Context, req api.ChatCompletionRe
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, NormalizeHTTPError(resp.StatusCode, nil, "lmstudio")
-	}
-
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, ProviderError{
@@ -233,6 +229,14 @@ func (l *LMStudioAdapter) Generate(ctx context.Context, req api.ChatCompletionRe
 			Message: "failed to read LM Studio response body",
 			Cause:   err,
 		}
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		bodyPreview := string(respBody)
+		if len(bodyPreview) > 240 {
+			bodyPreview = bodyPreview[:240] + "..."
+		}
+		return nil, NormalizeHTTPError(resp.StatusCode, fmt.Errorf("%s", bodyPreview), "lmstudio")
 	}
 
 	var chatResp api.ChatCompletionResponse

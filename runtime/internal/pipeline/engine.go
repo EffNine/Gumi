@@ -398,6 +398,21 @@ func latestUserMessage(messages []api.Message) string {
 	return ""
 }
 
+// latestSystemMessage returns the first system message content from the message
+// list, scanning forward. Agent frameworks (e.g. Terminus-2) often put JSON
+// format instructions in the system prompt rather than the user message.
+func latestSystemMessage(messages []api.Message) string {
+	for _, msg := range messages {
+		if strings.ToLower(msg.Role) != "system" {
+			continue
+		}
+		if s, ok := msg.Content.(string); ok {
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
+}
+
 func (e *Engine) prepareContext(pc *Context) {
 	strategy := ""
 	maxInputTokens := 0
@@ -876,6 +891,10 @@ func (e *Engine) applyProfileDefaults(pc *Context, req *api.ChatCompletionReques
 // explicit reminders into the system prompt, and stores constraints for
 // post-generation validation. It activates when the model profile has
 // prompt.instruction_assist: true or when the request is in structured mode.
+//
+// It scans both the last user message and the system prompt for JSON format
+// requirements, so that agent frameworks that put JSON instructions in the
+// system prompt (e.g. Terminus-2) also benefit from Novexa's JSON enforcement.
 func (e *Engine) applyInstructionAssist(pc *Context) {
 	// Activate when profile explicitly enables it, or when in structured mode.
 	if pc.ModelProfile != nil && !pc.ModelProfile.Prompt.InstructionAssist && pc.RuntimeMode != ModeStructured {
@@ -883,11 +902,21 @@ func (e *Engine) applyInstructionAssist(pc *Context) {
 	}
 
 	userMsg := latestUserMessage(pc.NormalizedRequest.Messages)
-	if userMsg == "" {
+	systemMsg := latestSystemMessage(pc.NormalizedRequest.Messages)
+
+	// Scan all available text for constraints: user message plus system prompt.
+	var combinedMsg string
+	if userMsg != "" && systemMsg != "" {
+		combinedMsg = systemMsg + "\n" + userMsg
+	} else if userMsg != "" {
+		combinedMsg = userMsg
+	} else if systemMsg != "" {
+		combinedMsg = systemMsg
+	} else {
 		return
 	}
 
-	result := e.instructionEngine.Extract(userMsg)
+	result := e.instructionEngine.Extract(combinedMsg)
 	if !result.HasConstraints {
 		return
 	}
@@ -1200,17 +1229,96 @@ func resolveThinkingTelemetry(pc *Context) *ThinkingTelemetry {
 }
 
 func (e *Engine) generateOnce(ctx context.Context, pc *Context, adapter provider.ProviderAdapter, req api.ChatCompletionRequest) (*api.ChatCompletionResponse, Result) {
-	start := time.Now()
-	resp, err := adapter.Generate(ctx, req)
-	pc.ProviderLatency += time.Since(start)
-	if err != nil {
-		var normalized provider.ProviderError
-		if !errors.As(err, &normalized) {
-			normalized = adapter.NormalizeError(err)
+	const maxRetries = 2
+	var lastErr error
+	var lastNormalized provider.ProviderError
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			errMsg := lastErr.Error()
+			isModelLoadErr := isModelLoadingError(errMsg)
+			isFormatErr := isResponseFormatError(errMsg)
+
+			pc.AddEvent("provider", "provider_retry", SeverityWarning, "retrying provider request after error", map[string]string{
+				"attempt":          fmt.Sprintf("%d", attempt),
+				"error":            errMsg,
+				"model_load_error": fmt.Sprintf("%t", isModelLoadErr),
+				"format_error":     fmt.Sprintf("%t", isFormatErr),
+			})
+
+			// Only strip response_format when the error specifically indicates
+			// the provider rejected the format — not for model-loading failures
+			// or transient unavailability. Stripping it unconditionally degrades
+			// JSON quality on retries that succeed.
+			if isFormatErr {
+				req.ResponseFormat = nil
+			}
+
+			// Backoff: model-loading errors need much longer waits (LM Studio
+			// takes 3-10s to load a model into memory). Other errors use a
+			// moderate exponential backoff.
+			var backoff time.Duration
+			if isModelLoadErr {
+				backoff = time.Duration(attempt) * 3 * time.Second
+			} else {
+				backoff = time.Duration(attempt) * 2 * time.Second
+			}
+			select {
+			case <-ctx.Done():
+				return nil, e.fail(pc, provider.ProviderError{
+					Code:    provider.ProviderTimeout,
+					Message: "context cancelled during provider retry",
+					Cause:   ctx.Err(),
+				}, "provider retry cancelled")
+			case <-time.After(backoff):
+			}
 		}
-		return nil, e.fail(pc, normalized, "provider request failed")
+
+		start := time.Now()
+		resp, err := adapter.Generate(ctx, req)
+		pc.ProviderLatency += time.Since(start)
+		if err != nil {
+			var normalized provider.ProviderError
+			if !errors.As(err, &normalized) {
+				normalized = adapter.NormalizeError(err)
+			}
+			lastErr = err
+			lastNormalized = normalized
+			// Retry on provider errors (unavailable, bad response, timeout).
+			if normalized.Code == provider.ProviderUnavailable ||
+				normalized.Code == provider.ProviderBadResponse ||
+				normalized.Code == provider.ProviderTimeout {
+				continue
+			}
+			return nil, e.fail(pc, normalized, "provider request failed")
+		}
+		return resp, Result{}
 	}
-	return resp, Result{}
+
+	// All retries exhausted.
+	return nil, e.fail(pc, lastNormalized, "provider request failed after retries")
+}
+
+// isModelLoadingError detects LM Studio / llama.cpp model-loading failures.
+// These are transient — the model is being swapped into memory and the engine
+// wasn't ready yet. They need a longer backoff than other retryable errors.
+func isModelLoadingError(msg string) bool {
+	lower := strings.ToLower(msg)
+	return strings.Contains(lower, "failed to load model") ||
+		strings.Contains(lower, "engine protocol startup was aborted") ||
+		strings.Contains(lower, "model is still loading") ||
+		strings.Contains(lower, "loading adapter")
+}
+
+// isResponseFormatError detects when a provider explicitly rejects the
+// response_format parameter. Only in this case should we strip it on retry.
+func isResponseFormatError(msg string) bool {
+	lower := strings.ToLower(msg)
+	return strings.Contains(lower, "response_format") ||
+		strings.Contains(lower, "json_schema") ||
+		strings.Contains(lower, "json_object") ||
+		strings.Contains(lower, "unsupported parameter") ||
+		strings.Contains(lower, "unknown parameter")
 }
 
 // normalizeToolResponse converts prompt-based tool calls in the assistant
@@ -1294,6 +1402,7 @@ func (e *Engine) validateRepairAndMaybeRetry(ctx context.Context, pc *Context, a
 		})
 	}
 	if report.Passed && toolValid {
+		e.recordValidationReport(pc, report)
 		return Result{}
 	}
 
@@ -1309,6 +1418,19 @@ func (e *Engine) validateRepairAndMaybeRetry(ctx context.Context, pc *Context, a
 		"remaining_issues": fmt.Sprintf("%d", len(repairReport.RemainingIssues)),
 	})
 
+	// Persist the repair report so failures can be diagnosed post-hoc.
+	if e.telemetry != nil && e.telemetry.Enabled() {
+		e.telemetry.RecordRepairReport(context.Background(), telemetry.RepairReportRecord{
+			RequestID:       pc.RequestID,
+			Attempted:       repairReport.Attempted,
+			Success:         repairReport.Success,
+			Strategy:        repairReport.Strategy,
+			RetryRequested:  repairReport.RetryRequested,
+			ChangesApplied:  len(repairReport.Changes),
+			RemainingIssues: len(repairReport.RemainingIssues),
+		})
+	}
+
 	if repairReport.Success {
 		second := e.validation.Validate(validationengine.Input{
 			Response:       pc.FinalResponse,
@@ -1323,6 +1445,7 @@ func (e *Engine) validateRepairAndMaybeRetry(ctx context.Context, pc *Context, a
 			"tool_calls_valid": fmt.Sprintf("%t", toolValidAfterRepair),
 		})
 		if second.Passed && toolValidAfterRepair {
+			e.recordValidationReport(pc, second)
 			return Result{}
 		}
 		report = second
@@ -1376,16 +1499,68 @@ func (e *Engine) validateRepairAndMaybeRetry(ctx context.Context, pc *Context, a
 				Result:    "success",
 				Timestamp: time.Now().UTC(),
 			})
+			e.recordValidationReport(pc, retryReport)
 			return Result{}
 		}
 		report = retryReport
 	}
 
+	// Build a human-readable summary of the validation issues for the error
+	// details so the errors table is useful for debugging instead of storing {}.
+	issueSummary := formatValidationIssues(report.Issues)
+
+	// Persist the final validation report for post-hoc diagnosis.
+	e.recordValidationReport(pc, report)
+
 	return e.fail(pc, provider.ProviderError{
 		Code:       provider.ValidationFailed,
 		Message:    "model output failed validation and could not be repaired",
 		Suggestion: "Try a clearer prompt, structured response_format, or a more capable local model.",
+		Cause:      errors.New(issueSummary),
 	}, "validation failed")
+}
+
+// recordValidationReport persists a validation report via telemetry. It is
+// called at every validation outcome (pass, pass-after-repair, pass-after-retry,
+// and final failure) so the validation_reports table has complete diagnostic
+// data.
+func (e *Engine) recordValidationReport(pc *Context, report validationengine.Report) {
+	if e.telemetry == nil || !e.telemetry.Enabled() {
+		return
+	}
+	issues := make([]telemetry.ValidationIssueRecord, len(report.Issues))
+	for i, iss := range report.Issues {
+		issues[i] = telemetry.ValidationIssueRecord{
+			Code:     string(iss.Code),
+			Message:  iss.Message,
+			Location: iss.Location,
+		}
+	}
+	e.telemetry.RecordValidationReport(context.Background(), telemetry.ValidationReportRecord{
+		RequestID:               pc.RequestID,
+		Passed:                  report.Passed,
+		Severity:                report.Severity,
+		Repairable:              report.Repairable,
+		SuggestedRepairStrategy: string(report.SuggestedRepairStrategy),
+		Issues:                  issues,
+	})
+}
+
+// formatValidationIssues turns a slice of validation issues into a compact
+// string suitable for storing in the error details_json cause field.
+func formatValidationIssues(issues []validationengine.Issue) string {
+	if len(issues) == 0 {
+		return "no specific issues recorded"
+	}
+	parts := make([]string, 0, len(issues))
+	for _, iss := range issues {
+		loc := iss.Location
+		if loc == "" {
+			loc = "response"
+		}
+		parts = append(parts, fmt.Sprintf("%s at %s: %s", iss.Code, loc, iss.Message))
+	}
+	return strings.Join(parts, "; ")
 }
 
 func severityForValidation(report validationengine.Report) Severity {
@@ -1403,24 +1578,37 @@ func shouldRetryValidation(report validationengine.Report, pc *Context) bool {
 }
 
 func prependRetryInstruction(messages []api.Message) []api.Message {
-	instruction := api.Message{
-		Role:    "system",
-		Content: "Retry because the previous output failed validation. Return only valid JSON if JSON was requested. Do not include markdown fences, repeated text, or explanatory prose.",
-	}
-	out := make([]api.Message, 0, len(messages)+1)
-	out = append(out, instruction)
-	out = append(out, messages...)
-	return out
+	instruction := "Retry because the previous output failed validation. Return only valid JSON if JSON was requested. Do not include markdown fences, repeated text, or explanatory prose."
+	return mergeSystemInstruction(messages, instruction)
 }
 
 func prependToolRetryInstruction(messages []api.Message) []api.Message {
-	instruction := api.Message{
-		Role:    "system",
-		Content: "Retry because the previous tool call was invalid. Return ONLY a JSON object like {\"tool\":\"name\",\"arguments\":{...}} with a valid tool name and arguments. Do not wrap it in markdown fences.",
+	instruction := "Retry because the previous tool call was invalid. Return ONLY a JSON object like {\"tool\":\"name\",\"arguments\":{...}} with a valid tool name and arguments. Do not wrap it in markdown fences."
+	return mergeSystemInstruction(messages, instruction)
+}
+
+// mergeSystemInstruction appends instruction to the first system/developer
+// message if one exists, otherwise prepends a new system message.
+// This prevents chat templates (e.g. LM Studio's) that require a single leading
+// system message from raising "System message must be at the beginning".
+func mergeSystemInstruction(messages []api.Message, instruction string) []api.Message {
+	if len(messages) == 0 {
+		return []api.Message{{Role: "system", Content: instruction}}
 	}
-	out := make([]api.Message, 0, len(messages)+1)
-	out = append(out, instruction)
-	out = append(out, messages...)
+	out := make([]api.Message, 0, len(messages))
+	injected := false
+	for _, msg := range messages {
+		if !injected && (msg.Role == "system" || msg.Role == "developer") {
+			if s, ok := msg.Content.(string); ok {
+				msg.Content = strings.TrimSpace(s) + "\n\n" + instruction
+				injected = true
+			}
+		}
+		out = append(out, msg)
+	}
+	if !injected {
+		out = append([]api.Message{{Role: "system", Content: instruction}}, out...)
+	}
 	return out
 }
 

@@ -494,6 +494,58 @@ metadata:
 
 ---
 
+## 14.1 Telemetry Storage (Sprint 12)
+
+Validation and repair reports are persisted to the Novexa telemetry database
+for post-hoc diagnosis:
+
+**`validation_reports` table:**
+
+| Column | Description |
+|---|---|
+| `request_id` | Associated request |
+| `passed` | Whether validation passed |
+| `severity` | `info`, `warning`, or `error` |
+| `repairable` | Whether the issue can be repaired |
+| `suggested_repair_strategy` | `none`, `retry_generation`, `local_parse_repair`, `regex_cleanup` |
+| `issues_json` | Array of `{code, message, location}` |
+| `metadata_json` | Additional metadata |
+
+**`repair_reports` table:**
+
+| Column | Description |
+|---|---|
+| `request_id` | Associated request |
+| `attempted` | Whether repair was attempted |
+| `strategy` | Repair strategy used |
+| `success` | Whether repair succeeded |
+| `changes_json` | Number of changes applied |
+| `remaining_issues_json` | Number of remaining issues |
+| `retry_requested` | Whether a retry was requested |
+
+Reports are recorded at all validation outcomes: pass, pass-after-repair,
+pass-after-retry, and final failure. The `errors` table's `details_json` for
+`VALIDATION_FAILED` errors includes a human-readable issue summary in the
+`cause` field.
+
+Query examples:
+
+```bash
+# View recent validation failures with issue details
+sqlite3 ~/.novexa/novexa.db \
+  "SELECT request_id, severity, issues_json FROM validation_reports WHERE passed=0 ORDER BY id DESC LIMIT 10;"
+
+# View repair outcomes
+sqlite3 ~/.novexa/novexa.db \
+  "SELECT request_id, strategy, success FROM repair_reports ORDER BY id DESC LIMIT 10;"
+
+# View validation error details
+sqlite3 ~/.novexa/novexa.db \
+  "SELECT request_id, details_json FROM errors WHERE code='VALIDATION_FAILED' ORDER BY created_at DESC LIMIT 5;"
+```
+
+---
+
 # 15. Validation Types
 
 V1 validation types:
@@ -602,7 +654,25 @@ repeated suffix pattern
 
 ---
 
-## 18.4 Suggested Default Thresholds
+## 18.4 JSON-Aware Exclusion (Sprint 12)
+
+Repetition detection is **skipped** for JSON output because JSON structural
+elements (`}`, `"type":`, repeated keys across array objects) legitimately
+repeat and should not be flagged as loops.
+
+The `hasRepetition` function skips detection when:
+
+- `response_format.type` is `json_object` or `json_schema`
+- `runtime_mode` is `structured`
+- The content parses as valid JSON (starts with `{` or `[` and passes
+  `json.Valid`)
+
+Plain-text repetition detection is unchanged — actual loops in prose or code
+are still caught.
+
+---
+
+## 18.5 Suggested Default Thresholds
 
 ```yaml
 repetition:
@@ -615,7 +685,7 @@ repetition:
 
 ---
 
-## 18.5 Result
+## 18.6 Result
 
 ```yaml
 passed: false
