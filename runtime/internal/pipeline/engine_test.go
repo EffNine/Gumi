@@ -1217,7 +1217,13 @@ func TestAgentModeAllowsNormalRequest(t *testing.T) {
 		t.Fatalf("expected agent mode, got %s", result.Context.RuntimeMode)
 	}
 	assertEvent(t, result.Context, "agent_mode_selected")
-	assertEvent(t, result.Context, "agent_thinking_disabled")
+	// Thinking defaults to disabled in agent mode when no profile policy exists.
+	if result.Context.ThinkingMode != "disabled" {
+		t.Fatalf("expected thinking disabled, got %s", result.Context.ThinkingMode)
+	}
+	if result.Context.ThinkingDecisionReason != "no_default" {
+		t.Fatalf("expected thinking decision reason 'no_default', got %s", result.Context.ThinkingDecisionReason)
+	}
 	assertEvent(t, result.Context, "agent_guard_completed")
 	assertEvent(t, result.Context, "agent_completed")
 }
@@ -1242,10 +1248,13 @@ func TestAgentModeForcesThinkingOff(t *testing.T) {
 	if result.Error.Code != "" {
 		t.Fatalf("unexpected pipeline error: %v", result.Error)
 	}
-	assertEvent(t, result.Context, "agent_thinking_disabled")
-	// Thinking should be disabled even though the profile allows it.
+	// The qwen3.5-2b profile has Defaults.Thinking=false, so thinking is
+	// disabled via profile default, not forced disable.
 	if result.Context.ThinkingMode != "disabled" {
 		t.Fatalf("expected thinking disabled in agent mode, got %s", result.Context.ThinkingMode)
+	}
+	if result.Context.ThinkingDecisionReason != "profile_default_legacy_disabled" {
+		t.Fatalf("expected thinking decision reason 'profile_default_legacy_disabled', got %s", result.Context.ThinkingDecisionReason)
 	}
 }
 
@@ -1305,7 +1314,10 @@ func TestAgentModeStreaming(t *testing.T) {
 		t.Fatalf("expected agent mode, got %s", result.Context.RuntimeMode)
 	}
 	assertEvent(t, result.Context, "agent_mode_selected")
-	assertEvent(t, result.Context, "agent_thinking_disabled")
+	// Thinking defaults to disabled in agent mode when using generic profile.
+	if result.Context.ThinkingMode != "disabled" {
+		t.Fatalf("expected thinking disabled, got %s", result.Context.ThinkingMode)
+	}
 	assertEvent(t, result.Context, "streaming_agent_completed")
 }
 

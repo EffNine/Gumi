@@ -27,6 +27,7 @@ type Config struct {
 	Providers map[string]ProviderSettings `json:"providers" yaml:"providers"`
 	Storage   StorageConfig               `json:"storage" yaml:"storage"`
 	Telemetry TelemetryConfig             `json:"telemetry" yaml:"telemetry"`
+	Routing   RoutingConfig               `json:"routing" yaml:"routing"`
 }
 
 // RuntimeConfig controls the core API server behaviour.
@@ -38,6 +39,12 @@ type RuntimeConfig struct {
 	Environment string      `json:"environment" yaml:"environment"`
 	LogLevel    string      `json:"log_level" yaml:"log_level"`
 	Agent       AgentConfig `json:"agent" yaml:"agent"`
+}
+
+// RoutingConfig controls the Agentic Coding Router.
+type RoutingConfig struct {
+	Enabled bool   `json:"enabled" yaml:"enabled"`
+	Mode    string `json:"mode" yaml:"mode"`
 }
 
 // AgentConfig controls the agent mode governance layer.
@@ -68,10 +75,32 @@ type ProviderConfig struct {
 
 // ProviderSettings holds per-provider connection settings.
 type ProviderSettings struct {
-	Enabled        bool   `json:"enabled" yaml:"enabled"`
-	URL            string `json:"url" yaml:"url"`
-	DefaultModel   string `json:"default_model" yaml:"default_model"`
-	TimeoutSeconds int    `json:"timeout_seconds" yaml:"timeout_seconds"`
+	Enabled         bool                    `json:"enabled" yaml:"enabled"`
+	URL             string                  `json:"url" yaml:"url"`
+	DefaultModel    string                  `json:"default_model" yaml:"default_model"`
+	TimeoutSeconds  int                     `json:"timeout_seconds" yaml:"timeout_seconds"`
+	ModelManagement *LMStudioMgmtConfig     `json:"model_management,omitempty" yaml:"model_management,omitempty"`
+}
+
+// LMStudioMgmtConfig controls LM Studio v1 REST API model management.
+// Only applies to the "lmstudio" provider. Other providers ignore it.
+type LMStudioMgmtConfig struct {
+	Enabled                  bool                         `json:"enabled" yaml:"enabled"`
+	DefaultContextLength     int                          `json:"default_context_length" yaml:"default_context_length"`
+	DefaultFlashAttention    *bool                        `json:"default_flash_attention,omitempty" yaml:"default_flash_attention,omitempty"`
+	DefaultOffloadKV         *bool                        `json:"default_offload_kv_cache,omitempty" yaml:"default_offload_kv_cache,omitempty"`
+	DefaultEvalBatchSize     int                          `json:"default_eval_batch_size,omitempty" yaml:"default_eval_batch_size,omitempty"`
+	AutoUnload               bool                         `json:"auto_unload" yaml:"auto_unload"`
+	ModelConfig              map[string]LMStudioModelCfg  `json:"model_config,omitempty" yaml:"model_config,omitempty"`
+}
+
+// LMStudioModelCfg is per-model overrides for LM Studio load configuration.
+type LMStudioModelCfg struct {
+	ContextLength  *int   `json:"context_length,omitempty" yaml:"context_length,omitempty"`
+	FlashAttention *bool  `json:"flash_attention,omitempty" yaml:"flash_attention,omitempty"`
+	OffloadKVCache *bool  `json:"offload_kv_cache_to_gpu,omitempty" yaml:"offload_kv_cache_to_gpu,omitempty"`
+	EvalBatchSize  *int   `json:"eval_batch_size,omitempty" yaml:"eval_batch_size,omitempty"`
+	NumExperts     *int   `json:"num_experts,omitempty" yaml:"num_experts,omitempty"`
 }
 
 // StorageConfig controls local SQLite storage location and retention.
@@ -148,8 +177,10 @@ func DefaultConfig() *Config {
 			LogPrompts:   false,
 			LogResponses: false,
 			RetainDays:   14,
-		},
-	}
+		},		Routing: RoutingConfig{
+			Enabled: false, // Opt-in in V1
+			Mode:    "agentic_coding",
+		},	}
 }
 
 // Load returns the runtime configuration.

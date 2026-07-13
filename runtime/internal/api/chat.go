@@ -32,6 +32,16 @@ type NovexaExtensions struct {
 	Session    *SessionConfig      `json:"session,omitempty"`
 	Telemetry  *TelemetryExtension `json:"telemetry,omitempty"`
 	Thinking   *ThinkingConfig     `json:"thinking,omitempty"`
+	Routing    *RoutingExtensions  `json:"routing,omitempty"`
+}
+
+// RoutingExtensions holds per-request overrides for the Agentic Coding Router.
+type RoutingExtensions struct {
+	HintDifficulty    int      `json:"hint_difficulty,omitempty"`
+	HintTaskType      string   `json:"hint_task_type,omitempty"`
+	PreferredProvider string   `json:"preferred_providers,omitempty"`
+	PreferredModel    string   `json:"preferred_model,omitempty"`
+	MinContext        int      `json:"min_context,omitempty"`
 }
 
 // ThinkingConfig controls model thinking/reasoning behaviour.

@@ -2,6 +2,97 @@
 
 All notable changes to Novexa are documented in this file.
 
+## 0.1.0-alpha — Sprint 13: LM Studio Model Management
+
+### Added
+
+- **LM Studio v1 REST API model management** (`runtime/internal/provider/lmstudio_mgmt.go`):
+  - `LoadModel(ctx, modelID, config)` — `POST /api/v1/models/load` with
+    configurable `context_length`, `flash_attention`, `offload_kv_cache_to_gpu`,
+    `eval_batch_size`, `num_experts`. Returns `instance_id` and applied config.
+  - `UnloadModel(ctx, instanceID)` — `POST /api/v1/models/unload`
+  - `ListAvailableModels(ctx)` — `GET /api/v1/models` lists all models on disk
+  - `BuildPerModelConfig(modelID)` — returns per-model config overrides
+  - `ModelManager` interface — optional interface for provider adapters
+  - Per-model config resolution: CLI flags → management defaults → per-model
+    overrides from config file → final merged config sent to LM Studio
+- **Model management config** (`config.go`): `LMStudioMgmtConfig` with
+  `enabled`, `default_context_length`, `default_flash_attention`,
+  `default_offload_kv_cache`, `default_eval_batch_size`, `auto_unload`,
+  and `model_config` map for per-model overrides.
+- **Pipeline integration** (`engine.go` `applyModelManagement`): After
+  `resolveProviderAndProfile` selects a provider+model, if the provider is
+  LM Studio with management enabled, loads the model before generation.
+  Telemetry events: `model_load_started`, `model_load_succeeded`,
+  `model_load_failed`. Falls through silently if management is not configured.
+- **CLI commands** (`cli/lmstudio.go`):
+  - `novexa lmstudio status [--url <base>]` — shows available models on disk
+  - `novexa lmstudio load <model> [--context-length N] [--flash-attention] [--offload-kv-cache]` — loads a model
+  - `novexa lmstudio unload <instance-id>` — unloads a model
+  - `novexa lmstudio models [--url <base>]` — lists all models on disk
+  - All commands support `--json` for machine-readable output
+  - URL resolution: flag → config file → `http://localhost:1234/v1`
+
+### Changed
+
+- **LM Studio adapter** (`lmstudio.go`): Added `mgmtConfig *config.LMStudioMgmtConfig`
+  and `loadedInstanceID string` fields to track loaded model state. Added
+  `LoadedModelID()` accessor.
+- **Pipeline engine** (`engine.go`): `resolveProviderAndProfile` calls
+  `applyModelManagement` after both routing path and default resolution path.
+
+## 0.1.0-alpha — Sprint 12b: Agentic Coding Router + Engine Fine-Tuning
+
+### Added
+
+- **Agentic Coding Router** (`runtime/internal/router/`):
+  - `CodingTaskClassifier` — structural heuristics classify coding tasks into 5
+    difficulty levels (trivial, simple, moderate, complex, novel) and 8 task
+    types (fix, refactor, feature, test, review, docs, search, plan). No AI
+    inference — purely message length, file count, traceback presence,
+    keywords, code block size, step count, retry count.
+  - `CodingModelRegistry` — indexes available models by coding capability from
+    YAML profiles. Supports preference strategies: fastest, best_coding,
+    best_combo, largest_context, explicit.
+  - `CodingRuleEngine` — first-match rule engine with 11 built-in default rules
+    covering all difficulty + task_type combinations.
+  - `RoutingTelemetry` — records every routing decision as pipeline events.
+  - Full specification at `docs/specs/19-agentic-coding-router-specification.md`.
+- **Routing config** (`config.go`): `RoutingConfig` section — `enabled: bool`
+  (opt-in, disabled by default), `mode: string`.
+- **Routing API extensions** (`api/chat.go`): `RoutingExtensions` with
+  `hint_difficulty`, `hint_task_type`, `preferred_provider`, `preferred_model`,
+  `min_context` for per-request overrides.
+- **Router integration into pipeline** (`engine.go`):
+  - `resolveProviderAndProfile()` now checks if routing is enabled + agent mode
+    before default resolution.
+  - `buildAvailableModelSet()` helper builds `"provider:model"` key map from
+    all registered providers.
+  - Router fields (`codingRouter`, `codingRegistry`, `codingClassifier`) added
+    to Engine struct and initialized in `New()`.
+
+### Changed
+
+- **Tool shim refined** (`engine.go` `isWeakToolCalling`): Removed "medium"
+  from weak-ToolCalling check. Only "weak", "none", "unknown" trigger the
+  tool-calling shim — saves tokens on mid-tier models that handle tools fine.
+- **Agent thinking policy** (`engine.go` `applyThinkingPolicy`): Agent mode no
+  longer unconditionally disables thinking. Now calls `applyThinkingPolicy`
+  with `AgentMode=true` — profiles with reasoning models opt-in via
+  `thinking_policy` rules.
+- **Context compaction** (`engine.go` `checkAgentContextCompaction`): Upgraded
+  from a hint-only "please summarize" injection to a sliding-window trim that
+  actually removes old messages when estimated tokens exceed threshold.
+- **Lightweight mode anti-loop** (`engine.go` `applyLightweightGuard`): New
+  guard detects repeated tool calls (3×+) and long conversations (20+ turns),
+  injects loop-break hints into the system prompt.
+
+### Fixed
+
+- **`fmtInt` recursion bug**: Removed recursive call in telemetry formatter
+  that caused stack overflow on negative values.
+- **Unused import**: Removed unused `strings` import from `router/engine.go`.
+
 ## 0.1.0-alpha — Sprint 12: Reliability Fixes, Telemetry & JSON Repair
 
 ### Fixed

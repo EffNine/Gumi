@@ -18,6 +18,7 @@ import (
 	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
 	"github.com/novexa/novexa/runtime/internal/provider"
 	repairengine "github.com/novexa/novexa/runtime/internal/repair"
+	"github.com/novexa/novexa/runtime/internal/router"
 	"github.com/novexa/novexa/runtime/internal/telemetry"
 	thinkingengine "github.com/novexa/novexa/runtime/internal/thinking"
 	toolengine "github.com/novexa/novexa/runtime/internal/tool"
@@ -45,6 +46,9 @@ type Engine struct {
 	toolEngine         *toolengine.Engine
 	instructionEngine  *instructionengine.Engine
 	profileResolver    *profiles.Resolver
+	codingRouter       *router.CodingRuleEngine
+	codingRegistry     *router.CodingModelRegistry
+	codingClassifier   *router.CodingTaskClassifier
 }
 
 // Result is returned to Gateway Engine after pipeline execution.
@@ -68,6 +72,20 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 	loaded, _ := loader.Load()
 	resolver := profiles.NewResolver(loaded.Profiles)
 
+	// Build router if routing is enabled.
+	var codingRouter *router.CodingRuleEngine
+	var codingRegistry *router.CodingModelRegistry
+	var codingClassifier *router.CodingTaskClassifier
+
+	if cfg.Routing.Enabled {
+		// Build a map of provider → models from the manager.
+		providerModels := buildProviderModelMap(manager)
+
+		codingRegistry = router.NewCodingModelRegistry(loaded.Profiles, providerModels)
+		codingRouter = router.NewCodingRuleEngine(router.DefaultCodingRules(), codingRegistry)
+		codingClassifier = router.NewCodingTaskClassifier()
+	}
+
 	return &Engine{
 		cfg:               cfg,
 		manager:           manager,
@@ -80,7 +98,32 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 		toolEngine:        toolengine.New(),
 		instructionEngine: instructionengine.New(),
 		profileResolver:   resolver,
+		codingRouter:      codingRouter,
+		codingRegistry:    codingRegistry,
+		codingClassifier:  codingClassifier,
 	}
+}
+
+// buildProviderModelMap extracts provider → model name mappings from the
+// manager for use by the CodingModelRegistry.
+func buildProviderModelMap(manager *provider.Manager) map[string][]string {
+	m := map[string][]string{}
+	for _, providerKey := range manager.ListProviders() {
+		adapter, ok := manager.Adapter(providerKey)
+		if !ok {
+			continue
+		}
+		models, err := adapter.ListModels(context.Background())
+		if err != nil {
+			continue
+		}
+		names := make([]string, 0, len(models))
+		for _, model := range models {
+			names = append(names, model.Name)
+		}
+		m[providerKey] = names
+	}
+	return m
 }
 
 // SetTelemetry attaches a telemetry writer. The writer may be nil; the engine
@@ -561,13 +604,12 @@ func (e *Engine) runAgent(ctx context.Context, pc *Context) Result {
 	e.prepareToolShim(pc)
 	e.applyProfileDefaults(pc, &pc.NormalizedRequest)
 
-	// Force thinking OFF in agent mode — reasoning wastes context budget and
-	// breaks tool-call parsing.
-	pc.ThinkingMode = "disabled"
-	pc.ThinkingDecisionReason = "agent_mode_forced_disabled"
-	pc.AddEvent("thinking", "agent_thinking_disabled", SeverityInfo, "thinking disabled in agent mode", map[string]string{
-		"reason": "reasoning wastes context budget and breaks tool-call parsing",
-	})
+	// Agent mode thinking: default disabled, but respect profile's
+	// thinking_policy rules and allow request-level override. Profiles
+	// with reasoning models (deepseek-r1, qwen3.5, etc.) may opt-in via
+	// thinking_policy.enable_when or the request may explicitly enable it.
+	pc.AgentMode = true
+	e.applyThinkingPolicy(pc)
 
 	// Agent guard: step budget + tool-call loop detection.
 	// Run BEFORE prepareContext/buildPrompt so we check the original messages.
@@ -611,12 +653,10 @@ func (e *Engine) runStreamAgent(ctx context.Context, pc *Context, out chan<- api
 	e.prepareToolShim(pc)
 	e.applyProfileDefaults(pc, &pc.NormalizedRequest)
 
-	// Force thinking OFF in agent mode.
-	pc.ThinkingMode = "disabled"
-	pc.ThinkingDecisionReason = "agent_mode_forced_disabled"
-	pc.AddEvent("thinking", "agent_thinking_disabled", SeverityInfo, "thinking disabled in agent mode", map[string]string{
-		"reason": "reasoning wastes context budget and breaks tool-call parsing",
-	})
+	// Agent mode thinking: default disabled, but respect profile's
+	// thinking_policy rules and allow request-level override.
+	pc.AgentMode = true
+	e.applyThinkingPolicy(pc)
 
 	// Agent guard: step budget + tool-call loop detection.
 	// Run BEFORE prepareContext/buildPrompt so we check the original messages.
@@ -711,8 +751,11 @@ func (e *Engine) applyAgentGuard(pc *Context) Result {
 	return Result{}
 }
 
-// checkAgentContextCompaction estimates token usage and emits a compaction
-// hint if the estimated tokens exceed the threshold of the model's context limit.
+// checkAgentContextCompaction estimates token usage and performs actual context
+// compaction when the estimated tokens exceed the model's context limit threshold.
+// Unlike the initial prepareContext pass, this is an agent-mode-specific compaction
+// that applies a more aggressive sliding-window trim and injects a structured summary
+// of what was removed so the model understands the gap.
 func (e *Engine) checkAgentContextCompaction(pc *Context) {
 	agentCfg := e.cfg.Runtime.Agent
 	threshold := agentCfg.ContextCompactionThreshold
@@ -725,20 +768,47 @@ func (e *Engine) checkAgentContextCompaction(pc *Context) {
 		contextLimit = pc.ModelProfile.ContextLimit
 	}
 
-	estimated := contextengine.EstimateMessages(pc.NormalizedRequest.Messages)
+	messages := pc.NormalizedRequest.Messages
+	estimated := contextengine.EstimateMessages(messages)
 	limit := int(float64(contextLimit) * threshold)
 
-	if estimated >= limit {
-		pc.ContextCompactionCount++
-		pc.AddEvent("context", "agent_context_compaction_hint", SeverityInfo, "context compaction recommended", map[string]string{
-			"estimated_tokens": fmt.Sprintf("%d", estimated),
-			"threshold_tokens": fmt.Sprintf("%d", limit),
-			"context_limit":    fmt.Sprintf("%d", contextLimit),
-		})
+	if estimated < limit {
+		return
+	}
 
-		// Inject compaction hint into system prompt.
+	// Determine how many messages to preserve (most recent N).
+	preserveRecent := 12
+	if pc.ModelProfile != nil && pc.ModelProfile.Context.PreserveRecentMessages > 0 {
+		preserveRecent = pc.ModelProfile.Context.PreserveRecentMessages
+	}
+	// In late-stage agent loops, preserve fewer old messages to fit budget.
+	// Scale preservation based on how many steps we've taken.
+	if pc.StepCount > 5 {
+		preserveRecent = max(6, preserveRecent-pc.StepCount/3)
+	}
+	if preserveRecent < 4 {
+		preserveRecent = 4
+	}
+
+	// Count messages before compaction.
+	preserveFrom := len(messages) - preserveRecent
+	if preserveFrom < 0 {
+		preserveFrom = 0
+	}
+	removedCount := 0
+	trimmed := make([]api.Message, 0, preserveRecent+2)
+
+	for i, msg := range messages {
+		if i < preserveFrom && !isContextCritical(msg, i, len(messages)) {
+			removedCount++
+			continue
+		}
+		trimmed = append(trimmed, msg)
+	}
+
+	if removedCount == 0 {
+		// If sliding-window didn't help, inject hint as fallback.
 		compactionHint := "The conversation is approaching the model's context limit. Summarize key findings and trim redundant information."
-		messages := pc.NormalizedRequest.Messages
 		for i, msg := range messages {
 			if msg.Role == "system" {
 				if s, ok := msg.Content.(string); ok {
@@ -747,7 +817,58 @@ func (e *Engine) checkAgentContextCompaction(pc *Context) {
 				break
 			}
 		}
+		pc.AddEvent("context", "agent_context_compaction_hint", SeverityInfo, "context compaction recommended (sliding window had nothing to remove)", map[string]string{
+			"estimated_tokens": fmt.Sprintf("%d", estimated),
+			"threshold_tokens": fmt.Sprintf("%d", limit),
+			"context_limit":    fmt.Sprintf("%d", contextLimit),
+		})
+		return
 	}
+
+	pc.NormalizedRequest.Messages = trimmed
+	pc.ContextCompactionCount++
+
+	// Inject a structured summary of what was removed.
+	summary := fmt.Sprintf(
+		"[Context compaction: %d older message(s) removed to fit context budget. Estimated tokens before: %d, after: %d. Continuing with the most recent %d messages.]",
+		removedCount, estimated, contextengine.EstimateMessages(trimmed), len(trimmed),
+	)
+	for i, msg := range trimmed {
+		if msg.Role == "system" {
+			if s, ok := msg.Content.(string); ok {
+				trimmed[i].Content = s + "\n\n" + summary
+			}
+			break
+		}
+	}
+
+	pc.AddEvent("context", "agent_context_compacted", SeverityInfo, "context compacted via sliding window", map[string]string{
+		"estimated_tokens":    fmt.Sprintf("%d", estimated),
+		"threshold_tokens":    fmt.Sprintf("%d", limit),
+		"context_limit":       fmt.Sprintf("%d", contextLimit),
+		"removed_messages":    fmt.Sprintf("%d", removedCount),
+		"preserved_messages":  fmt.Sprintf("%d", len(trimmed)),
+		"preserve_recent":     fmt.Sprintf("%d", preserveRecent),
+		"compaction_count":    fmt.Sprintf("%d", pc.ContextCompactionCount),
+	})
+}
+
+// isContextCritical returns true if the message must be preserved during
+// compaction. System/developer messages and the last user message are critical.
+func isContextCritical(msg api.Message, index int, total int) bool {
+	if msg.Role == "system" || msg.Role == "developer" {
+		return true
+	}
+	// Preserve the most recent user message (the current prompt).
+	for i := total - 1; i >= 0; i-- {
+		if i == index {
+			return true
+		}
+		if i < index {
+			return false
+		}
+	}
+	return index == total-1
 }
 
 // agentPostProcess runs agent-specific post-generation processing:
@@ -838,6 +959,88 @@ func (e *Engine) resolveProviderAndProfile(ctx context.Context, pc *Context) Res
 		"requested_model": pc.RequestedModel,
 	})
 
+	// Agentic Coding Router: when routing is enabled and we're in agent mode,
+	// classify the coding task and select a model based on routing rules.
+	if e.cfg.Routing.Enabled && pc.RuntimeMode == ModeAgent && e.codingRouter != nil {
+		// Use request hints if provided.
+		var routingHints *api.RoutingExtensions
+		if pc.IncomingRequest.Novexa != nil {
+			routingHints = pc.IncomingRequest.Novexa.Routing
+		}
+
+		// Classify the coding task.
+		codingProfile := e.codingClassifier.Classify(
+			pc.NormalizedRequest.Messages,
+			pc.StepCount,
+			pc.Retry.Attempt,
+		)
+
+		// Build available models set.
+		availableModels := e.buildAvailableModelSet()
+
+		// Run the rule engine.
+		result := e.codingRouter.Route(codingProfile, availableModels, routingHints)
+
+		if result != nil {
+			pc.SelectedProvider = result.Provider
+			pc.SelectedModel = result.Model
+			pc.CodingRoute = &CodingRoute{
+				Profile: &CodingTaskProfile{
+					Difficulty:     codingProfile.Difficulty,
+					TaskType:       string(codingProfile.TaskType),
+					FileCount:      codingProfile.FileCount,
+					HasTraceback:   codingProfile.HasTraceback,
+					StepCount:      codingProfile.Step,
+				},
+				SelectedModel:   result.Provider + "/" + result.Model,
+				Preference:      string(result.Strategy),
+				Reason:          result.Reason,
+				EvaluationCount: pc.StepCount,
+			}
+
+			// Resolve model profile for the routed model.
+			match := e.profileResolver.Resolve(result.Provider, result.Model)
+			pc.ModelProfile = match.Profile
+
+			pc.AddEvent("routing", "coding_route_selected", SeverityInfo, "agentic coding routing selected model", map[string]string{
+				"difficulty":     fmt.Sprintf("%d", codingProfile.Difficulty),
+				"difficulty_label": codingProfile.DifficultyLabel,
+				"task_type":      string(codingProfile.TaskType),
+				"file_count":     fmt.Sprintf("%d", codingProfile.FileCount),
+				"has_traceback":  fmt.Sprintf("%t", codingProfile.HasTraceback),
+				"step":           fmt.Sprintf("%d", codingProfile.Step),
+				"provider":       result.Provider,
+				"model":          result.Model,
+				"matched_rule":   result.MatchedRule,
+				"strategy":       string(result.Strategy),
+				"fallback_used":  fmt.Sprintf("%t", result.FallbackUsed),
+				"latency_ms":     fmt.Sprintf("%d", codingProfile.LatencyMs),
+			})
+
+			if pc.ModelProfile != nil {
+				pc.AddEvent("profile", "model_profile_applied", SeverityInfo, "model profile applied via routing", map[string]string{
+					"profile_id":   pc.ModelProfile.ID,
+					"model":        result.Model,
+					"match_reason": "routing",
+				})
+			}
+
+			// Model management: load the selected model if the provider supports it.
+			if err := e.applyModelManagement(ctx, pc); err != nil {
+				return e.fail(pc, provider.ProviderError{
+					Code:    provider.ProviderUnknownError,
+					Message: fmt.Sprintf("model management: %v", err),
+				}, "model management failed after routing")
+			}
+
+			return Result{}
+		}
+
+		// Router returned nil — fall through to default resolution.
+		pc.AddEvent("routing", "coding_route_fallback", SeverityWarning, "router returned nil; falling back to default resolution", nil)
+	}
+
+	// Default provider+profile resolution (unchanged for non-routed requests).
 	resolution, perr := e.manager.ResolveModel(ctx, pc.NormalizedRequest.Model)
 	if perr.Code != "" {
 		return e.fail(pc, perr, "provider selection failed")
@@ -865,7 +1068,102 @@ func (e *Engine) resolveProviderAndProfile(ctx context.Context, pc *Context) Res
 			"match_reason": match.Reason,
 		})
 	}
+
+	// Model management: load the selected model if the provider supports it.
+	if err := e.applyModelManagement(ctx, pc); err != nil {
+		return e.fail(pc, provider.ProviderError{
+			Code:    provider.ProviderUnknownError,
+			Message: fmt.Sprintf("model management: %v", err),
+		}, "model management failed")
+	}
+
 	return Result{}
+}
+
+// buildAvailableModelSet returns a set of "provider:model" keys for all
+// currently available models from the manager.
+func (e *Engine) buildAvailableModelSet() map[string]bool {
+	available := map[string]bool{}
+	for _, providerKey := range e.manager.ListProviders() {
+		adapter, ok := e.manager.Adapter(providerKey)
+		if !ok {
+			continue
+		}
+		models, err := adapter.ListModels(context.Background())
+		if err != nil {
+			continue
+		}
+		for _, model := range models {
+			available[providerKey+":"+model.Name] = true
+		}
+	}
+	return available
+}
+
+// applyModelManagement checks if the selected provider supports model lifecycle
+// management (currently only LM Studio via its v1 REST API). If management is
+// enabled and the wanted model differs from the currently loaded model, it
+// loads the model with the appropriate config.
+//
+// This is a no-op if:
+//   - The provider does not implement ModelManager
+//   - The provider's management config is nil or disabled
+//   - The model is already loaded
+//
+// Errors are returned as provider errors so the pipeline can surface them.
+func (e *Engine) applyModelManagement(ctx context.Context, pc *Context) error {
+	adapter, ok := e.manager.Adapter(pc.SelectedProvider)
+	if !ok {
+		return nil // unknown provider — skip
+	}
+
+	mgmt, ok := adapter.(provider.ModelManager)
+	if !ok {
+		return nil // provider doesn't support management
+	}
+
+	// Fast path: if the requested model is already loaded, skip.
+	if mgmt.LoadedModelID() == pc.SelectedModel {
+		return nil
+	}
+
+	// Check if management is enabled for this provider.
+	// We need to inspect the provider settings.
+	providerCfg, exists := e.cfg.Providers[pc.SelectedProvider]
+	if !exists || providerCfg.ModelManagement == nil || !providerCfg.ModelManagement.Enabled {
+		return nil // management not configured or disabled
+	}
+
+	// Look up per-model config override.
+	modelCfg := mgmt.BuildPerModelConfig(pc.SelectedModel)
+
+	pc.AddEvent("lmstudio", "model_load_started", SeverityInfo, "loading model on LM Studio", map[string]string{
+		"model":       pc.SelectedModel,
+		"has_config":  fmt.Sprintf("%t", modelCfg != nil),
+	})
+
+	resp, err := mgmt.LoadModel(ctx, pc.SelectedModel, modelCfg)
+	if err != nil {
+		pc.AddEvent("lmstudio", "model_load_failed", SeverityError, "failed to load model on LM Studio", map[string]string{
+			"model": pc.SelectedModel,
+			"error": err.Error(),
+		})
+		return fmt.Errorf("load model %q: %w", pc.SelectedModel, err)
+	}
+
+	pc.AddEvent("lmstudio", "model_load_succeeded", SeverityInfo, "model loaded on LM Studio", map[string]string{
+		"model":             pc.SelectedModel,
+		"instance_id":       resp.InstanceID,
+		"load_time_seconds": fmt.Sprintf("%.2f", resp.LoadTimeSeconds),
+		"status":            resp.Status,
+	})
+
+	// Auto-unload previous model if configured.
+	if providerCfg.ModelManagement.AutoUnload {
+		mgmt.UnloadModel(ctx, "")
+	}
+
+	return nil
 }
 
 // prepareToolShim enables prompt-based tool calling for models whose profile
@@ -905,7 +1203,7 @@ func (e *Engine) prepareToolShim(pc *Context) {
 
 func isWeakToolCalling(v string) bool {
 	switch strings.ToLower(v) {
-	case "weak", "none", "unknown", "medium":
+	case "weak", "none", "unknown":
 		return true
 	}
 	return false
@@ -952,6 +1250,46 @@ func (e *Engine) applyLightweightGuard(pc *Context) Result {
 	}
 
 	pc.AddEvent("guard", "empty_prompt_check_passed", SeverityInfo, "lightweight guard: prompt is not empty", nil)
+
+	// Basic anti-loop detection for lightweight mode: check for repeated
+	// assistant messages when the tool shim is active. This catches agents
+	// that keep producing the same tool call.
+	if pc.ToolShimActive {
+		assistantCount := 0
+		lastToolName := ""
+		repeatedCount := 0
+		for _, msg := range messages {
+			if msg.Role == "assistant" {
+				assistantCount++
+				if len(msg.ToolCalls) > 0 {
+					name := msg.ToolCalls[0].Function.Name
+					if name == lastToolName {
+						repeatedCount++
+					}
+					lastToolName = name
+				} else if s, ok := msg.Content.(string); ok && pc.ToolShimActive {
+					// Check for repeated JSON tool patterns in shim output.
+					if strings.Contains(s, `"tool"`) && strings.Contains(s, lastToolName) {
+						repeatedCount++
+					}
+				}
+			}
+		}
+		if repeatedCount >= 3 {
+			pc.LoopDetected = true
+			pc.AgentWarnings = append(pc.AgentWarnings, "lightweight guard: possible tool call loop detected")
+			pc.AddEvent("guard", "lightweight_tool_loop_detected", SeverityWarning, "lightweight guard: possible tool call loop", map[string]string{
+				"repeated_tool": lastToolName,
+				"repeats":       fmt.Sprintf("%d", repeatedCount),
+			})
+		}
+		if assistantCount > 20 {
+			pc.AddEvent("guard", "lightweight_long_conversation", SeverityWarning, "lightweight guard: long conversation detected", map[string]string{
+				"assistant_turns": fmt.Sprintf("%d", assistantCount),
+			})
+			pc.Warnings = append(pc.Warnings, fmt.Sprintf("long conversation: %d assistant turns", assistantCount))
+		}
+	}
 
 	if pc.ModelProfile != nil && pc.ModelProfile.ContextLimit > 0 {
 		estimated := contextengine.EstimateMessages(messages)
@@ -1669,11 +2007,20 @@ func (e *Engine) resolveThinkingMode(pc *Context) (string, string, bool) {
 	hasJSONFormat := req.ResponseFormat != nil && (req.ResponseFormat.Type == "json_object" || req.ResponseFormat.Type == "json_schema")
 	isOneWord := isOneWordRequest(req.Messages)
 
+	// Agent mode: default disabled when tools are present. The agent mode sets
+	// pc.AgentMode = true and calls applyThinkingPolicy. If the profile wants
+	// thinking in agent mode (e.g. a reasoning model used for planning steps
+	// before tool execution), it can set disable_when to exclude agent_mode or
+	// the request can explicitly enable thinking.
 	disableReason := ""
+	if pc.AgentMode && hasTools {
+		disableReason = "agent_mode_default_disabled"
+	}
+
 	for _, item := range policy.DisableWhen {
 		switch strings.ToLower(item) {
 		case "tool_calling":
-			if hasTools {
+			if hasTools && disableReason == "" {
 				disableReason = "policy_disable_tool_calling"
 			}
 		case "response_format_json":

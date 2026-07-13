@@ -72,6 +72,27 @@ type RetryRecord struct {
 	Timestamp      time.Time `json:"timestamp"`
 }
 
+// CodingTaskProfile describes the coding task difficulty and type for the
+// Agentic Coding Router. It is populated by the router classifier and consumed
+// by the rule engine to select the optimal model for each agent step.
+type CodingTaskProfile struct {
+	Difficulty int    `json:"difficulty"` // 1-5 (trivial, simple, moderate, complex, novel)
+	TaskType   string `json:"task_type,omitempty"`
+	FileCount  int    `json:"file_count,omitempty"`
+	HasTraceback bool `json:"has_traceback,omitempty"`
+	StepCount  int    `json:"step_count,omitempty"`
+}
+
+// CodingRoute records the routing decision made by the Agentic Coding Router.
+// It is re-evaluated each agent step.
+type CodingRoute struct {
+	Profile          *CodingTaskProfile `json:"coding_task_profile,omitempty"`
+	SelectedModel    string             `json:"selected_model,omitempty"`
+	Preference       string             `json:"preference,omitempty"` // best_coding, fastest, best_combo, largest_context
+	Reason           string             `json:"reason,omitempty"`
+	EvaluationCount  int                `json:"evaluation_count"`
+}
+
 // Context is the single source of truth during one chat completion request.
 type Context struct {
 	RequestID string `json:"request_id"`
@@ -109,6 +130,9 @@ type Context struct {
 	SelectedModel    string            `json:"selected_model,omitempty"`
 	ModelProfile     *profiles.Profile `json:"model_profile,omitempty"`
 
+	// Agentic Coding Router state — re-evaluated each agent step.
+	CodingRoute *CodingRoute `json:"coding_route,omitempty"`
+
 	// Streaming state.
 	StreamBuffer          string `json:"stream_buffer,omitempty"`
 	StreamingValidation   bool   `json:"streaming_validation,omitempty"`
@@ -136,6 +160,7 @@ type Context struct {
 	// Agent mode governance state.
 	StepCount              int      `json:"step_count,omitempty"`
 	MaxSteps               int      `json:"max_steps,omitempty"`
+	AgentMode              bool     `json:"agent_mode"`
 	ToolCallHistory        []string `json:"tool_call_history,omitempty"`
 	ContextCompactionCount int      `json:"context_compaction_count,omitempty"`
 	AgentWarnings          []string `json:"agent_warnings,omitempty"`

@@ -39,16 +39,17 @@ Novexa improves the layer around the model instead of replacing the model.
 
 It provides:
 
-- OpenAI-compatible `/v1/chat/completions` (streaming and non-streaming) (streaming and non-streaming)
+- OpenAI-compatible `/v1/chat/completions` (streaming and non-streaming)
 - local provider adapters
 - model profiles
 - runtime modes
+- **agentic coding router** — automatic per-step model selection by task difficulty
 - prompt and context handling
 - JSON validation and repair
 - anti-loop and safety guards
 - instruction-following assist (auto-detects 14 constraint types)
 - local telemetry
-- agent mode (step budget enforcement, tool-call loop detection, tool-call JSON validation, context compaction hints)
+- agent mode (step budget enforcement, tool-call loop detection, tool-call JSON validation, context compaction)
 - CLI diagnostics
 - local dashboard
 
@@ -101,7 +102,20 @@ See:
 
 ## Recommended Local Setup
 
-For LM Studio:
+For LM Studio, Novexa uses its OpenAI-compatible API for inference and can
+optionally manage model lifecycle via LM Studio's v1 REST API:
+
+| Capability | Novexa today | LM Studio v1 API available |
+|---|---|---|
+| Chat completion (temperature, top_p, tools, etc.) | ✅ | ✅ |
+| Per-model default temperature via profiles | ✅ | ✅ |
+| Model loading with custom config | ✅ | `POST /api/v1/models/load` |
+| Model unloading | ✅ | `POST /api/v1/models/unload` |
+| Context length per model | ✅ | `context_length` in load request |
+| Flash attention / GPU offload | ✅ | `flash_attention`, `offload_kv_cache` in load request |
+| Auto-unload previous model on switch | ✅ | `POST /api/v1/models/unload` |
+
+Basic LM Studio setup:
 
 ```bash
 NOVEXA_PROVIDER_DEFAULT=lmstudio \
@@ -192,7 +206,7 @@ compound:
 Implemented providers:
 
 - Ollama
-- LM Studio
+- LM Studio (OpenAI-compatible + planned v1 REST API model management)
 - OpenAI-compatible local servers
 
 Future candidates:
@@ -216,6 +230,7 @@ Novexa supports multiple runtime modes:
 | `lightweight` | `C-NovexaLightweight` | Coding agents and low-token calls |
 | `stabilized` | `D-NovexaStabilized` | General chat quality and reliability |
 | `structured` | `E-NovexaStructured` | JSON/schema-sensitive workflows |
+| `agent` | — | Agentic coding loops (with optional router) |
 
 Provider-direct benchmarks use:
 
@@ -239,7 +254,7 @@ Current guides:
 - [Cline](./docs/integrations/cline.md)
 - [Open WebUI](./docs/integrations/open-webui.md)
 - [OpenAI SDK clients](./docs/integrations/openai-sdk.md)
-- [LM Studio setup](./docs/integrations/lmstudio.md)
+- [LM Studio setup](./docs/integrations/lmstudio.md) — including management API capabilities
 
 All guides use the same basic pattern: point the client at Novexa's
 OpenAI-compatible API, then let Novexa handle provider and model behavior.
@@ -313,6 +328,52 @@ Profiles apply defaults such as:
 - guard settings
 
 If no matching profile exists, Novexa falls back to `generic-local`.
+
+---
+
+## Agentic Coding Router
+
+Novexa includes an **Agentic Coding Router** that automatically selects the
+right model for each coding task based on difficulty. When enabled, the router
+classifies every agent step using structural heuristics (message length, file
+count, traceback presence, keywords, step count) and routes to the optimal
+model:
+
+| Difficulty | Example | Routes to |
+|------------|---------|-----------|
+| 1 — trivial | Typo fix, rename variable | Tiny/fast model (Gemma 3 1B, Qwen3 1.7B) |
+| 2 — simple | Add parameter, fix import | Small model (Qwen 2.5 Coder 7B) |
+| 3 — moderate | Implement function, error handling | Medium model (Ornith 9B) |
+| 4 — complex | Multi-file refactor, feature | Strong model (DeepSeek R1 8B) |
+| 5 — novel | New algorithm, architecture design | Strongest available + reasoning |
+
+The router re-evaluates at every agent step — so a "fix typo" step uses a tiny
+model while the next "implement payment handler" step escalates to a large one.
+Routing is **opt-in** (disabled by default) and only activates in agent mode.
+
+```yaml
+# novexa.yaml
+routing:
+  enabled: true         # Enable per-step coding routing
+```
+
+Clients can also provide per-request hints:
+
+```json
+{
+  "model": "lmstudio:qwen2.5-coder-7b-instruct",
+  "novexa": {
+    "routing": {
+      "hint_difficulty": 4,
+      "hint_task_type": "refactor",
+      "preferred_provider": "lmstudio",
+      "min_context": 32768
+    }
+  }
+}
+```
+
+See the full specification at `docs/specs/19-agentic-coding-router-specification.md`.
 
 ---
 

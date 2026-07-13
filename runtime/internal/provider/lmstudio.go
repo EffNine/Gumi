@@ -21,11 +21,13 @@ const lmStudioDefaultURL = "http://localhost:1234/v1"
 
 // LMStudioAdapter implements ProviderAdapter for a local LM Studio server.
 type LMStudioAdapter struct {
-	name    string
-	baseURL string
-	timeout time.Duration
-	client  *http.Client
-	log     *logger.Logger
+	name             string
+	baseURL          string
+	timeout          time.Duration
+	client           *http.Client
+	log              *logger.Logger
+	mgmtConfig       *config.LMStudioMgmtConfig
+	loadedInstanceID string // most recently loaded model instance ID
 }
 
 // NewLMStudioAdapter creates an LM Studio adapter from settings.
@@ -42,13 +44,14 @@ func NewLMStudioAdapter(name string, settings config.ProviderSettings, log *logg
 	}
 
 	return &LMStudioAdapter{
-		name:    name,
-		baseURL: baseURL,
-		timeout: timeout,
+		name:       name,
+		baseURL:    baseURL,
+		timeout:    timeout,
 		client: &http.Client{
 			Timeout: timeout,
 		},
-		log: log,
+		log:        log,
+		mgmtConfig: settings.ModelManagement,
 	}, nil
 }
 
@@ -60,6 +63,11 @@ func (l *LMStudioAdapter) Name() string {
 // Type returns the adapter type.
 func (l *LMStudioAdapter) Type() string {
 	return "lmstudio"
+}
+
+// LoadedModelID returns the instance ID of the currently loaded model, if any.
+func (l *LMStudioAdapter) LoadedModelID() string {
+	return l.loadedInstanceID
 }
 
 // Capabilities reports LM Studio capabilities.
