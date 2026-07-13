@@ -44,6 +44,7 @@ It provides:
 - model profiles
 - runtime modes
 - **agentic coding router** — automatic per-step model selection by task difficulty
+- **memory engine** — zero-VRAM persistent memory (facts, episodes, model-fit tracking) shared across all models, survives session boundaries
 - prompt and context handling
 - JSON validation and repair
 - anti-loop and safety guards
@@ -396,6 +397,74 @@ These models declare `tool_calling: weak` because they do not reliably emit nati
 5. Repairs or retries when the output is malformed.
 
 Agentic modes also harden structured JSON output, summarize old tool results to save context budget, and detect repeated tool calls.
+
+---
+
+## Memory Engine (Experimental)
+
+Novexa includes a **Memory Engine** that gives coding agents persistent,
+cross-model memory using zero VRAM. Facts, episode summaries, and model-fit
+data are stored in SQLite — shared across all models, surviving model swaps
+and session boundaries.
+
+### How It Works
+
+```
+Agent Step → Memory Engine retrieves relevant facts → injects into context
+    ↓
+Model processes step
+    ↓
+Memory Engine extracts new facts → updates model fit → stores episode
+    ↓
+(next step starts with updated memory)
+```
+
+### Memory Types
+
+| Type | Storage | Persistence | Purpose |
+|------|---------|-------------|---------|
+| Facts | SQLite + Go map cache | Cross-session | Project knowledge, preferences |
+| Episodes | SQLite | Session (auto-summarized) | What happened, what worked |
+| Model Fit | SQLite | Cross-session | Router feedback, performance history |
+
+### Injection
+
+Memory is injected as a prepended system message within a configurable token
+budget (default 1200 tokens). Facts are scored by `relevance × confidence ×
+access_frequency` — the most relevant facts are selected first.
+
+```yaml
+# novexa.yaml
+memory:
+  enabled: true                     # Opt-in in V1
+  injection_budget_tokens: 1200    # Tokens reserved for memory context
+  max_injected_facts: 20           # Maximum facts per injection
+  max_facts: 10000                 # Max stored facts before eviction
+  track_model_fit: true            # Record model performance per task type
+```
+
+### CLI Commands
+
+```bash
+novexa memory status        # Show database path, fact count, model fit entries
+novexa memory facts         # List stored facts
+novexa memory facts search  # Search facts by key/value
+novexa memory clear --force # Reset all memory
+```
+
+### API Endpoints
+
+```text
+GET  /v1/novexa/memory/facts       # List/search stored facts
+GET  /v1/novexa/memory/model-fit   # Model performance data
+GET  /v1/novexa/memory/status      # Memory engine status
+POST /v1/novexa/memory/clear       # Clear all memory
+```
+
+Memory is **opt-in** (disabled by default, set `memory.enabled: true`).
+No GPU memory is used at any tier.
+
+See the full specification at `docs/specs/20-memory-engine-specification.md`.
 
 ---
 

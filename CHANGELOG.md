@@ -2,6 +2,55 @@
 
 All notable changes to Novexa are documented in this file.
 
+## 0.1.0-alpha — Sprint 12: Agentic Coding Memory Engine
+
+### Added
+
+- **Memory Engine** (`runtime/internal/memory/`): Zero-VRAM persistent memory
+  for agentic coding agents. Shared across all models, survives session boundaries.
+  - `FactStore` — SQLite-backed key-value store with TTL, LRU eviction,
+    hot cache (Go map), confidence scoring, deduplication
+  - `EpisodeStore` — Compressed step histories with outcomes, model tracking,
+    session-scoped with automatic summarization (~30× compression)
+  - `ModelFitStore` — Per-model performance tracking per difficulty/task type.
+    Records success rate, latency, retries. Feeds router feedback loop.
+    Exponential weighted moving average for latency/retries.
+  - `InjectionEngine` — `SelectRelevantFacts()` with relevance scoring
+    (key/value match, confidence, access frequency). `FormatInjection()` formats
+    facts + episode summaries + model fit data within token budget (default 1200).
+  - `ExtractionEngine` — `ExtractFactsFromResponse()` uses structural patterns
+    (file paths, error messages, import statements) — no model inference needed.
+    Confidence scoring per extraction pattern.
+- **MemoryConfig** (`config.go`): Full config section with `enabled: false` (opt-in),
+  `engine`, `db_path`, `max_facts`, `max_episodes_per_session`, `injection_budget_tokens`,
+  `min_confidence`, `max_injected_facts`, `extract_enabled`, `track_model_fit`,
+  `model_fit_decay`, etc. Safe defaults for all settings.
+- **Pipeline integration** (`engine.go`): `prepareMemory()` called after
+  `resolveProviderAndProfile`, injects memory as prepended system message.
+  `extractMemory()` called after provider generate, extracts facts + updates
+  model fit + stores episode. Wired into `runStabilized`, `runAgent`,
+  `runStreamAgent`.
+- **API endpoints** (`gateway/memory.go`):
+  - `GET /v1/novexa/memory/facts` — list/search stored facts
+  - `GET /v1/novexa/memory/model-fit` — model performance data
+  - `POST /v1/novexa/memory/clear` — clear all memory
+  - `GET /v1/novexa/memory/status` — memory engine status
+- **CLI commands** (`cli/memory.go`):
+  - `novexa memory status` — show database path, fact count, model fit entries
+  - `novexa memory facts [search]` — list or search facts
+  - `novexa memory clear --force` — reset all memory
+  - All commands support `--json` for machine-readable output
+- **Per-request override** (`api/chat.go`): `MemoryExtension` with
+  `enable_injection`, `max_injected_facts`, `reset_session`
+- **Pipeline context** (`context.go`): `InjectedMemory` string and `MemoryFacts`
+  refs for telemetry tracking
+
+### Changed
+
+- **Pipeline Engine** (`engine.go`): `Engine` struct now has `memoryEngine` field.
+  `New()` initializes memory if `cfg.Memory.Enabled` is true.
+  `MemoryEngine()` accessor added for gateway API.
+
 ## 0.1.0-alpha — Sprint 13: LM Studio Model Management
 
 ### Added
