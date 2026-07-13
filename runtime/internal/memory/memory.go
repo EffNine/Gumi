@@ -6,6 +6,7 @@ package memory
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -67,7 +68,6 @@ type ModelFitEntry struct {
 	Successes    int     `json:"successes"`
 	AvgLatencyMs int64   `json:"avg_latency_ms"`
 	AvgRetries   float64 `json:"avg_retries"`
-	RepairRate   float64 `json:"repair_rate"`
 	LastUpdated  string  `json:"last_updated"`
 }
 
@@ -79,12 +79,24 @@ type ModelFitEntry struct {
 // model-fit tracking, injection, and extraction. It uses an internal SQLite
 // database at the configured path.
 type MemoryEngine struct {
-	mu   sync.RWMutex
-	db   *sql.DB
-	cfg  *config.MemoryConfig
+	mu  sync.RWMutex
+	db  *sql.DB
+	cfg *config.MemoryConfig
 
 	// Hot cache for frequently accessed facts (L1).
 	hotCache map[string]*MemoryFact
+
+	// telemetryHook is called for significant memory events (eviction, etc.).
+	// Set via SetTelemetryHook after construction.
+	telemetryHook func(event string, metadata map[string]string)
+}
+
+// SetTelemetryHook attaches a callback for significant memory events.
+// The hook is called with event names like "memory_eviction" and a metadata map.
+func (m *MemoryEngine) SetTelemetryHook(hook func(event string, metadata map[string]string)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.telemetryHook = hook
 }
 
 // New creates a MemoryEngine, opening (or creating) the SQLite database at the
@@ -147,8 +159,9 @@ func (m *MemoryEngine) DB() *sql.DB {
 // ---------------------------------------------------------------------------
 
 // StoreFact inserts or updates a fact. If a fact with the same key exists and
-// the new confidence is higher, the value is updated. If confidence is lower,
-// the existing fact is kept.
+// the value is identical, the confidence is bumped if higher. If the value
+// differs, both are kept as alternatives — the higher-confidence one is
+// primary and the other is stored with an `:alt` suffix.
 func (m *MemoryEngine) StoreFact(fact MemoryFact) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -171,12 +184,15 @@ func (m *MemoryEngine) StoreFact(fact MemoryFact) error {
 
 	if err == sql.ErrNoRows {
 		// Insert new.
+		if fact.AccessCount <= 0 {
+			fact.AccessCount = 1
+		}
 		_, err = m.db.Exec(
 			`INSERT INTO facts (id, key, value, source, confidence, session_id, created_at, updated_at, accessed_at, access_count, ttl_seconds)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			fact.ID, fact.Key, fact.Value, fact.Source, fact.Confidence,
 			fact.SessionID, fact.CreatedAt, fact.UpdatedAt, fact.UpdatedAt,
-			1, fact.TTLSeconds,
+			fact.AccessCount, fact.TTLSeconds,
 		)
 		return err
 	}
@@ -184,26 +200,43 @@ func (m *MemoryEngine) StoreFact(fact MemoryFact) error {
 		return fmt.Errorf("check existing fact: %w", err)
 	}
 
-	// Existing fact: update if new confidence is higher, or add as alternative.
-	if fact.Confidence > existingConfidence {
-		_, err = m.db.Exec(
-			`UPDATE facts SET value=?, confidence=?, source=?, session_id=?, updated_at=? WHERE id=?`,
-			fact.Value, fact.Confidence, fact.Source, fact.SessionID, fact.UpdatedAt, existingID,
-		)
+	// Existing fact with same key.
+	if fact.Value == existingValue {
+		// Same value — just bump confidence if higher.
+		if fact.Confidence > existingConfidence {
+			_, err = m.db.Exec(`UPDATE facts SET confidence=?, updated_at=? WHERE id=?`,
+				fact.Confidence, fact.UpdatedAt, existingID)
+		}
 		return err
 	}
 
-	// New confidence is lower — keep existing, but log as alternative.
-	// Store as a separate fact with lower confidence for reference.
-	fact.Confidence = fact.Confidence * 0.8 // Penalize for conflict
-	fact.Key = fact.Key + ":alt"            // Alternative key
-	_, err = m.db.Exec(
-		`INSERT INTO facts (id, key, value, source, confidence, session_id, created_at, updated_at, accessed_at, access_count, ttl_seconds)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		fact.ID, fact.Key, fact.Value, fact.Source, fact.Confidence,
-		fact.SessionID, fact.CreatedAt, fact.UpdatedAt, fact.UpdatedAt,
-		1, fact.TTLSeconds,
-	)
+	// Value differs — keep both. Ensure the higher-confidence one is primary.
+	if fact.Confidence > existingConfidence {
+		// Demote existing to :alt, insert new as primary.
+		_, err = m.db.Exec(`UPDATE facts SET key = key || ':alt' WHERE id = ?`, existingID)
+		if err != nil {
+			return fmt.Errorf("demote existing fact: %w", err)
+		}
+		if fact.AccessCount <= 0 {
+			fact.AccessCount = 1
+		}
+		_, err = m.db.Exec(
+			`INSERT INTO facts (id, key, value, source, confidence, session_id, created_at, updated_at, accessed_at, access_count, ttl_seconds)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			fact.ID, fact.Key, fact.Value, fact.Source, fact.Confidence,
+			fact.SessionID, fact.CreatedAt, fact.UpdatedAt, fact.UpdatedAt, fact.AccessCount, fact.TTLSeconds)
+	} else {
+		// New is lower confidence — store as :alt.
+		fact.Key = fact.Key + ":alt"
+		if fact.AccessCount <= 0 {
+			fact.AccessCount = 1
+		}
+		_, err = m.db.Exec(
+			`INSERT INTO facts (id, key, value, source, confidence, session_id, created_at, updated_at, accessed_at, access_count, ttl_seconds)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			fact.ID, fact.Key, fact.Value, fact.Source, fact.Confidence,
+			fact.SessionID, fact.CreatedAt, fact.UpdatedAt, fact.UpdatedAt, fact.AccessCount, fact.TTLSeconds)
+	}
 	return err
 }
 
@@ -215,11 +248,11 @@ func (m *MemoryEngine) GetFact(key string) (*MemoryFact, error) {
 	// Check hot cache first.
 	if cached, ok := m.hotCache[key]; ok {
 		go m.touchFact(cached.ID) // async update access time
-		return cached, nil
+		factCopy := *cached // copy to avoid data race on the pointer
+		return &factCopy, nil
 	}
 
 	var f MemoryFact
-	var errorsEncountered string
 	err := m.db.QueryRow(
 		`SELECT id, key, value, source, confidence, session_id, created_at, updated_at, accessed_at, access_count, ttl_seconds
 		 FROM facts WHERE key = ?`, key,
@@ -228,7 +261,6 @@ func (m *MemoryEngine) GetFact(key string) (*MemoryFact, error) {
 	if err != nil {
 		return nil, err
 	}
-	_ = errorsEncountered
 
 	// Update access tracking.
 	_, _ = m.db.Exec(
@@ -452,10 +484,10 @@ func (m *MemoryEngine) RecordOutcome(modelID string, difficulty int, taskType st
 
 	var entry ModelFitEntry
 	err := m.db.QueryRow(
-		`SELECT attempts, successes, avg_latency_ms, avg_retries, repair_rate
+		`SELECT attempts, successes, avg_latency_ms, avg_retries
 		 FROM model_fit WHERE model_id = ? AND difficulty = ? AND task_type = ?`,
 		modelID, difficulty, taskType,
-	).Scan(&entry.Attempts, &entry.Successes, &entry.AvgLatencyMs, &entry.AvgRetries, &entry.RepairRate)
+	).Scan(&entry.Attempts, &entry.Successes, &entry.AvgLatencyMs, &entry.AvgRetries)
 
 	if err == sql.ErrNoRows {
 		// First observation.
@@ -464,8 +496,8 @@ func (m *MemoryEngine) RecordOutcome(modelID string, difficulty int, taskType st
 			successes = 1
 		}
 		_, err = m.db.Exec(
-			`INSERT INTO model_fit (model_id, difficulty, task_type, attempts, successes, avg_latency_ms, avg_retries, repair_rate, last_updated)
-			 VALUES (?, ?, ?, 1, ?, ?, ?, 0.0, datetime('now'))`,
+			`INSERT INTO model_fit (model_id, difficulty, task_type, attempts, successes, avg_latency_ms, avg_retries, last_updated)
+			 VALUES (?, ?, ?, 1, ?, ?, ?, datetime('now'))`,
 			modelID, difficulty, taskType, successes, latencyMs, float64(retries),
 		)
 		return err
@@ -529,6 +561,36 @@ func (m *MemoryEngine) GetBestModel(difficulty int, taskType string, minAttempts
 	return modelID, nil
 }
 
+// GetBestModelForRouter returns the best model ID and success rate for a given
+// difficulty and task type. It matches the ModelFitLookup interface used by
+// the router engine. Returns ("", 0, false) if no model has enough data.
+func (m *MemoryEngine) GetBestModelForRouter(difficulty int, taskType string) (modelID string, successRate float64, ok bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if taskType == "" {
+		taskType = "general"
+	}
+
+	var id string
+	var attempts, successes int
+	err := m.db.QueryRow(
+		`SELECT model_id, attempts, successes FROM model_fit
+		 WHERE difficulty = ? AND task_type = ? AND attempts >= 3
+		 ORDER BY CAST(successes AS REAL) / MAX(attempts, 1) DESC, avg_latency_ms ASC
+		 LIMIT 1`,
+		difficulty, taskType,
+	).Scan(&id, &attempts, &successes)
+	if err == sql.ErrNoRows {
+		return "", 0, false
+	}
+	if err != nil {
+		return "", 0, false
+	}
+	rate := float64(successes) / float64(attempts)
+	return id, rate, true
+}
+
 // GetModelProfile returns the aggregated stats for a model across all
 // difficulty/task_type combinations.
 func (m *MemoryEngine) GetModelProfile(modelID string) ([]ModelFitEntry, error) {
@@ -536,7 +598,7 @@ func (m *MemoryEngine) GetModelProfile(modelID string) ([]ModelFitEntry, error) 
 	defer m.mu.RUnlock()
 
 	rows, err := m.db.Query(
-		`SELECT model_id, difficulty, task_type, attempts, successes, avg_latency_ms, avg_retries, repair_rate, last_updated
+		`SELECT model_id, difficulty, task_type, attempts, successes, avg_latency_ms, avg_retries, last_updated
 		 FROM model_fit WHERE model_id = ? ORDER BY difficulty ASC, task_type ASC`,
 		modelID,
 	)
@@ -550,7 +612,7 @@ func (m *MemoryEngine) GetModelProfile(modelID string) ([]ModelFitEntry, error) 
 		var e ModelFitEntry
 		if err := rows.Scan(&e.ModelID, &e.Difficulty, &e.TaskType,
 			&e.Attempts, &e.Successes, &e.AvgLatencyMs, &e.AvgRetries,
-			&e.RepairRate, &e.LastUpdated); err != nil {
+			&e.LastUpdated); err != nil {
 			return nil, fmt.Errorf("scan model fit: %w", err)
 		}
 		entries = append(entries, e)
@@ -564,7 +626,7 @@ func (m *MemoryEngine) ListModelFit() ([]ModelFitEntry, error) {
 	defer m.mu.RUnlock()
 
 	rows, err := m.db.Query(
-		`SELECT model_id, difficulty, task_type, attempts, successes, avg_latency_ms, avg_retries, repair_rate, last_updated
+		`SELECT model_id, difficulty, task_type, attempts, successes, avg_latency_ms, avg_retries, last_updated
 		 FROM model_fit ORDER BY model_id ASC, difficulty ASC`,
 	)
 	if err != nil {
@@ -577,7 +639,7 @@ func (m *MemoryEngine) ListModelFit() ([]ModelFitEntry, error) {
 		var e ModelFitEntry
 		if err := rows.Scan(&e.ModelID, &e.Difficulty, &e.TaskType,
 			&e.Attempts, &e.Successes, &e.AvgLatencyMs, &e.AvgRetries,
-			&e.RepairRate, &e.LastUpdated); err != nil {
+			&e.LastUpdated); err != nil {
 			return nil, fmt.Errorf("scan model fit: %w", err)
 		}
 		entries = append(entries, e)
@@ -591,6 +653,7 @@ func (m *MemoryEngine) ListModelFit() ([]ModelFitEntry, error) {
 
 // FormatInjection formats facts, episodes, and model-fit data into a system
 // message block that fits within the token budget.
+// Output order: (1) Model Performance, (2) This Session, (3) Project Knowledge.
 func (m *MemoryEngine) FormatInjection(ctx context.Context, facts []MemoryFact, episodeSummary string, fitData []ModelFitEntry, budget int) string {
 	if budget <= 0 {
 		budget = 1200
@@ -599,31 +662,7 @@ func (m *MemoryEngine) FormatInjection(ctx context.Context, facts []MemoryFact, 
 	var b strings.Builder
 	b.WriteString("[Memory]\n")
 
-	// 1. Cross-session facts (project knowledge).
-	if len(facts) > 0 {
-		b.WriteString("--- Project Knowledge ---\n")
-		tokens := 0
-		for _, f := range facts {
-			line := fmt.Sprintf("%s: %s\n", f.Key, f.Value)
-			lineTokens := estimateTokens(line)
-			if tokens+lineTokens > budget {
-				break
-			}
-			b.WriteString(line)
-			tokens += lineTokens
-		}
-	}
-
-	// 2. Episode summaries (this session).
-	if episodeSummary != "" {
-		b.WriteString("--- This Session ---\n")
-		lineTokens := estimateTokens(episodeSummary)
-		if lineTokens <= budget {
-			b.WriteString(episodeSummary)
-		}
-	}
-
-	// 3. Model fit data (router feedback).
+	// 1. Model fit data (router feedback) — highest priority.
 	if len(fitData) > 0 {
 		b.WriteString("--- Model Performance ---\n")
 		for _, entry := range fitData {
@@ -637,6 +676,30 @@ func (m *MemoryEngine) FormatInjection(ctx context.Context, facts []MemoryFact, 
 			if estimateTokens(line) <= budget {
 				b.WriteString(line)
 			}
+		}
+	}
+
+	// 2. Episode summaries (this session).
+	if episodeSummary != "" {
+		b.WriteString("--- This Session ---\n")
+		lineTokens := estimateTokens(episodeSummary)
+		if lineTokens <= budget {
+			b.WriteString(episodeSummary)
+		}
+	}
+
+	// 3. Cross-session facts (project knowledge).
+	if len(facts) > 0 {
+		b.WriteString("--- Project Knowledge ---\n")
+		tokens := 0
+		for _, f := range facts {
+			line := fmt.Sprintf("%s: %s\n", f.Key, f.Value)
+			lineTokens := estimateTokens(line)
+			if tokens+lineTokens > budget {
+				break
+			}
+			b.WriteString(line)
+			tokens += lineTokens
 		}
 	}
 
@@ -677,6 +740,18 @@ func (m *MemoryEngine) SelectRelevantFacts(requestText string, maxFacts int) []M
 		score *= f.Confidence
 		// Access frequency boost (frequently accessed = important).
 		score *= 1.0 + math.Log2(float64(f.AccessCount+1))*0.1
+		// Recency factor: recency = 1.0 / (1.0 + hours_since(accessed_at))
+		if f.AccessedAt != "" {
+			accessed, perr := time.Parse(time.RFC3339, f.AccessedAt)
+			if perr == nil {
+				hours := time.Since(accessed).Hours()
+				if hours < 0 {
+					hours = 0
+				}
+				recency := 1.0 / (1.0 + hours)
+				score *= 0.5 + 0.5*recency // blend so recency doesn't dominate
+			}
+		}
 
 		if score > 0 {
 			scoredFacts = append(scoredFacts, scored{fact: f, score: score})
@@ -770,6 +845,9 @@ func (m *MemoryEngine) ExtractFactsFromResponse(request api.ChatCompletionReques
 }
 
 // extractFilePaths finds file-like paths in text.
+// Absolute paths (starting with /) and URLs (starting with http) are excluded
+// because they are typically system paths, OS error messages, or build-tool
+// paths rather than project files the agent should remember.
 func extractFilePaths(text string) []string {
 	var paths []string
 	seen := map[string]bool{}
@@ -841,7 +919,7 @@ func (m *MemoryEngine) GarbageCollectExpired() (int64, error) {
 	// Remove TTL-expired facts.
 	res, err := m.db.Exec(
 		`DELETE FROM facts WHERE ttl_seconds > 0 AND
-		 datetime('now') > datetime(created_at, '+' || ttl_seconds || ' seconds')`,
+		 datetime('now') > datetime(created_at, '+' || CAST(ttl_seconds AS TEXT) || ' seconds')`,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("gc facts: %w", err)
@@ -853,19 +931,46 @@ func (m *MemoryEngine) GarbageCollectExpired() (int64, error) {
 	if maxFacts <= 0 {
 		maxFacts = 10000
 	}
+
+	// Select to-be-evicted facts first for telemetry.
+	overLimit := 0
+	_ = m.db.QueryRow("SELECT MAX(0, (SELECT COUNT(*) FROM facts) - ?)", maxFacts).Scan(&overLimit)
+	if overLimit > 0 {
+		rows, err := m.db.Query(
+			`SELECT id, key FROM facts ORDER BY access_count ASC, accessed_at ASC LIMIT ?`, overLimit,
+		)
+		if err == nil {
+			for rows.Next() {
+				var id, key string
+				if rows.Scan(&id, &key) == nil && m.telemetryHook != nil {
+					m.telemetryHook("memory_eviction", map[string]string{
+						"fact_key": key,
+						"reason":   "lru_max_facts",
+					})
+				}
+			}
+			rows.Close()
+		}
+	}
+
 	_, _ = m.db.Exec(
 		`DELETE FROM facts WHERE id IN (
 			SELECT id FROM facts ORDER BY access_count ASC, accessed_at ASC LIMIT MAX(0, (SELECT COUNT(*) FROM facts) - ?)
 		)`, maxFacts,
 	)
 
-	// Clean hot cache.
-	for k, v := range m.hotCache {
-		var exists bool
-		_ = m.db.QueryRow("SELECT 1 FROM facts WHERE id = ?", v.ID).Scan(&exists)
-		if !exists {
-			delete(m.hotCache, k)
-		}
+	// Reset hot cache after GC; let it repopulate on access.
+	m.hotCache = make(map[string]*MemoryFact)
+
+	// Model fit retention: delete old entries.
+	retainDays := m.cfg.ModelFitRetentionDays
+	if retainDays <= 0 {
+		retainDays = 30
+	}
+	if _, err := m.db.Exec(
+		`DELETE FROM model_fit WHERE datetime('now') > datetime(last_updated, '+' || CAST(? AS TEXT) || ' days')`, retainDays,
+	); err != nil {
+		return factCount, fmt.Errorf("gc model fit: %w", err)
 	}
 
 	return factCount, nil
@@ -893,14 +998,94 @@ func (m *MemoryEngine) ClearAll() error {
 	return err
 }
 
+// ClearSession removes all episodes and the session row for the given session
+// ID, but keeps facts (which are cross-session). This is used for per-request
+// session reset via novexa.memory.reset_session.
+func (m *MemoryEngine) ClearSession(sessionID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, err := m.db.Exec("DELETE FROM episodes WHERE session_id = ?", sessionID); err != nil {
+		return fmt.Errorf("clear session episodes: %w", err)
+	}
+	if _, err := m.db.Exec("DELETE FROM sessions WHERE session_id = ?", sessionID); err != nil {
+		return fmt.Errorf("clear session row: %w", err)
+	}
+	return nil
+}
+
+// ObservationCount returns how many times a fact key has been observed (but
+// not necessarily stored). Used for MinObservationCount gating.
+func (m *MemoryEngine) ObservationCount(key string) int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var count int
+	err := m.db.QueryRow(
+		"SELECT count FROM fact_observations WHERE key = ?", key,
+	).Scan(&count)
+	if err == sql.ErrNoRows {
+		return 0
+	}
+	return count
+}
+
+// IncrementObservation increments the observation counter for a fact key.
+// This is called before a fact is stored, to track how many times it has been
+// observed. Returns the new count.
+func (m *MemoryEngine) IncrementObservation(key string) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	_, err := m.db.Exec(
+		`INSERT INTO fact_observations (key, count, last_seen) VALUES (?, 1, datetime('now'))
+		 ON CONFLICT(key) DO UPDATE SET count = count + 1, last_seen = datetime('now')`,
+		key,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("increment observation: %w", err)
+	}
+
+	var count int
+	_ = m.db.QueryRow("SELECT count FROM fact_observations WHERE key = ?", key).Scan(&count)
+	return count, nil
+}
+
+// ObserveAndCheck atomically increments the observation counter for a fact key
+// and returns true if the observation count has reached the minimum threshold.
+// This avoids the read-then-write race of calling ObservationCount then
+// IncrementObservation separately.
+func (m *MemoryEngine) ObserveAndCheck(key string, minCount int) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	_, err := m.db.Exec(
+		`INSERT INTO fact_observations (key, count, last_seen) VALUES (?, 1, datetime('now'))
+		 ON CONFLICT(key) DO UPDATE SET count = count + 1, last_seen = datetime('now')`,
+		key,
+	)
+	if err != nil {
+		return false, fmt.Errorf("increment observation: %w", err)
+	}
+
+	var count int
+	_ = m.db.QueryRow("SELECT count FROM fact_observations WHERE key = ?", key).Scan(&count)
+	return count >= minCount, nil
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------------
 
 // applyMemorySchema runs all DDL statements to create memory tables.
+// Index creation failures are logged but non-fatal — the core tables are usable
+// without them, and indexes will be created next time if the schema changes.
 func applyMemorySchema(db *sql.DB) error {
 	for i, stmt := range memorySchema {
 		if _, err := db.Exec(stmt); err != nil {
+			if strings.HasPrefix(stmt, "CREATE INDEX") {
+				continue // index creation is non-critical
+			}
 			return fmt.Errorf("schema step %d: %w", i+1, err)
 		}
 	}
@@ -912,20 +1097,12 @@ func estimateTokens(s string) int {
 	return (len(s) + 3) / 4
 }
 
-// parseJSONList parses a JSON string array like `["a","b"]`.
+// parseJSONList parses a JSON string array like `["a","b"]` using proper JSON
+// deserialization so that elements containing commas or quotes are handled correctly.
 func parseJSONList(s string) []string {
-	s = strings.TrimSpace(s)
-	s = strings.Trim(s, "[]")
-	if s == "" {
+	var result []string
+	if err := json.Unmarshal([]byte(s), &result); err != nil {
 		return nil
-	}
-	parts := strings.Split(s, ",")
-	result := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.Trim(p, ` "`)
-		if p != "" {
-			result = append(result, p)
-		}
 	}
 	return result
 }

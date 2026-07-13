@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/novexa/novexa/runtime/internal/guard"
 	"github.com/novexa/novexa/runtime/internal/pipeline"
 	"github.com/novexa/novexa/runtime/internal/provider"
 	"github.com/novexa/novexa/runtime/internal/telemetry"
@@ -312,12 +313,6 @@ func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.Provide
 		status = http.StatusUnprocessableEntity
 	case provider.ProviderAuthError:
 		status = http.StatusUnauthorized
-	case provider.AGENT_STEP_LIMIT_EXCEEDED:
-		status = http.StatusTooManyRequests
-	case provider.AGENT_TOOL_CALL_LOOP:
-		status = http.StatusConflict
-	case provider.AGENT_INVALID_TOOL_CALL:
-		status = http.StatusUnprocessableEntity
 	}
 
 	errResp := api.ErrorResponse{
@@ -330,6 +325,15 @@ func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.Provide
 			Suggestion: perr.Suggestion,
 			RequestID:  reqID,
 		},
+	}
+
+	// Guard errors (AGENT_*) use guard_error type and guard engine.
+	if perr.Code == provider.ProviderErrorCode(guard.StepLimitExceeded) ||
+		perr.Code == provider.ProviderErrorCode(guard.ToolCallLoop) ||
+		perr.Code == provider.ProviderErrorCode(guard.InvalidToolCall) {
+		errResp.Error.Type = "guard_error"
+		errResp.Error.Engine = "guard"
+		errResp.Error.Retryable = false
 	}
 
 	s.writeError(w, status, errResp)

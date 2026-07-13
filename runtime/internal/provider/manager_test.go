@@ -17,7 +17,7 @@ type fakeStreamingAdapter struct {
 }
 
 func (f *fakeStreamingAdapter) Name() string { return f.name }
-func (f *fakeStreamingAdapter) Type() string  { return "fake-stream" }
+func (f *fakeStreamingAdapter) Type() string { return "fake-stream" }
 func (f *fakeStreamingAdapter) HealthCheck(ctx context.Context) (ProviderStatus, error) {
 	return StatusOK, nil
 }
@@ -120,7 +120,7 @@ func TestManagerGenerateStream(t *testing.T) {
 	mgr := NewManager(map[string]ProviderAdapter{"ollama": adapter}, logger.New("error"))
 
 	chunkCh, providerKey, perr := mgr.GenerateStream(context.Background(), api.ChatCompletionRequest{
-		Model: "ollama:fake-stream-model",
+		Model:    "ollama:fake-stream-model",
 		Messages: []api.Message{{Role: "user", Content: "hi"}},
 	})
 	if perr.Code != "" {
@@ -150,7 +150,7 @@ func TestManagerGenerateStreamSetupError(t *testing.T) {
 	mgr := NewManager(map[string]ProviderAdapter{"ollama": adapter}, logger.New("error"))
 
 	_, _, perr := mgr.GenerateStream(context.Background(), api.ChatCompletionRequest{
-		Model: "ollama:fake-stream-model",
+		Model:    "ollama:fake-stream-model",
 		Messages: []api.Message{{Role: "user", Content: "hi"}},
 	})
 	if perr.Code != StreamingUnsupported {

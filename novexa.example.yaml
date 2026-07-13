@@ -66,3 +66,28 @@ telemetry:
   log_prompts: false
   log_responses: false
   retain_days: 14
+
+# routing:
+#   enabled: false
+#   mode: agent           # agent | always
+#   classifier:
+#     escalation_threshold:
+#       retries: 3
+#       steps: 6
+#       repetitions: 3
+#   coding_rules: []
+
+# memory:
+#   enabled: false
+#   engine: sqlite
+#   db_path: ~/.novexa/memory.db
+#   max_facts: 10000
+#   max_episodes_per_session: 50
+#   model_fit_retention_days: 30
+#   injection_budget_tokens: 1200
+#   min_confidence: 0.6
+#   max_injected_facts: 20
+#   extract_enabled: true
+#   min_observation_count: 2
+#   track_model_fit: true
+#   model_fit_decay: 0.95

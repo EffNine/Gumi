@@ -61,16 +61,40 @@ type RuntimeConfig struct {
 
 // RoutingConfig controls the Agentic Coding Router.
 type RoutingConfig struct {
-	Enabled bool   `json:"enabled" yaml:"enabled"`
-	Mode    string `json:"mode" yaml:"mode"`
+	Enabled     bool                 `json:"enabled" yaml:"enabled"`
+	Mode        string               `json:"mode" yaml:"mode"`
+	Classifier  ClassifierConfig     `json:"classifier,omitempty" yaml:"classifier,omitempty"`
+	CodingRules []CodingRuleOverride `json:"coding_rules,omitempty" yaml:"coding_rules,omitempty"`
+}
+
+// ClassifierConfig controls the coding task classifier thresholds.
+type ClassifierConfig struct {
+	EscalationThreshold EscalationThreshold `json:"escalation_threshold,omitempty" yaml:"escalation_threshold,omitempty"`
+}
+
+// EscalationThreshold defines the thresholds for agent-state escalation.
+type EscalationThreshold struct {
+	Retries     int `json:"retries,omitempty" yaml:"retries,omitempty"`
+	Steps       int `json:"steps,omitempty" yaml:"steps,omitempty"`
+	Repetitions int `json:"repetitions,omitempty" yaml:"repetitions,omitempty"`
+}
+
+// CodingRuleOverride allows per-request overrides of default routing rules.
+type CodingRuleOverride struct {
+	Name         string `json:"name" yaml:"name"`
+	Prefer       string `json:"prefer,omitempty" yaml:"prefer,omitempty"`
+	MinCoding    string `json:"min_coding,omitempty" yaml:"min_coding,omitempty"`
+	MinContext   int    `json:"min_context,omitempty" yaml:"min_context,omitempty"`
+	MinReasoning string `json:"min_reasoning,omitempty" yaml:"min_reasoning,omitempty"`
+	MaxSize      string `json:"max_size,omitempty" yaml:"max_size,omitempty"`
 }
 
 // AgentConfig controls the agent mode governance layer.
 type AgentConfig struct {
-	MaxSteps                  int     `yaml:"max_steps" json:"max_steps"`
-	ToolCallTimeoutSeconds    int     `yaml:"tool_call_timeout_seconds" json:"tool_call_timeout_seconds"`
+	MaxSteps                   int     `yaml:"max_steps" json:"max_steps"`
+	ToolCallTimeoutSeconds     int     `yaml:"tool_call_timeout_seconds" json:"tool_call_timeout_seconds"`
 	ContextCompactionThreshold float64 `yaml:"context_compaction_threshold" json:"context_compaction_threshold"`
-	LoopDetection             string  `yaml:"loop_detection" json:"loop_detection"`
+	LoopDetection              string  `yaml:"loop_detection" json:"loop_detection"`
 }
 
 // DashboardConfig controls the local dashboard.
@@ -93,32 +117,32 @@ type ProviderConfig struct {
 
 // ProviderSettings holds per-provider connection settings.
 type ProviderSettings struct {
-	Enabled         bool                    `json:"enabled" yaml:"enabled"`
-	URL             string                  `json:"url" yaml:"url"`
-	DefaultModel    string                  `json:"default_model" yaml:"default_model"`
-	TimeoutSeconds  int                     `json:"timeout_seconds" yaml:"timeout_seconds"`
-	ModelManagement *LMStudioMgmtConfig     `json:"model_management,omitempty" yaml:"model_management,omitempty"`
+	Enabled         bool                `json:"enabled" yaml:"enabled"`
+	URL             string              `json:"url" yaml:"url"`
+	DefaultModel    string              `json:"default_model" yaml:"default_model"`
+	TimeoutSeconds  int                 `json:"timeout_seconds" yaml:"timeout_seconds"`
+	ModelManagement *LMStudioMgmtConfig `json:"model_management,omitempty" yaml:"model_management,omitempty"`
 }
 
 // LMStudioMgmtConfig controls LM Studio v1 REST API model management.
 // Only applies to the "lmstudio" provider. Other providers ignore it.
 type LMStudioMgmtConfig struct {
-	Enabled                  bool                         `json:"enabled" yaml:"enabled"`
-	DefaultContextLength     int                          `json:"default_context_length" yaml:"default_context_length"`
-	DefaultFlashAttention    *bool                        `json:"default_flash_attention,omitempty" yaml:"default_flash_attention,omitempty"`
-	DefaultOffloadKV         *bool                        `json:"default_offload_kv_cache,omitempty" yaml:"default_offload_kv_cache,omitempty"`
-	DefaultEvalBatchSize     int                          `json:"default_eval_batch_size,omitempty" yaml:"default_eval_batch_size,omitempty"`
-	AutoUnload               bool                         `json:"auto_unload" yaml:"auto_unload"`
-	ModelConfig              map[string]LMStudioModelCfg  `json:"model_config,omitempty" yaml:"model_config,omitempty"`
+	Enabled               bool                        `json:"enabled" yaml:"enabled"`
+	DefaultContextLength  int                         `json:"default_context_length" yaml:"default_context_length"`
+	DefaultFlashAttention *bool                       `json:"default_flash_attention,omitempty" yaml:"default_flash_attention,omitempty"`
+	DefaultOffloadKV      *bool                       `json:"default_offload_kv_cache,omitempty" yaml:"default_offload_kv_cache,omitempty"`
+	DefaultEvalBatchSize  int                         `json:"default_eval_batch_size,omitempty" yaml:"default_eval_batch_size,omitempty"`
+	AutoUnload            bool                        `json:"auto_unload" yaml:"auto_unload"`
+	ModelConfig           map[string]LMStudioModelCfg `json:"model_config,omitempty" yaml:"model_config,omitempty"`
 }
 
 // LMStudioModelCfg is per-model overrides for LM Studio load configuration.
 type LMStudioModelCfg struct {
-	ContextLength  *int   `json:"context_length,omitempty" yaml:"context_length,omitempty"`
-	FlashAttention *bool  `json:"flash_attention,omitempty" yaml:"flash_attention,omitempty"`
-	OffloadKVCache *bool  `json:"offload_kv_cache_to_gpu,omitempty" yaml:"offload_kv_cache_to_gpu,omitempty"`
-	EvalBatchSize  *int   `json:"eval_batch_size,omitempty" yaml:"eval_batch_size,omitempty"`
-	NumExperts     *int   `json:"num_experts,omitempty" yaml:"num_experts,omitempty"`
+	ContextLength  *int  `json:"context_length,omitempty" yaml:"context_length,omitempty"`
+	FlashAttention *bool `json:"flash_attention,omitempty" yaml:"flash_attention,omitempty"`
+	OffloadKVCache *bool `json:"offload_kv_cache_to_gpu,omitempty" yaml:"offload_kv_cache_to_gpu,omitempty"`
+	EvalBatchSize  *int  `json:"eval_batch_size,omitempty" yaml:"eval_batch_size,omitempty"`
+	NumExperts     *int  `json:"num_experts,omitempty" yaml:"num_experts,omitempty"`
 }
 
 // StorageConfig controls local SQLite storage location and retention.
@@ -147,10 +171,10 @@ func DefaultConfig() *Config {
 			Environment: "local",
 			LogLevel:    "info",
 			Agent: AgentConfig{
-				MaxSteps:                  30,
-				ToolCallTimeoutSeconds:    120,
+				MaxSteps:                   30,
+				ToolCallTimeoutSeconds:     120,
 				ContextCompactionThreshold: 0.85,
-				LoopDetection:             "strict",
+				LoopDetection:              "strict",
 			},
 		},
 		Dashboard: DashboardConfig{
@@ -199,9 +223,16 @@ func DefaultConfig() *Config {
 		Routing: RoutingConfig{
 			Enabled: false, // Opt-in in V1
 			Mode:    "agentic_coding",
+			Classifier: ClassifierConfig{
+				EscalationThreshold: EscalationThreshold{
+					Retries:     3,
+					Steps:       6,
+					Repetitions: 3,
+				},
+			},
 		},
 		Memory: MemoryConfig{
-			Enabled:               false,  // Opt-in in V1
+			Enabled:               false, // Opt-in in V1
 			Engine:                "sqlite",
 			DBPath:                "",
 			MaxFacts:              10000,

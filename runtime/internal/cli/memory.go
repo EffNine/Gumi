@@ -72,9 +72,9 @@ func runMemoryStatus(mem *memory.MemoryEngine, args []string) {
 
 	if useJSON {
 		output := map[string]interface{}{
-			"facts_count":        factCount,
-			"model_fit_entries":  fitCount,
-			"database_path":      resolveMemoryDBPath(),
+			"facts_count":       factCount,
+			"model_fit_entries": fitCount,
+			"database_path":     resolveMemoryDBPath(),
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")

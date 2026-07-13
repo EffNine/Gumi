@@ -12,13 +12,13 @@ import (
 // RoutingTelemetry is the recorded telemetry for one routing decision.
 // It is emitted as a pipeline event and consumed by the dashboard.
 type RoutingTelemetry struct {
-	RequestID               string             `json:"request_id"`
-	StepCount               int                `json:"step_count"`
-	Request                 TelemetryRequest   `json:"request"`
-	Profile                 TelemetryProfile   `json:"profile"`
-	Decision                TelemetryDecision  `json:"decision"`
-	ClassificationLatencyMs int64              `json:"classification_latency_ms"`
-	FallbackUsed            bool               `json:"fallback_used"`
+	RequestID               string            `json:"request_id"`
+	StepCount               int               `json:"step_count"`
+	Request                 TelemetryRequest  `json:"request"`
+	Profile                 TelemetryProfile  `json:"profile"`
+	Decision                TelemetryDecision `json:"decision"`
+	ClassificationLatencyMs int64             `json:"classification_latency_ms"`
+	FallbackUsed            bool              `json:"fallback_used"`
 }
 
 // TelemetryRequest describes the incoming request signals.
@@ -39,11 +39,11 @@ type TelemetryProfile struct {
 
 // TelemetryDecision describes the routing outcome.
 type TelemetryDecision struct {
-	MatchedRule  string                   `json:"matched_rule"`
-	Provider     string                   `json:"provider"`
-	Model        string                   `json:"model"`
-	Strategy     PreferenceStrategy       `json:"strategy"`
-	Alternatives []AlternativeConsidered  `json:"alternatives,omitempty"`
+	MatchedRule  string                  `json:"matched_rule"`
+	Provider     string                  `json:"provider"`
+	Model        string                  `json:"model"`
+	Strategy     PreferenceStrategy      `json:"strategy"`
+	Alternatives []AlternativeConsidered `json:"alternatives,omitempty"`
 }
 
 // NewRoutingTelemetry builds a telemetry record from a routing result and context.

@@ -45,11 +45,11 @@ type MemoryExtension struct {
 
 // RoutingExtensions holds per-request overrides for the Agentic Coding Router.
 type RoutingExtensions struct {
-	HintDifficulty    int      `json:"hint_difficulty,omitempty"`
-	HintTaskType      string   `json:"hint_task_type,omitempty"`
-	PreferredProvider string   `json:"preferred_providers,omitempty"`
-	PreferredModel    string   `json:"preferred_model,omitempty"`
-	MinContext        int      `json:"min_context,omitempty"`
+	HintDifficulty    int    `json:"hint_difficulty,omitempty"`
+	HintTaskType      string `json:"hint_task_type,omitempty"`
+	PreferredProvider string `json:"preferred_providers,omitempty"`
+	PreferredModel    string `json:"preferred_model,omitempty"`
+	MinContext        int    `json:"min_context,omitempty"`
 }
 
 // ThinkingConfig controls model thinking/reasoning behaviour.
@@ -102,12 +102,12 @@ type TelemetryExtension struct {
 
 // Message represents a chat message in OpenAI format.
 type Message struct {
-	Role            string      `json:"role"`
-	Content         interface{} `json:"content"`
-	ReasoningContent string     `json:"reasoning_content,omitempty"`
-	Name            string      `json:"name,omitempty"`
-	ToolCalls       []ToolCall  `json:"tool_calls,omitempty"`
-	ToolCallID      string      `json:"tool_call_id,omitempty"`
+	Role             string      `json:"role"`
+	Content          interface{} `json:"content"`
+	ReasoningContent string      `json:"reasoning_content,omitempty"`
+	Name             string      `json:"name,omitempty"`
+	ToolCalls        []ToolCall  `json:"tool_calls,omitempty"`
+	ToolCallID       string      `json:"tool_call_id,omitempty"`
 }
 
 // ResponseFormat describes the requested response format.

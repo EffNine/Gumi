@@ -250,10 +250,10 @@ func runLMStudioLoad(args []string) {
 	}
 
 	var resp struct {
-		Type            string  `json:"type"`
-		InstanceID      string  `json:"instance_id"`
-		LoadTimeSeconds float64 `json:"load_time_seconds"`
-		Status          string  `json:"status"`
+		Type            string                 `json:"type"`
+		InstanceID      string                 `json:"instance_id"`
+		LoadTimeSeconds float64                `json:"load_time_seconds"`
+		Status          string                 `json:"status"`
 		LoadConfig      map[string]interface{} `json:"load_config,omitempty"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {

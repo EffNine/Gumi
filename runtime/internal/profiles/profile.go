@@ -10,18 +10,18 @@ import (
 
 // Profile describes model-specific behaviour for one local model family.
 type Profile struct {
-	ID           string              `yaml:"id"`
-	Name         string              `yaml:"name,omitempty"`
-	Version      int                 `yaml:"version,omitempty"`
-	Family       string              `yaml:"family,omitempty"`
-	Size         string              `yaml:"size,omitempty"`
-	Type         string              `yaml:"type,omitempty"`
-	Aliases      []string            `yaml:"aliases,omitempty"`
-	Models       map[string][]string `yaml:"models,omitempty"`
-	ContextLimit int                 `yaml:"context_limit,omitempty"`
-	Capabilities Capabilities        `yaml:"capabilities,omitempty"`
-	Defaults     Defaults            `yaml:"defaults,omitempty"`
-	Context      ContextSettings     `yaml:"context,omitempty"`
+	ID             string              `yaml:"id"`
+	Name           string              `yaml:"name,omitempty"`
+	Version        int                 `yaml:"version,omitempty"`
+	Family         string              `yaml:"family,omitempty"`
+	Size           string              `yaml:"size,omitempty"`
+	Type           string              `yaml:"type,omitempty"`
+	Aliases        []string            `yaml:"aliases,omitempty"`
+	Models         map[string][]string `yaml:"models,omitempty"`
+	ContextLimit   int                 `yaml:"context_limit,omitempty"`
+	Capabilities   Capabilities        `yaml:"capabilities,omitempty"`
+	Defaults       Defaults            `yaml:"defaults,omitempty"`
+	Context        ContextSettings     `yaml:"context,omitempty"`
 	Prompt         PromptSettings      `yaml:"prompt,omitempty"`
 	Guard          GuardSettings       `yaml:"guard,omitempty"`
 	ThinkingPolicy ThinkingPolicy      `yaml:"thinking_policy,omitempty"`

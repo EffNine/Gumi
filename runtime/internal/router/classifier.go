@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/novexa/novexa/runtime/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -44,14 +45,14 @@ func difficultyLabel(d int) string {
 type TaskType string
 
 const (
-	TaskFix     TaskType = "fix"
+	TaskFix      TaskType = "fix"
 	TaskRefactor TaskType = "refactor"
-	TaskFeature TaskType = "feature"
-	TaskTest    TaskType = "test"
-	TaskReview  TaskType = "review"
-	TaskDocs    TaskType = "docs"
-	TaskSearch  TaskType = "search"
-	TaskPlan    TaskType = "plan"
+	TaskFeature  TaskType = "feature"
+	TaskTest     TaskType = "test"
+	TaskReview   TaskType = "review"
+	TaskDocs     TaskType = "docs"
+	TaskSearch   TaskType = "search"
+	TaskPlan     TaskType = "plan"
 )
 
 // CodingTaskProfile is the output of structural classification.
@@ -75,27 +76,41 @@ type CodingTaskProfile struct {
 // heuristics and returns a difficulty profile in < 20 ms.
 type CodingTaskClassifier struct {
 	// Escalation thresholds for agent-state-aware re-routing.
-	EscalationRetries    int
-	EscalationSteps      int
+	EscalationRetries     int
+	EscalationSteps       int
 	EscalationRepetitions int
 }
 
-// NewCodingTaskClassifier returns a classifier with sensible defaults.
-func NewCodingTaskClassifier() *CodingTaskClassifier {
-	return &CodingTaskClassifier{
-		EscalationRetries:    3,
-		EscalationSteps:      6,
+// NewCodingTaskClassifier returns a classifier with the given config.
+// If cfg is nil, sensible defaults are used.
+func NewCodingTaskClassifier(cfg *config.ClassifierConfig) *CodingTaskClassifier {
+	c := &CodingTaskClassifier{
+		EscalationRetries:     3,
+		EscalationSteps:       6,
 		EscalationRepetitions: 3,
 	}
+	if cfg != nil {
+		if cfg.EscalationThreshold.Retries > 0 {
+			c.EscalationRetries = cfg.EscalationThreshold.Retries
+		}
+		if cfg.EscalationThreshold.Steps > 0 {
+			c.EscalationSteps = cfg.EscalationThreshold.Steps
+		}
+		if cfg.EscalationThreshold.Repetitions > 0 {
+			c.EscalationRepetitions = cfg.EscalationThreshold.Repetitions
+		}
+	}
+	return c
 }
 
 // Classify analyses the current agent step and returns a coding profile.
 // Both `messages` and `agentState` are optional — the classifier works with
-// whatever is available.
+// whatever is available. `hints` may contain per-request overrides.
 func (c *CodingTaskClassifier) Classify(
 	messages []api.Message,
 	stepCount int,
 	retryAttempt int,
+	hints *api.RoutingExtensions,
 ) *CodingTaskProfile {
 	start := time.Now()
 
@@ -115,16 +130,31 @@ func (c *CodingTaskClassifier) Classify(
 	// ---- Determine task type ----
 	taskType := classifyTaskType(text, keywords, hasTraceback)
 
+	// ---- Apply hint overrides ----
+	if hints != nil {
+		if hints.HintTaskType != "" {
+			taskType = TaskType(hints.HintTaskType)
+		}
+	}
+
 	// ---- Determine difficulty ----
 	difficulty := classifyDifficulty(
 		text, fileCount, hasTraceback, codeBlockSize,
 		taskType, stepCount, retryAttempt, keywords,
 	)
 
+	// ---- Apply hint difficulty seed ----
+	if hints != nil && hints.HintDifficulty > 0 {
+		difficulty = hints.HintDifficulty
+	}
+
 	// ---- Apply agent-state escalation ----
-	difficulty = c.applyEscalation(difficulty, stepCount, retryAttempt)
+	difficulty = c.applyEscalation(difficulty, stepCount, retryAttempt, messages)
 
 	source := "structural"
+	if hints != nil && (hints.HintDifficulty > 0 || hints.HintTaskType != "") {
+		source = "structural_with_hints"
+	}
 	latency := time.Since(start).Milliseconds()
 
 	return &CodingTaskProfile{
@@ -145,7 +175,7 @@ func (c *CodingTaskClassifier) Classify(
 // ---------------------------------------------------------------------------
 
 var (
-	filePathRe   = regexp.MustCompile(`[a-zA-Z0-9_\-./]+\.(go|py|js|ts|rs|rb|java|kt|swift|c|cpp|h|hpp|cs|php|ex|exs|scala|clj|cljs|coffee|sh|bash|zsh|fish|yaml|yml|json|xml|toml|md|txt|css|scss|less|html|tsx|jsx|vue|svelte|sql|graphql|proto|lock|mod|sum)`)
+	filePathRe = regexp.MustCompile(`[a-zA-Z0-9_\-./]+\.(go|py|js|ts|rs|rb|java|kt|swift|c|cpp|h|hpp|cs|php|ex|exs|scala|clj|cljs|coffee|sh|bash|zsh|fish|yaml|yml|json|xml|toml|md|txt|css|scss|less|html|tsx|jsx|vue|svelte|sql|graphql|proto|lock|mod|sum)`)
 
 	// Common file path patterns used in agent prompts.
 	pathPatternRe = regexp.MustCompile(`\b(src|lib|app|cmd|pkg|internal|test|spec|fixtures?|config|scripts?|docs?)\/`)
@@ -337,7 +367,9 @@ func classifyDifficulty(
 }
 
 // applyEscalation bumps difficulty when the agent is stuck.
-func (c *CodingTaskClassifier) applyEscalation(difficulty int, stepCount int, retryAttempt int) int {
+// `conversation` is the full message history; it is used to detect repeating
+// tool-call patterns for the repetitions escalation.
+func (c *CodingTaskClassifier) applyEscalation(difficulty int, stepCount int, retryAttempt int, conversation []api.Message) int {
 	escalated := difficulty
 
 	// Many retries → stuck, escalate
@@ -348,6 +380,27 @@ func (c *CodingTaskClassifier) applyEscalation(difficulty int, stepCount int, re
 	// Many steps without progress → escalate
 	if stepCount >= c.EscalationSteps {
 		escalated = max(escalated, DifficultyComplex)
+	}
+
+	// Repetitions: detect repeating tool-call patterns (same function name + args).
+	if c.EscalationRepetitions > 0 {
+		counts := map[string]int{}
+		for _, msg := range conversation {
+			if msg.Role != "assistant" {
+				continue
+			}
+			for _, call := range msg.ToolCalls {
+				if call.Function.Name == "" {
+					continue
+				}
+				sig := call.Function.Name + "\x00" + strings.TrimSpace(call.Function.Arguments)
+				counts[sig]++
+				if counts[sig] >= c.EscalationRepetitions {
+					escalated = max(escalated, DifficultyComplex)
+					break
+				}
+			}
+		}
 	}
 
 	return max(difficulty, escalated)

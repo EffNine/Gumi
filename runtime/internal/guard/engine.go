@@ -11,6 +11,27 @@ import (
 	"github.com/novexa/novexa/runtime/internal/provider"
 )
 
+// GuardErrorCode is a stable code for guard-specific failures.
+type GuardErrorCode string
+
+const (
+	StepLimitExceeded GuardErrorCode = "AGENT_STEP_LIMIT_EXCEEDED"
+	ToolCallLoop      GuardErrorCode = "AGENT_TOOL_CALL_LOOP"
+	InvalidToolCall   GuardErrorCode = "AGENT_INVALID_TOOL_CALL"
+)
+
+// GuardError is a structured error returned by the guard engine for
+// agent-specific failure paths. It implements the error interface.
+type GuardError struct {
+	Code       GuardErrorCode
+	Message    string
+	Suggestion string
+}
+
+func (e GuardError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Code, e.Message)
+}
+
 // Decision is the Guard Engine decision.
 type Decision string
 
@@ -49,7 +70,7 @@ type AgentInput struct {
 // Output is the Guard Engine result.
 type Output struct {
 	Report   Report
-	Error    provider.ProviderError
+	Error    error
 	Warnings []string
 }
 
@@ -117,6 +138,7 @@ func (e *Engine) Check(in Input) Output {
 // CheckAgent validates agent-mode requests with step budget and tool-call
 // loop detection. It returns a block decision when the step budget is exceeded
 // or when strict loop detection finds 3+ repeated tool calls.
+// Agent-specific failure paths return GuardError instead of ProviderError.
 func (e *Engine) CheckAgent(in Input, agentIn AgentInput) Output {
 	// Step budget check: count assistant messages. If >= maxSteps, block.
 	assistantCount := 0
@@ -130,10 +152,10 @@ func (e *Engine) CheckAgent(in Input, agentIn AgentInput) Output {
 			Report: Report{
 				Decision: DecisionBlock,
 				Blocked:  true,
-				Reason:   string(provider.AGENT_STEP_LIMIT_EXCEEDED),
+				Reason:   string(StepLimitExceeded),
 			},
-			Error: provider.ProviderError{
-				Code:       provider.AGENT_STEP_LIMIT_EXCEEDED,
+			Error: GuardError{
+				Code:       StepLimitExceeded,
 				Message:    fmt.Sprintf("Agent step budget exhausted (%d/%d). Reset the session or increase max_steps.", assistantCount, agentIn.MaxSteps),
 				Suggestion: "Reset the session or increase max_steps in the agent configuration.",
 			},
@@ -156,11 +178,11 @@ func (e *Engine) CheckAgent(in Input, agentIn AgentInput) Output {
 			Report: Report{
 				Decision: DecisionBlock,
 				Blocked:  true,
-				Reason:   string(provider.AGENT_TOOL_CALL_LOOP),
+				Reason:   string(ToolCallLoop),
 				Warnings: warnings,
 			},
-			Error: provider.ProviderError{
-				Code:       provider.AGENT_TOOL_CALL_LOOP,
+			Error: GuardError{
+				Code:       ToolCallLoop,
 				Message:    fmt.Sprintf("Agent tool call loop detected: same tool call repeated %d times. The agent framework must intervene.", loopCount),
 				Suggestion: "The agent is repeating the same tool call. Try a different approach or report the blockage.",
 			},

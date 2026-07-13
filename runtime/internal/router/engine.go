@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/novexa/novexa/runtime/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -27,21 +28,21 @@ const (
 
 // CodingRule is a first-match routing rule evaluated in order.
 type CodingRule struct {
-	Name        string          `yaml:"name" json:"name"`
-	When        RuleCondition   `yaml:"when" json:"when"`
-	RouteAction RuleAction      `yaml:"route" json:"route"`
+	Name        string        `yaml:"name" json:"name"`
+	When        RuleCondition `yaml:"when" json:"when"`
+	RouteAction RuleAction    `yaml:"route" json:"route"`
 }
 
 // RuleCondition specifies when a rule matches.
 type RuleCondition struct {
-	Difficulty     []int    `yaml:"difficulty,omitempty" json:"difficulty,omitempty"`
-	TaskType       []string `yaml:"task_type,omitempty" json:"task_type,omitempty"`
-	HasTraceback   *bool    `yaml:"has_traceback,omitempty" json:"has_traceback,omitempty"`
-	MinFileCount   *int     `yaml:"min_file_count,omitempty" json:"min_file_count,omitempty"`
-	MaxFileCount   *int     `yaml:"max_file_count,omitempty" json:"max_file_count,omitempty"`
-	MinStep        *int     `yaml:"min_step,omitempty" json:"min_step,omitempty"`
-	MaxStep        *int     `yaml:"max_step,omitempty" json:"max_step,omitempty"`
-	MinRetries     *int     `yaml:"min_retries,omitempty" json:"min_retries,omitempty"`
+	Difficulty   []int    `yaml:"difficulty,omitempty" json:"difficulty,omitempty"`
+	TaskType     []string `yaml:"task_type,omitempty" json:"task_type,omitempty"`
+	HasTraceback *bool    `yaml:"has_traceback,omitempty" json:"has_traceback,omitempty"`
+	MinFileCount *int     `yaml:"min_file_count,omitempty" json:"min_file_count,omitempty"`
+	MaxFileCount *int     `yaml:"max_file_count,omitempty" json:"max_file_count,omitempty"`
+	MinStep      *int     `yaml:"min_step,omitempty" json:"min_step,omitempty"`
+	MaxStep      *int     `yaml:"max_step,omitempty" json:"max_step,omitempty"`
+	MinRetries   *int     `yaml:"min_retries,omitempty" json:"min_retries,omitempty"`
 }
 
 // RuleAction specifies the routing outcome when a rule matches.
@@ -61,13 +62,13 @@ type RuleAction struct {
 
 // RouteResult is the output of the rule engine.
 type RouteResult struct {
-	MatchedRule   string                    `json:"matched_rule"`
-	Provider      string                    `json:"provider"`
-	Model         string                    `json:"model"`
-	Strategy      PreferenceStrategy        `json:"strategy"`
-	Reason        string                    `json:"reason"`
-	Alternatives  []AlternativeConsidered   `json:"alternatives,omitempty"`
-	FallbackUsed  bool                      `json:"fallback_used"`
+	MatchedRule  string                  `json:"matched_rule"`
+	Provider     string                  `json:"provider"`
+	Model        string                  `json:"model"`
+	Strategy     PreferenceStrategy      `json:"strategy"`
+	Reason       string                  `json:"reason"`
+	Alternatives []AlternativeConsidered `json:"alternatives,omitempty"`
+	FallbackUsed bool                    `json:"fallback_used"`
 }
 
 // AlternativeConsidered records a candidate that was considered but rejected.
@@ -84,8 +85,15 @@ type AlternativeConsidered struct {
 // CodingRuleEngine evaluates routing rules first-match and applies the
 // matching rule's action to select a model from the registry.
 type CodingRuleEngine struct {
-	rules    []CodingRule
-	registry *CodingModelRegistry
+	rules     []CodingRule
+	registry  *CodingModelRegistry
+	memoryFit ModelFitLookup
+}
+
+// ModelFitLookup is the interface the router uses to query the memory engine
+// for model performance data. Implemented by memory.MemoryEngine.
+type ModelFitLookup interface {
+	GetBestModelForRouter(difficulty int, taskType string) (modelID string, successRate float64, ok bool)
 }
 
 // DefaultCodingRules returns the built-in default routing rules for coding agents.
@@ -221,10 +229,41 @@ func DefaultCodingRules() []CodingRule {
 }
 
 // NewCodingRuleEngine creates a rule engine with the given rules and registry.
-func NewCodingRuleEngine(rules []CodingRule, registry *CodingModelRegistry) *CodingRuleEngine {
+// If overrides is non-empty, it merges them over DefaultCodingRules() (overrides
+// replace by Name). memoryFit is an optional ModelFitLookup for preferring
+// models with a proven success rate; pass nil to disable.
+func NewCodingRuleEngine(rules []CodingRule, registry *CodingModelRegistry, overrides []config.CodingRuleOverride, memoryFit ModelFitLookup) *CodingRuleEngine {
+	// Apply overrides: replace rules by name.
+	if len(overrides) > 0 {
+		merged := make([]CodingRule, len(rules))
+		copy(merged, rules)
+		for i, rule := range merged {
+			for _, ov := range overrides {
+				if ov.Name == rule.Name {
+					if ov.Prefer != "" {
+						merged[i].RouteAction.Prefer = PreferenceStrategy(ov.Prefer)
+					}
+					if ov.MinCoding != "" {
+						merged[i].RouteAction.MinCoding = ov.MinCoding
+					}
+					if ov.MinContext > 0 {
+						merged[i].RouteAction.MinContext = ov.MinContext
+					}
+					if ov.MinReasoning != "" {
+						merged[i].RouteAction.MinReasoning = ov.MinReasoning
+					}
+					if ov.MaxSize != "" {
+						merged[i].RouteAction.MaxSize = ov.MaxSize
+					}
+				}
+			}
+		}
+		rules = merged
+	}
 	return &CodingRuleEngine{
-		rules:    rules,
-		registry: registry,
+		rules:     rules,
+		registry:  registry,
+		memoryFit: memoryFit,
 	}
 }
 
@@ -251,6 +290,12 @@ func (e *CodingRuleEngine) Route(
 			continue
 		}
 
+		// Determine effective MinContext: rule's value floored by hint.
+		effectiveMinContext := rule.RouteAction.MinContext
+		if hints != nil && hints.MinContext > effectiveMinContext {
+			effectiveMinContext = hints.MinContext
+		}
+
 		// Explicit route: fixed provider/model.
 		if rule.RouteAction.Provider != "" && rule.RouteAction.Model != "" {
 			key := rule.RouteAction.Provider + ":" + rule.RouteAction.Model
@@ -264,11 +309,11 @@ func (e *CodingRuleEngine) Route(
 				}
 			}
 			// Fall through to registry-based selection.
-			return e.selectFromRegistry(rule, profile, availableModels)
+			return e.selectFromRegistry(rule, profile, availableModels, effectiveMinContext)
 		}
 
 		// Preference-based route.
-		return e.selectFromRegistry(rule, profile, availableModels)
+		return e.selectFromRegistry(rule, profile, availableModels, effectiveMinContext)
 	}
 
 	return nil
@@ -322,26 +367,89 @@ func (e *CodingRuleEngine) matchCondition(cond RuleCondition, p *CodingTaskProfi
 }
 
 // selectFromRegistry selects the best model from the registry based on the
-// rule's action requirements.
-func (e *CodingRuleEngine) selectFromRegistry(rule CodingRule, p *CodingTaskProfile, availableModels map[string]bool) *RouteResult {
+// rule's action requirements. effectiveMinContext overrides the rule's
+// MinContext when higher (used for per-request hints).
+func (e *CodingRuleEngine) selectFromRegistry(rule CodingRule, p *CodingTaskProfile, availableModels map[string]bool, effectiveMinContext int) *RouteResult {
 	action := rule.RouteAction
+
+	// Collect all candidates for the alternatives list.
+	allCandidates := e.registry.List()
+	var alternatives []AlternativeConsidered
 
 	best := e.registry.FindBest(
 		action.Prefer,
 		parseCodingStrength(action.MinCoding),
-		action.MinContext,
+		effectiveMinContext,
 		action.MinReasoning,
 		ModelSizeCategory(action.MaxSize),
 		availableModels,
 	)
 
 	if best != nil {
+		// Check if memory engine has a better model for this task.
+		if e.memoryFit != nil {
+			if memModelID, memRate, memOk := e.memoryFit.GetBestModelForRouter(p.Difficulty, string(p.TaskType)); memOk && memRate > 0.7 {
+				// Check if the memory-recommended model is in availableModels
+				// and meets the rule's minimum coding strength requirement.
+				for _, cand := range allCandidates {
+					key := cand.Provider + ":" + cand.ModelName
+					if key == memModelID && availableModels[key] &&
+						cand.CodingStrength >= parseCodingStrength(action.MinCoding) {
+						// Prefer the memory-recommended model.
+						best = &cand
+						break
+					}
+				}
+			}
+		}
+
+		// Populate alternatives from rejected candidates.
+		for _, cand := range allCandidates {
+			key := cand.Provider + ":" + cand.ModelName
+			if key == best.Provider+":"+best.ModelName {
+				continue
+			}
+			if !availableModels[key] {
+				alternatives = append(alternatives, AlternativeConsidered{
+					Provider: cand.Provider,
+					Model:    cand.ModelName,
+					Rejected: "not_available",
+				})
+				continue
+			}
+			if cand.CodingStrength < parseCodingStrength(action.MinCoding) {
+				alternatives = append(alternatives, AlternativeConsidered{
+					Provider: cand.Provider,
+					Model:    cand.ModelName,
+					Rejected: "coding_strength_too_low",
+				})
+				continue
+			}
+			if effectiveMinContext > 0 && cand.ContextLimit < effectiveMinContext {
+				alternatives = append(alternatives, AlternativeConsidered{
+					Provider: cand.Provider,
+					Model:    cand.ModelName,
+					Rejected: "below_min_context",
+				})
+				continue
+			}
+			if action.MaxSize != "" && sizeRank(cand.SizeCategory) > sizeRank(ModelSizeCategory(action.MaxSize)) {
+				alternatives = append(alternatives, AlternativeConsidered{
+					Provider: cand.Provider,
+					Model:    cand.ModelName,
+					Rejected: "size_exceeds_max",
+				})
+				continue
+			}
+		}
+
 		return &RouteResult{
-			MatchedRule: rule.Name,
-			Provider:    best.Provider,
-			Model:       best.ModelName,
-			Strategy:    action.Prefer,
-			Reason:      fmt.Sprintf("rule %q selected %s (coding:%s, context:%d)", rule.Name, best.ProfileID, best.CodingStrength, best.ContextLimit),
+			MatchedRule:  rule.Name,
+			Provider:     best.Provider,
+			Model:        best.ModelName,
+			Strategy:     action.Prefer,
+			Reason:       fmt.Sprintf("rule %q selected %s (coding:%s, context:%d)", rule.Name, best.ProfileID, best.CodingStrength, best.ContextLimit),
+			Alternatives: alternatives,
 		}
 	}
 
@@ -355,12 +463,13 @@ func (e *CodingRuleEngine) selectFromRegistry(rule CodingRule, p *CodingTaskProf
 
 	if best != nil {
 		return &RouteResult{
-			MatchedRule: rule.Name,
-			Provider:    best.Provider,
-			Model:       best.ModelName,
-			Strategy:    action.Prefer,
-			Reason:      fmt.Sprintf("rule %q matched but no model met min requirements; relaxed to best available: %s", rule.Name, best.Describe()),
+			MatchedRule:  rule.Name,
+			Provider:     best.Provider,
+			Model:        best.ModelName,
+			Strategy:     action.Prefer,
+			Reason:       fmt.Sprintf("rule %q matched but no model met min requirements; relaxed to best available: %s", rule.Name, best.Describe()),
 			FallbackUsed: true,
+			Alternatives: alternatives,
 		}
 	}
 

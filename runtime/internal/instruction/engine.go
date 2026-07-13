@@ -15,25 +15,25 @@ import (
 
 // Constraint is a single rule extracted from the user's prompt.
 type Constraint struct {
-	Type        string `json:"type"`        // sentences, words, lines, bullets, json, no_word, end_with, start_with, min_chars
-	Label       string `json:"label"`       // human-readable description
-	Value       string `json:"value"`       // param (e.g. "3", "health", "learning")
-	Hint        string `json:"hint"`        // reminder text for the model
-	Check       string `json:"check"`       // validation check name
+	Type  string `json:"type"`  // sentences, words, lines, bullets, json, no_word, end_with, start_with, min_chars
+	Label string `json:"label"` // human-readable description
+	Value string `json:"value"` // param (e.g. "3", "health", "learning")
+	Hint  string `json:"hint"`  // reminder text for the model
+	Check string `json:"check"` // validation check name
 }
 
 // Result holds extracted constraints and hint text.
 type Result struct {
-	Constraints []Constraint `json:"constraints"`
-	HintBlock   string       `json:"hint_block"`
-	HasConstraints bool      `json:"has_constraints"`
+	Constraints    []Constraint `json:"constraints"`
+	HintBlock      string       `json:"hint_block"`
+	HasConstraints bool         `json:"has_constraints"`
 }
 
 // ValidationResult is the outcome of checking a response against constraints.
 type ValidationResult struct {
-	Passed      bool     `json:"passed"`
-	Violations  []string `json:"violations"`
-	Satisfied   []string `json:"satisfied"`
+	Passed     bool     `json:"passed"`
+	Violations []string `json:"violations"`
+	Satisfied  []string `json:"satisfied"`
 }
 
 // Engine extracts and validates instruction constraints.
@@ -46,22 +46,22 @@ func New() *Engine {
 
 var (
 	// ── Constraint detectors ──────────────────────────────────────────
-	reSentences    = regexp.MustCompile(`(?i)(?:exactly|just|only)\s+(\d+)\s+sentences?`)
-	reWords        = regexp.MustCompile(`(?i)(?:exactly|just|only)\s+(\d+)\s+words?`)
-	reLines        = regexp.MustCompile(`(?i)(\d+)[- ]lines?\s+(?:poem|answer|response|output)`)
-	reLinesSimple  = regexp.MustCompile(`(?i)(?:write|create|give|return)\s+(?:a|an)\s+(\d+)[- ]lines?`)
-	reBullets      = regexp.MustCompile(`(?i)(?:bullet\s*points?|use\s+bullet|dashes?|with\s+dashes?)`)
-	reNoWord       = regexp.MustCompile(`(?i)(?:do\s+not\s+(?:use|say|include|write|mention)\s+(?:the\s+)?(?:word|term|phrase)?\s*['"]?(\w+)['"]?)|(?:avoid\s+(?:the\s+)?(?:word|term|phrase)?\s*['"]?(\w+)['"]?)`)
-	reEndWith      = regexp.MustCompile(`(?i)(?:end|finish|conclude)\s+(?:with|in)\s+(?:the\s+)?(?:word|phrase)?\s*['"]?([a-zA-Z0-9.]+)['"]?`)
-	reStartWith    = regexp.MustCompile(`(?i)(?:start|begin)\s+(?:each\s+line\s+)?(?:with|in)\s+(?:a\s+)?(capital\s*letter|uppercase)`)
-	reJSON         = regexp.MustCompile(`(?i)(?:return|output|respond\s+with|format\s+your\s+response\s+as|respond\s+in)\s+(?:only\s+)?(?:valid\s+)?json`)
-	reMinChars     = regexp.MustCompile(`(?i)(?:at\s+least|minimum\s+of|more\s+than|over)\s+(\d+)\s+(?:characters?|chars?|letters?)`)
-	reMinWords     = regexp.MustCompile(`(?i)(?:at\s+least|minimum\s+of|more\s+than|over)\s+(\d+)\s+words?`)
-	reNoCommas     = regexp.MustCompile(`(?i)(?:do\s+not\s+use\s+(?:any\s+)?commas?|no\s+commas?|without\s+commas?)`)
-	reNoMarkdown   = regexp.MustCompile(`(?i)(?:no\s+markdown|without\s+markdown|do\s+not\s+use\s+markdown)`)
-	reSections     = regexp.MustCompile(`(?i)(?:highlight\s+at\s+least\s+)?(\d+)\s+sections?`)
-	reEachCap      = regexp.MustCompile(`(?i)(?:each\s+line\s+must\s+start\s+with\s+a\s+capital)`)
-	reNoRhyme      = regexp.MustCompile(`(?i)(?:do\s+not\s+rhyme|no\s+rhym(?:e|ing))`)
+	reSentences   = regexp.MustCompile(`(?i)(?:exactly|just|only)\s+(\d+)\s+sentences?`)
+	reWords       = regexp.MustCompile(`(?i)(?:exactly|just|only)\s+(\d+)\s+words?`)
+	reLines       = regexp.MustCompile(`(?i)(\d+)[- ]lines?\s+(?:poem|answer|response|output)`)
+	reLinesSimple = regexp.MustCompile(`(?i)(?:write|create|give|return)\s+(?:a|an)\s+(\d+)[- ]lines?`)
+	reBullets     = regexp.MustCompile(`(?i)(?:bullet\s*points?|use\s+bullet|dashes?|with\s+dashes?)`)
+	reNoWord      = regexp.MustCompile(`(?i)(?:do\s+not\s+(?:use|say|include|write|mention)\s+(?:the\s+)?(?:word|term|phrase)?\s*['"]?(\w+)['"]?)|(?:avoid\s+(?:the\s+)?(?:word|term|phrase)?\s*['"]?(\w+)['"]?)`)
+	reEndWith     = regexp.MustCompile(`(?i)(?:end|finish|conclude)\s+(?:with|in)\s+(?:the\s+)?(?:word|phrase)?\s*['"]?([a-zA-Z0-9.]+)['"]?`)
+	reStartWith   = regexp.MustCompile(`(?i)(?:start|begin)\s+(?:each\s+line\s+)?(?:with|in)\s+(?:a\s+)?(capital\s*letter|uppercase)`)
+	reJSON        = regexp.MustCompile(`(?i)(?:return|output|respond\s+with|format\s+your\s+response\s+as|respond\s+in)\s+(?:only\s+)?(?:valid\s+)?json`)
+	reMinChars    = regexp.MustCompile(`(?i)(?:at\s+least|minimum\s+of|more\s+than|over)\s+(\d+)\s+(?:characters?|chars?|letters?)`)
+	reMinWords    = regexp.MustCompile(`(?i)(?:at\s+least|minimum\s+of|more\s+than|over)\s+(\d+)\s+words?`)
+	reNoCommas    = regexp.MustCompile(`(?i)(?:do\s+not\s+use\s+(?:any\s+)?commas?|no\s+commas?|without\s+commas?)`)
+	reNoMarkdown  = regexp.MustCompile(`(?i)(?:no\s+markdown|without\s+markdown|do\s+not\s+use\s+markdown)`)
+	reSections    = regexp.MustCompile(`(?i)(?:highlight\s+at\s+least\s+)?(\d+)\s+sections?`)
+	reEachCap     = regexp.MustCompile(`(?i)(?:each\s+line\s+must\s+start\s+with\s+a\s+capital)`)
+	reNoRhyme     = regexp.MustCompile(`(?i)(?:do\s+not\s+rhyme|no\s+rhym(?:e|ing))`)
 )
 
 // Extract scans the user prompt for known constraint patterns and returns
@@ -233,8 +233,8 @@ func (e *Engine) Extract(userMessage string) Result {
 	hintParts = append(hintParts, "Before responding, verify each rule above is satisfied.")
 
 	return Result{
-		Constraints:   constraints,
-		HintBlock:     strings.Join(hintParts, "\n"),
+		Constraints:    constraints,
+		HintBlock:      strings.Join(hintParts, "\n"),
 		HasConstraints: true,
 	}
 }

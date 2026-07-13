@@ -37,22 +37,22 @@ const (
 
 // Engine orchestrates the request lifecycle for chat completions.
 type Engine struct {
-	cfg                *config.Config
-	manager            *provider.Manager
-	log                *logger.Logger
-	telemetry          *telemetry.Writer
-	contextEngine      *contextengine.Engine
-	promptEngine       *promptengine.Engine
-	guardEngine        *guardengine.Engine
-	validation         *validationengine.Engine
-	repair             *repairengine.Engine
-	toolEngine         *toolengine.Engine
-	instructionEngine  *instructionengine.Engine
-	profileResolver    *profiles.Resolver
-	codingRouter       *router.CodingRuleEngine
-	codingRegistry     *router.CodingModelRegistry
-	codingClassifier   *router.CodingTaskClassifier
-	memoryEngine       *memory.MemoryEngine
+	cfg               *config.Config
+	manager           *provider.Manager
+	log               *logger.Logger
+	telemetry         *telemetry.Writer
+	contextEngine     *contextengine.Engine
+	promptEngine      *promptengine.Engine
+	guardEngine       *guardengine.Engine
+	validation        *validationengine.Engine
+	repair            *repairengine.Engine
+	toolEngine        *toolengine.Engine
+	instructionEngine *instructionengine.Engine
+	profileResolver   *profiles.Resolver
+	codingRouter      *router.CodingRuleEngine
+	codingRegistry    *router.CodingModelRegistry
+	codingClassifier  *router.CodingTaskClassifier
+	memoryEngine      *memory.MemoryEngine
 }
 
 // Result is returned to Gateway Engine after pipeline execution.
@@ -86,8 +86,8 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 		providerModels := buildProviderModelMap(manager)
 
 		codingRegistry = router.NewCodingModelRegistry(loaded.Profiles, providerModels)
-		codingRouter = router.NewCodingRuleEngine(router.DefaultCodingRules(), codingRegistry)
-		codingClassifier = router.NewCodingTaskClassifier()
+		codingRouter = router.NewCodingRuleEngine(router.DefaultCodingRules(), codingRegistry, cfg.Routing.CodingRules, nil)
+		codingClassifier = router.NewCodingTaskClassifier(&cfg.Routing.Classifier)
 	}
 
 	// Initialize memory engine if enabled.
@@ -106,6 +106,18 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 			log.Info("memory engine initialization skipped", "error", err)
 			memEngine = nil
 		}
+	}
+
+	// Wire memory engine into the router for Model Fit feedback loop.
+	if cfg.Routing.Enabled && codingRouter != nil && memEngine != nil {
+		codingRouter = router.NewCodingRuleEngine(router.DefaultCodingRules(), codingRegistry, cfg.Routing.CodingRules, memEngine)
+	}
+
+	// Set memory engine telemetry hook.
+	if memEngine != nil {
+		memEngine.SetTelemetryHook(func(ev string, md map[string]string) {
+			log.Info("memory_event", "event", ev, "metadata", md)
+		})
 	}
 
 	return &Engine{
@@ -401,7 +413,7 @@ func (e *Engine) callProviderGenerateStream(ctx context.Context, pc *Context, ou
 	// Post-hoc validation on accumulated content
 	pc.StreamingValidation = true
 	pc.AddEvent("pipeline", "streaming_completed", SeverityInfo, "streaming completed", map[string]string{
-		"chunk_count": fmt.Sprintf("%d", chunkCount),
+		"chunk_count":    fmt.Sprintf("%d", chunkCount),
 		"content_length": fmt.Sprintf("%d", len(accumulatedContent)),
 	})
 
@@ -429,7 +441,7 @@ func (e *Engine) callProviderGenerateStream(ctx context.Context, pc *Context, ou
 		pc.ValidationPassed = report.Passed
 
 		pc.AddEvent("pipeline", "streaming_validation_post_hoc", severityForValidation(report), "post-hoc streaming validation completed", map[string]string{
-			"passed":  fmt.Sprintf("%t", report.Passed),
+			"passed":   fmt.Sprintf("%t", report.Passed),
 			"severity": report.Severity,
 		})
 	}
@@ -769,7 +781,23 @@ func (e *Engine) applyAgentGuard(pc *Context) Result {
 		pc.AddEvent("guard", "agent_tool_loop_check", SeverityWarning, "agent tool call loop detected", map[string]string{
 			"loop_detected": "true",
 		})
-		return e.fail(pc, out.Error, "agent guard blocked request")
+		// Convert GuardError or ProviderError to ProviderError for pipeline.
+		var pe provider.ProviderError
+		if errors.As(out.Error, &pe) {
+			return e.fail(pc, pe, "agent guard blocked request")
+		}
+		var ge guardengine.GuardError
+		if errors.As(out.Error, &ge) {
+			return e.fail(pc, provider.ProviderError{
+				Code:       provider.ProviderErrorCode(ge.Code),
+				Message:    ge.Message,
+				Suggestion: ge.Suggestion,
+			}, "agent guard blocked request")
+		}
+		return e.fail(pc, provider.ProviderError{
+			Code:    provider.ProviderUnknownError,
+			Message: out.Error.Error(),
+		}, "agent guard blocked request")
 	}
 
 	if out.Report.Decision == guardengine.DecisionWarn {
@@ -888,13 +916,13 @@ func (e *Engine) checkAgentContextCompaction(pc *Context) {
 	}
 
 	pc.AddEvent("context", "agent_context_compacted", SeverityInfo, "context compacted via sliding window", map[string]string{
-		"estimated_tokens":    fmt.Sprintf("%d", estimated),
-		"threshold_tokens":    fmt.Sprintf("%d", limit),
-		"context_limit":       fmt.Sprintf("%d", contextLimit),
-		"removed_messages":    fmt.Sprintf("%d", removedCount),
-		"preserved_messages":  fmt.Sprintf("%d", len(trimmed)),
-		"preserve_recent":     fmt.Sprintf("%d", preserveRecent),
-		"compaction_count":    fmt.Sprintf("%d", pc.ContextCompactionCount),
+		"estimated_tokens":   fmt.Sprintf("%d", estimated),
+		"threshold_tokens":   fmt.Sprintf("%d", limit),
+		"context_limit":      fmt.Sprintf("%d", contextLimit),
+		"removed_messages":   fmt.Sprintf("%d", removedCount),
+		"preserved_messages": fmt.Sprintf("%d", len(trimmed)),
+		"preserve_recent":    fmt.Sprintf("%d", preserveRecent),
+		"compaction_count":   fmt.Sprintf("%d", pc.ContextCompactionCount),
 	})
 }
 
@@ -1018,6 +1046,7 @@ func (e *Engine) resolveProviderAndProfile(ctx context.Context, pc *Context) Res
 			pc.NormalizedRequest.Messages,
 			pc.StepCount,
 			pc.Retry.Attempt,
+			routingHints,
 		)
 
 		// Build available models set.
@@ -1031,11 +1060,11 @@ func (e *Engine) resolveProviderAndProfile(ctx context.Context, pc *Context) Res
 			pc.SelectedModel = result.Model
 			pc.CodingRoute = &CodingRoute{
 				Profile: &CodingTaskProfile{
-					Difficulty:     codingProfile.Difficulty,
-					TaskType:       string(codingProfile.TaskType),
-					FileCount:      codingProfile.FileCount,
-					HasTraceback:   codingProfile.HasTraceback,
-					StepCount:      codingProfile.Step,
+					Difficulty:   codingProfile.Difficulty,
+					TaskType:     string(codingProfile.TaskType),
+					FileCount:    codingProfile.FileCount,
+					HasTraceback: codingProfile.HasTraceback,
+					StepCount:    codingProfile.Step,
 				},
 				SelectedModel:   result.Provider + "/" + result.Model,
 				Preference:      string(result.Strategy),
@@ -1048,19 +1077,30 @@ func (e *Engine) resolveProviderAndProfile(ctx context.Context, pc *Context) Res
 			pc.ModelProfile = match.Profile
 
 			pc.AddEvent("routing", "coding_route_selected", SeverityInfo, "agentic coding routing selected model", map[string]string{
-				"difficulty":     fmt.Sprintf("%d", codingProfile.Difficulty),
+				"difficulty":       fmt.Sprintf("%d", codingProfile.Difficulty),
 				"difficulty_label": codingProfile.DifficultyLabel,
-				"task_type":      string(codingProfile.TaskType),
-				"file_count":     fmt.Sprintf("%d", codingProfile.FileCount),
-				"has_traceback":  fmt.Sprintf("%t", codingProfile.HasTraceback),
-				"step":           fmt.Sprintf("%d", codingProfile.Step),
-				"provider":       result.Provider,
-				"model":          result.Model,
-				"matched_rule":   result.MatchedRule,
-				"strategy":       string(result.Strategy),
-				"fallback_used":  fmt.Sprintf("%t", result.FallbackUsed),
-				"latency_ms":     fmt.Sprintf("%d", codingProfile.LatencyMs),
+				"task_type":        string(codingProfile.TaskType),
+				"file_count":       fmt.Sprintf("%d", codingProfile.FileCount),
+				"has_traceback":    fmt.Sprintf("%t", codingProfile.HasTraceback),
+				"step":             fmt.Sprintf("%d", codingProfile.Step),
+				"provider":         result.Provider,
+				"model":            result.Model,
+				"matched_rule":     result.MatchedRule,
+				"strategy":         string(result.Strategy),
+				"fallback_used":    fmt.Sprintf("%t", result.FallbackUsed),
+				"latency_ms":       fmt.Sprintf("%d", codingProfile.LatencyMs),
 			})
+
+			// Emit structured routing telemetry.
+			hasTools := false
+			for _, msg := range pc.NormalizedRequest.Messages {
+				if len(msg.ToolCalls) > 0 {
+					hasTools = true
+					break
+				}
+			}
+			rt := router.NewRoutingTelemetry(pc.RequestID, pc.StepCount, codingProfile, result, hasTools)
+			pc.AddEvent("routing", "routing_telemetry", SeverityInfo, "structured routing telemetry", rt.ToMetadata())
 
 			if pc.ModelProfile != nil {
 				pc.AddEvent("profile", "model_profile_applied", SeverityInfo, "model profile applied via routing", map[string]string{
@@ -1183,8 +1223,8 @@ func (e *Engine) applyModelManagement(ctx context.Context, pc *Context) error {
 	modelCfg := mgmt.BuildPerModelConfig(pc.SelectedModel)
 
 	pc.AddEvent("lmstudio", "model_load_started", SeverityInfo, "loading model on LM Studio", map[string]string{
-		"model":       pc.SelectedModel,
-		"has_config":  fmt.Sprintf("%t", modelCfg != nil),
+		"model":      pc.SelectedModel,
+		"has_config": fmt.Sprintf("%t", modelCfg != nil),
 	})
 
 	resp, err := mgmt.LoadModel(ctx, pc.SelectedModel, modelCfg)
@@ -1219,6 +1259,28 @@ func (e *Engine) prepareMemory(pc *Context) {
 		return
 	}
 
+	// Honour per-request memory overrides.
+	var memExt *api.MemoryExtension
+	if pc.IncomingRequest.Novexa != nil {
+		memExt = pc.IncomingRequest.Novexa.Memory
+	}
+	if memExt != nil && memExt.EnableInjection != nil && !*memExt.EnableInjection {
+		pc.AddEvent("memory", "memory_injection_disabled", SeverityInfo, "memory injection disabled per-request", nil)
+		return
+	}
+	if memExt != nil && memExt.ResetSession != nil && *memExt.ResetSession {
+		if err := e.memoryEngine.ClearSession(pc.SessionID); err != nil {
+			e.log.Info("failed to clear session memory", "error", err)
+		}
+		pc.AddEvent("memory", "session_cleared", SeverityInfo, "session memory cleared per-request", nil)
+	}
+
+	// Determine max facts to inject: per-request override or config default.
+	maxFacts := e.cfg.Memory.MaxInjectedFacts
+	if memExt != nil && memExt.MaxInjectedFacts != nil {
+		maxFacts = *memExt.MaxInjectedFacts
+	}
+
 	// Build the request text for relevance scoring.
 	var requestText string
 	for _, msg := range pc.NormalizedRequest.Messages {
@@ -1228,7 +1290,7 @@ func (e *Engine) prepareMemory(pc *Context) {
 	}
 
 	// Select relevant facts.
-	facts := e.memoryEngine.SelectRelevantFacts(requestText, e.cfg.Memory.MaxInjectedFacts)
+	facts := e.memoryEngine.SelectRelevantFacts(requestText, maxFacts)
 	if len(facts) == 0 {
 		return
 	}
@@ -1296,6 +1358,17 @@ func (e *Engine) extractMemory(pc *Context) {
 		)
 		for _, fact := range facts {
 			if fact.Confidence >= e.cfg.Memory.MinConfidence {
+				// MinObservationCount gating: don't store until observed N times.
+				if e.cfg.Memory.MinObservationCount > 1 {
+					ready, err := e.memoryEngine.ObserveAndCheck(fact.Key, e.cfg.Memory.MinObservationCount)
+					if err != nil {
+						e.log.Info("failed to check observation count", "error", err)
+						continue
+					}
+					if !ready {
+						continue // don't store yet
+					}
+				}
 				if err := e.memoryEngine.StoreFact(fact); err != nil {
 					e.log.Info("failed to store extracted fact", "error", err)
 				}
@@ -1467,8 +1540,24 @@ func (e *Engine) applyGuard(pc *Context) Result {
 	for _, warning := range out.Warnings {
 		pc.AddEvent("guard", "guard_warning", SeverityWarning, warning, nil)
 	}
-	if out.Error.Code != "" {
-		return e.fail(pc, out.Error, "guard blocked request")
+	if out.Error != nil {
+		var pe provider.ProviderError
+		if errors.As(out.Error, &pe) {
+			return e.fail(pc, pe, "guard blocked request")
+		}
+		// GuardError: convert to ProviderError for the pipeline.
+		var ge guardengine.GuardError
+		if errors.As(out.Error, &ge) {
+			return e.fail(pc, provider.ProviderError{
+				Code:       provider.ProviderErrorCode(ge.Code),
+				Message:    ge.Message,
+				Suggestion: ge.Suggestion,
+			}, "guard blocked request")
+		}
+		return e.fail(pc, provider.ProviderError{
+			Code:    provider.ProviderUnknownError,
+			Message: out.Error.Error(),
+		}, "guard blocked request")
 	}
 	return Result{}
 }
@@ -2207,12 +2296,12 @@ func (e *Engine) applyThinkingPolicy(pc *Context) {
 	pc.ThinkingOutputBudget = outputBudget
 
 	pc.AddEvent("profile", "thinking_policy_applied", SeverityInfo, "applied managed thinking policy", map[string]string{
-		"profile_id":        pc.ModelProfile.ID,
-		"thinking_enabled":    fmt.Sprintf("%t", enabled),
-		"thinking_mode":       mode,
-		"decision_reason":     reason,
-		"reasoning_budget":    fmt.Sprintf("%d", pc.ThinkingReasoningBudget),
-		"output_budget":       fmt.Sprintf("%d", pc.ThinkingOutputBudget),
+		"profile_id":       pc.ModelProfile.ID,
+		"thinking_enabled": fmt.Sprintf("%t", enabled),
+		"thinking_mode":    mode,
+		"decision_reason":  reason,
+		"reasoning_budget": fmt.Sprintf("%d", pc.ThinkingReasoningBudget),
+		"output_budget":    fmt.Sprintf("%d", pc.ThinkingOutputBudget),
 	})
 }
 
@@ -2583,10 +2672,10 @@ func (e *Engine) validateRepairAndMaybeRetry(ctx context.Context, pc *Context, a
 	toolValid := e.checkToolCalls(pc)
 	pc.ValidationPassed = report.Passed && toolValid
 	pc.AddEvent("validation", "validation_completed", severityForValidation(report), "Validation Engine completed response checks", map[string]string{
-		"passed":          fmt.Sprintf("%t", report.Passed),
+		"passed":           fmt.Sprintf("%t", report.Passed),
 		"tool_calls_valid": fmt.Sprintf("%t", toolValid),
-		"severity":        report.Severity,
-		"issues":          fmt.Sprintf("%d", len(report.Issues)),
+		"severity":         report.Severity,
+		"issues":           fmt.Sprintf("%d", len(report.Issues)),
 	})
 	for _, issue := range report.Issues {
 		pc.AddEvent("validation", string(issue.Code), SeverityWarning, issue.Message, map[string]string{

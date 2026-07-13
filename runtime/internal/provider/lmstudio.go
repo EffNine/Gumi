@@ -44,9 +44,9 @@ func NewLMStudioAdapter(name string, settings config.ProviderSettings, log *logg
 	}
 
 	return &LMStudioAdapter{
-		name:       name,
-		baseURL:    baseURL,
-		timeout:    timeout,
+		name:    name,
+		baseURL: baseURL,
+		timeout: timeout,
 		client: &http.Client{
 			Timeout: timeout,
 		},

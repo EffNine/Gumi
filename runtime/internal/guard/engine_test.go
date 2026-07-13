@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/novexa/novexa/runtime/internal/api"
@@ -15,8 +16,12 @@ func TestCheckBlocksEmptyPrompt(t *testing.T) {
 	if !out.Report.Blocked {
 		t.Fatal("expected blocked guard report")
 	}
-	if out.Error.Code != provider.EmptyPrompt {
-		t.Fatalf("expected empty prompt, got %s", out.Error.Code)
+	var pe provider.ProviderError
+	if !errors.As(out.Error, &pe) {
+		t.Fatalf("expected ProviderError, got %T", out.Error)
+	}
+	if pe.Code != provider.EmptyPrompt {
+		t.Fatalf("expected empty prompt, got %s", pe.Code)
 	}
 }
 
@@ -58,8 +63,8 @@ func TestAgentGuardBlocksStepLimitExceeded(t *testing.T) {
 	if !out.Report.Blocked {
 		t.Fatal("expected blocked guard report for step limit exceeded")
 	}
-	if out.Error.Code != provider.AGENT_STEP_LIMIT_EXCEEDED {
-		t.Fatalf("expected AGENT_STEP_LIMIT_EXCEEDED, got %s", out.Error.Code)
+	if out.Error.Error() != "AGENT_STEP_LIMIT_EXCEEDED: Agent step budget exhausted (35/30). Reset the session or increase max_steps." {
+		t.Fatalf("expected AGENT_STEP_LIMIT_EXCEEDED, got %s", out.Error.Error())
 	}
 }
 
@@ -91,8 +96,8 @@ func TestAgentGuardBlocksRepeatedToolCallStrict(t *testing.T) {
 	if !out.Report.Blocked {
 		t.Fatal("expected blocked guard report for repeated tool call (strict)")
 	}
-	if out.Error.Code != provider.AGENT_TOOL_CALL_LOOP {
-		t.Fatalf("expected AGENT_TOOL_CALL_LOOP, got %s", out.Error.Code)
+	if out.Error.Error() != "AGENT_TOOL_CALL_LOOP: Agent tool call loop detected: same tool call repeated 3 times. The agent framework must intervene." {
+		t.Fatalf("expected AGENT_TOOL_CALL_LOOP, got %s", out.Error.Error())
 	}
 }
 

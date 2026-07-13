@@ -50,7 +50,6 @@ var memorySchema = []string{
 		successes    INTEGER NOT NULL DEFAULT 0,
 		avg_latency_ms  INTEGER NOT NULL DEFAULT 0,
 		avg_retries     REAL NOT NULL DEFAULT 0.0,
-		repair_rate     REAL NOT NULL DEFAULT 0.0,
 		last_updated TEXT NOT NULL DEFAULT (datetime('now')),
 		PRIMARY KEY (model_id, difficulty, task_type)
 	)`,
@@ -64,5 +63,13 @@ var memorySchema = []string{
 		created_at    TEXT NOT NULL DEFAULT (datetime('now')),
 		updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
 		summary       TEXT NOT NULL DEFAULT ''
+	)`,
+
+	// Fact observations: tracks how many times a fact key has been observed
+	// before it is stored. Used for MinObservationCount gating.
+	`CREATE TABLE IF NOT EXISTS fact_observations (
+		key         TEXT PRIMARY KEY,
+		count       INTEGER NOT NULL DEFAULT 0,
+		last_seen   TEXT NOT NULL DEFAULT (datetime('now'))
 	)`,
 }

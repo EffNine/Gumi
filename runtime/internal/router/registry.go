@@ -72,15 +72,15 @@ func classifySize(size string) ModelSizeCategory {
 
 // CodingModelRegistryEntry holds a model's coding-relevant attributes.
 type CodingModelRegistryEntry struct {
-	ProfileID      string             `json:"profile_id"`
-	Provider       string             `json:"provider"`
-	ModelName      string             `json:"model_name"`
-	CodingStrength CodingStrength     `json:"coding_strength"`
-	ToolCalling    string             `json:"tool_calling"`
-	Reasoning      string             `json:"reasoning"`
-	ContextLimit   int                `json:"context_limit"`
-	SizeCategory   ModelSizeCategory  `json:"size_category"`
-	Profile        *profiles.Profile  `json:"-"`
+	ProfileID      string            `json:"profile_id"`
+	Provider       string            `json:"provider"`
+	ModelName      string            `json:"model_name"`
+	CodingStrength CodingStrength    `json:"coding_strength"`
+	ToolCalling    string            `json:"tool_calling"`
+	Reasoning      string            `json:"reasoning"`
+	ContextLimit   int               `json:"context_limit"`
+	SizeCategory   ModelSizeCategory `json:"size_category"`
+	Profile        *profiles.Profile `json:"-"`
 }
 
 // CodingModelRegistry indexes all available models by their coding capabilities.
@@ -272,8 +272,8 @@ func sizeRank(size ModelSizeCategory) int {
 
 func comboScore(e *CodingModelRegistryEntry) float64 {
 	cs := float64(e.CodingStrength) / 3.0 // 0..1
-	rs := reasoningScore(e.Reasoning)       // 0..1
-	ts := toolCallingScore(e.ToolCalling)   // 0..1
+	rs := reasoningScore(e.Reasoning)     // 0..1
+	ts := toolCallingScore(e.ToolCalling) // 0..1
 	return cs*0.5 + rs*0.3 + ts*0.2
 }
 

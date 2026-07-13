@@ -12,8 +12,8 @@ import (
 // ParsedAssistantResult describes what the assistant message contains after
 // normalization: plain text, one or more tool calls, or both.
 type ParsedAssistantResult struct {
-	Content   string
-	ToolCalls []api.ToolCall
+	Content    string
+	ToolCalls  []api.ToolCall
 	IsToolCall bool
 }
 
@@ -38,7 +38,7 @@ func NormalizeAssistantContent(content string) ParsedAssistantResult {
 	if err := json.Unmarshal([]byte(candidate), &single); err == nil && single.Tool != "" {
 		args, _ := json.Marshal(single.Arguments)
 		return ParsedAssistantResult{
-			ToolCalls: []api.ToolCall{newToolCall(single.Tool, string(args))},
+			ToolCalls:  []api.ToolCall{newToolCall(single.Tool, string(args))},
 			IsToolCall: true,
 		}
 	}

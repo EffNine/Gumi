@@ -1188,7 +1188,7 @@ func TestAgentModeStepLimitExceeded(t *testing.T) {
 		Messages: messages,
 	})
 
-	if result.Error.Code != provider.AGENT_STEP_LIMIT_EXCEEDED {
+	if string(result.Error.Code) != "AGENT_STEP_LIMIT_EXCEEDED" {
 		t.Fatalf("expected AGENT_STEP_LIMIT_EXCEEDED, got %s", result.Error.Code)
 	}
 	assertEvent(t, result.Context, "agent_mode_selected")
@@ -1278,7 +1278,7 @@ func TestAgentModeDetectsRepeatedToolCallStrict(t *testing.T) {
 		Messages: messages,
 	})
 
-	if result.Error.Code != provider.AGENT_TOOL_CALL_LOOP {
+	if string(result.Error.Code) != "AGENT_TOOL_CALL_LOOP" {
 		t.Fatalf("expected AGENT_TOOL_CALL_LOOP, got %s", result.Error.Code)
 	}
 	assertEvent(t, result.Context, "agent_tool_loop_check")
@@ -1340,7 +1340,7 @@ func TestAgentModeStreamingStepLimitExceeded(t *testing.T) {
 		Messages: messages,
 	}, chunkCh)
 
-	if result.Error.Code != provider.AGENT_STEP_LIMIT_EXCEEDED {
+	if string(result.Error.Code) != "AGENT_STEP_LIMIT_EXCEEDED" {
 		t.Fatalf("expected AGENT_STEP_LIMIT_EXCEEDED, got %s", result.Error.Code)
 	}
 	assertEvent(t, result.Context, "agent_step_check")

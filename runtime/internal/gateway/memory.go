@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/novexa/novexa/runtime/internal/api"
 	"github.com/novexa/novexa/runtime/internal/memory"
 )
 
@@ -30,7 +31,7 @@ func (s *Server) handleMemoryFacts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to list facts: "+err.Error())
+		s.writeError(w, http.StatusInternalServerError, api.NewRuntimeError("MEMORY_LIST_ERROR", "failed to list facts: "+err.Error(), requestIDFromContext(r.Context())))
 		return
 	}
 
@@ -58,7 +59,7 @@ func (s *Server) handleMemoryModelFit(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := mem.ListModelFit()
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to list model fit: "+err.Error())
+		s.writeError(w, http.StatusInternalServerError, api.NewRuntimeError("MEMORY_MODEL_FIT_ERROR", "failed to list model fit: "+err.Error(), requestIDFromContext(r.Context())))
 		return
 	}
 
@@ -85,7 +86,7 @@ func (s *Server) handleMemoryClear(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := mem.ClearAll(); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to clear memory: "+err.Error())
+		s.writeError(w, http.StatusInternalServerError, api.NewRuntimeError("MEMORY_CLEAR_ERROR", "failed to clear memory: "+err.Error(), requestIDFromContext(r.Context())))
 		return
 	}
 
@@ -115,12 +116,45 @@ func (s *Server) handleMemoryStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"enabled":             true,
-		"database_path":       dbPath,
-		"facts_count":         len(facts),
-		"model_fit_entries":   len(fit),
-		"injection_budget":    s.cfg.Memory.InjectionBudgetTokens,
+		"enabled":           true,
+		"database_path":     dbPath,
+		"facts_count":       len(facts),
+		"model_fit_entries": len(fit),
+		"injection_budget":  s.cfg.Memory.InjectionBudgetTokens,
 	})
+}
+
+// handleMemoryCreateFact creates a new memory fact via POST.
+func (s *Server) handleMemoryCreateFact(w http.ResponseWriter, r *http.Request) {
+	mem := s.pipeline.MemoryEngine()
+	if mem == nil {
+		s.writeError(w, http.StatusServiceUnavailable, api.NewRuntimeError("MEMORY_DISABLED", "memory engine is not enabled", requestIDFromContext(r.Context())))
+		return
+	}
+
+	var req struct {
+		Key        string  `json:"key"`
+		Value      string  `json:"value"`
+		Source     string  `json:"source,omitempty"`
+		Confidence float64 `json:"confidence,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, http.StatusBadRequest, api.NewRequestError("INVALID_REQUEST", "invalid JSON body", requestIDFromContext(r.Context())))
+		return
+	}
+	if req.Key == "" || req.Value == "" {
+		s.writeError(w, http.StatusBadRequest, api.NewRequestError("MISSING_FIELDS", "key and value are required", requestIDFromContext(r.Context())))
+		return
+	}
+	if req.Confidence == 0 {
+		req.Confidence = 0.7
+	}
+	fact := memory.MemoryFact{Key: req.Key, Value: req.Value, Source: req.Source, Confidence: req.Confidence}
+	if err := mem.StoreFact(fact); err != nil {
+		s.writeError(w, http.StatusInternalServerError, api.NewRuntimeError("MEMORY_FACT_CREATE_ERROR", "failed to store fact: "+err.Error(), requestIDFromContext(r.Context())))
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]interface{}{"status": "ok", "fact": fact})
 }
 
 // writeJSON is a helper to write a JSON response.
@@ -128,9 +162,4 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
-}
-
-// writeJSONError is a helper to write a JSON error response.
-func writeJSONError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
 }

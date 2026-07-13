@@ -13,19 +13,19 @@ import (
 
 // Input is the Tool Engine request.
 type Input struct {
-	Messages       []api.Message
-	Tools          []api.Tool
-	ToolChoice     interface{}
-	ModelProfile   *profiles.Profile
-	RuntimeMode    string
+	Messages     []api.Message
+	Tools        []api.Tool
+	ToolChoice   interface{}
+	ModelProfile *profiles.Profile
+	RuntimeMode  string
 }
 
 // Output is the Tool Engine result.
 type Output struct {
-	FinalMessages      []api.Message
-	ToolSchemaHint     string
+	FinalMessages        []api.Message
+	ToolSchemaHint       string
 	InstructionsInjected bool
-	Warnings           []string
+	Warnings             []string
 }
 
 // Engine converts native tool requests into model-friendly prompt instructions.

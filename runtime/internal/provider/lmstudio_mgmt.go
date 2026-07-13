@@ -60,22 +60,22 @@ func (l *LMStudioAdapter) mgmtAPIPath(suffix string) string {
 
 // LMStudioLoadRequest is the POST /api/v1/models/load body.
 type LMStudioLoadRequest struct {
-	Model             string `json:"model"`
-	ContextLength     *int   `json:"context_length,omitempty"`
-	FlashAttention    *bool  `json:"flash_attention,omitempty"`
-	OffloadKVCache    *bool  `json:"offload_kv_cache_to_gpu,omitempty"`
-	EvalBatchSize     *int   `json:"eval_batch_size,omitempty"`
-	NumExperts        *int   `json:"num_experts,omitempty"`
-	EchoLoadConfig    bool   `json:"echo_load_config,omitempty"`
+	Model          string `json:"model"`
+	ContextLength  *int   `json:"context_length,omitempty"`
+	FlashAttention *bool  `json:"flash_attention,omitempty"`
+	OffloadKVCache *bool  `json:"offload_kv_cache_to_gpu,omitempty"`
+	EvalBatchSize  *int   `json:"eval_batch_size,omitempty"`
+	NumExperts     *int   `json:"num_experts,omitempty"`
+	EchoLoadConfig bool   `json:"echo_load_config,omitempty"`
 }
 
 // LMStudioLoadResponse is the response from POST /api/v1/models/load.
 type LMStudioLoadResponse struct {
-	Type            string                  `json:"type"`
-	InstanceID      string                  `json:"instance_id"`
-	LoadTimeSeconds float64                 `json:"load_time_seconds"`
-	Status          string                  `json:"status"`
-	LoadConfig      *LMStudioLoadedConfig   `json:"load_config,omitempty"`
+	Type            string                `json:"type"`
+	InstanceID      string                `json:"instance_id"`
+	LoadTimeSeconds float64               `json:"load_time_seconds"`
+	Status          string                `json:"status"`
+	LoadConfig      *LMStudioLoadedConfig `json:"load_config,omitempty"`
 }
 
 // LMStudioLoadedConfig echoes the final config applied to the loaded model.
@@ -99,10 +99,10 @@ type LMStudioUnloadResponse struct {
 
 // LMStudioModelEntry is one entry from GET /api/v1/models.
 type LMStudioModelEntry struct {
-	Model  string `json:"model"`
-	Type   string `json:"type,omitempty"`
-	Path   string `json:"path,omitempty"`
-	Size   string `json:"size,omitempty"`
+	Model string `json:"model"`
+	Type  string `json:"type,omitempty"`
+	Path  string `json:"path,omitempty"`
+	Size  string `json:"size,omitempty"`
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -76,21 +76,21 @@ type RetryRecord struct {
 // Agentic Coding Router. It is populated by the router classifier and consumed
 // by the rule engine to select the optimal model for each agent step.
 type CodingTaskProfile struct {
-	Difficulty int    `json:"difficulty"` // 1-5 (trivial, simple, moderate, complex, novel)
-	TaskType   string `json:"task_type,omitempty"`
-	FileCount  int    `json:"file_count,omitempty"`
-	HasTraceback bool `json:"has_traceback,omitempty"`
-	StepCount  int    `json:"step_count,omitempty"`
+	Difficulty   int    `json:"difficulty"` // 1-5 (trivial, simple, moderate, complex, novel)
+	TaskType     string `json:"task_type,omitempty"`
+	FileCount    int    `json:"file_count,omitempty"`
+	HasTraceback bool   `json:"has_traceback,omitempty"`
+	StepCount    int    `json:"step_count,omitempty"`
 }
 
 // CodingRoute records the routing decision made by the Agentic Coding Router.
 // It is re-evaluated each agent step.
 type CodingRoute struct {
-	Profile          *CodingTaskProfile `json:"coding_task_profile,omitempty"`
-	SelectedModel    string             `json:"selected_model,omitempty"`
-	Preference       string             `json:"preference,omitempty"` // best_coding, fastest, best_combo, largest_context
-	Reason           string             `json:"reason,omitempty"`
-	EvaluationCount  int                `json:"evaluation_count"`
+	Profile         *CodingTaskProfile `json:"coding_task_profile,omitempty"`
+	SelectedModel   string             `json:"selected_model,omitempty"`
+	Preference      string             `json:"preference,omitempty"` // best_coding, fastest, best_combo, largest_context
+	Reason          string             `json:"reason,omitempty"`
+	EvaluationCount int                `json:"evaluation_count"`
 }
 
 // Context is the single source of truth during one chat completion request.
@@ -134,13 +134,13 @@ type Context struct {
 	CodingRoute *CodingRoute `json:"coding_route,omitempty"`
 
 	// Streaming state.
-	StreamBuffer          string `json:"stream_buffer,omitempty"`
-	StreamingValidation   bool   `json:"streaming_validation,omitempty"`
-	StreamingTokenCount   int    `json:"streaming_token_count,omitempty"`
+	StreamBuffer        string `json:"stream_buffer,omitempty"`
+	StreamingValidation bool   `json:"streaming_validation,omitempty"`
+	StreamingTokenCount int    `json:"streaming_token_count,omitempty"`
 
 	// Memory engine state — injected facts, episode summaries, model fit.
-	InjectedMemory string            `json:"injected_memory,omitempty"`
-	MemoryFacts    []MemoryFactRef   `json:"memory_facts,omitempty"`
+	InjectedMemory string          `json:"injected_memory,omitempty"`
+	MemoryFacts    []MemoryFactRef `json:"memory_facts,omitempty"`
 
 	// Tool-calling shim state for models with tool_calling: weak.
 	OriginalTools    []api.Tool `json:"original_tools,omitempty"`
@@ -149,17 +149,17 @@ type Context struct {
 	ToolShimActive   bool       `json:"tool_shim_active"`
 
 	// Managed thinking state.
-	ThinkingMode             string `json:"thinking_mode,omitempty"`
-	ThinkingDecisionReason   string `json:"thinking_decision_reason,omitempty"`
-	ThinkingOutputBudget   int    `json:"thinking_output_budget,omitempty"`
-	ThinkingReasoningBudget int   `json:"thinking_reasoning_budget,omitempty"`
+	ThinkingMode            string `json:"thinking_mode,omitempty"`
+	ThinkingDecisionReason  string `json:"thinking_decision_reason,omitempty"`
+	ThinkingOutputBudget    int    `json:"thinking_output_budget,omitempty"`
+	ThinkingReasoningBudget int    `json:"thinking_reasoning_budget,omitempty"`
 	ReasoningContentPresent bool   `json:"reasoning_content_present,omitempty"`
 	ReasoningLength         int    `json:"reasoning_length,omitempty"`
 
 	// Instruction-following assist state.
-	InstructionConstraints   []instruction.Constraint `json:"instruction_constraints,omitempty"`
-	InstructionHintInjected  bool                     `json:"instruction_hint_injected"`
-	InstructionRetryCount    int                       `json:"instruction_retry_count"`
+	InstructionConstraints  []instruction.Constraint `json:"instruction_constraints,omitempty"`
+	InstructionHintInjected bool                     `json:"instruction_hint_injected"`
+	InstructionRetryCount   int                      `json:"instruction_retry_count"`
 
 	// Agent mode governance state.
 	StepCount              int      `json:"step_count,omitempty"`

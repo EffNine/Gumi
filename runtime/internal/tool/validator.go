@@ -10,15 +10,15 @@ import (
 
 // ValidationIssue describes a problem with a tool call.
 type ValidationIssue struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code     string       `json:"code"`
+	Message  string       `json:"message"`
 	ToolCall api.ToolCall `json:"tool_call"`
 }
 
 // ValidationReport is the result of checking parsed tool calls.
 type ValidationReport struct {
-	Valid   bool              `json:"valid"`
-	Issues  []ValidationIssue `json:"issues,omitempty"`
+	Valid  bool              `json:"valid"`
+	Issues []ValidationIssue `json:"issues,omitempty"`
 }
 
 // ValidateToolCalls checks that every tool call references a known tool and

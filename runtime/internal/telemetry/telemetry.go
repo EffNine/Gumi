@@ -239,13 +239,13 @@ func (w *Writer) RecordPipelineEvents(ctx context.Context, events []PipelineEven
 // ValidationReportRecord is the telemetry projection of a validation report.
 // It avoids importing the validation package directly to prevent cycles.
 type ValidationReportRecord struct {
-	RequestID                  string
-	Passed                     bool
-	Severity                   string
-	Repairable                 bool
-	SuggestedRepairStrategy    string
-	Issues                     []ValidationIssueRecord
-	Metadata                   map[string]string
+	RequestID               string
+	Passed                  bool
+	Severity                string
+	Repairable              bool
+	SuggestedRepairStrategy string
+	Issues                  []ValidationIssueRecord
+	Metadata                map[string]string
 }
 
 // ValidationIssueRecord is the telemetry projection of a validation issue.
@@ -292,13 +292,13 @@ func (w *Writer) RecordValidationReport(ctx context.Context, r ValidationReportR
 
 // RepairReportRecord is the telemetry projection of a repair report.
 type RepairReportRecord struct {
-	RequestID        string
-	Attempted        bool
-	Success          bool
-	Strategy         string
-	RetryRequested   bool
-	ChangesApplied   int
-	RemainingIssues  int
+	RequestID       string
+	Attempted       bool
+	Success         bool
+	Strategy        string
+	RetryRequested  bool
+	ChangesApplied  int
+	RemainingIssues int
 }
 
 // RecordRepairReport persists a repair report to the repair_reports table.
