@@ -1,9 +1,23 @@
+<div align="center">
+
 # Novexa
 
-**Intelligence Runtime for Local AI**
+### Intelligence Runtime for Local AI
 
-Run local models with a cleaner OpenAI-compatible API, validated model profiles,
-provider-specific fixes, telemetry, and reliability guardrails.
+**Novexa is an intelligence runtime that makes local AI models more stable,
+reliable, and production-ready.**
+
+[![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![CI](https://github.com/EffNine/Novexa/actions/workflows/ci.yml/badge.svg)](https://github.com/EffNine/Novexa/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/EffNine/Novexa?include_prereleases&label=release)](https://github.com/EffNine/Novexa/releases)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/EffNine/Novexa?style=social)](https://github.com/EffNine/Novexa/stargazers)
+
+[Quick start](#get-started) · [Benchmarks](#benchmarks) · [Docs](./docs/) · [Integrations](./docs/integrations/README.md) · [Changelog](./CHANGELOG.md)
+
+</div>
+
+---
 
 Novexa sits between your app and your local inference server:
 
@@ -20,6 +34,116 @@ Local model
 
 Novexa is not a model, chatbot, or hosted cloud gateway. It is the runtime layer
 around local AI.
+
+---
+
+## Quick demo
+
+Start Novexa and point any OpenAI-compatible client at it — that's it.
+
+```bash
+# Build and start
+make build
+./novexa start
+
+# Any OpenAI SDK / cURL works out of the box
+curl http://127.0.0.1:8787/v1/chat/completions \
+  -H "Authorization: Bearer novexa-local" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "lmstudio:qwen2.5-coder-7b-instruct",
+    "messages": [{"role": "user", "content": "Write a Go function that adds two ints. Code only."}]
+  }'
+```
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://127.0.0.1:8787/v1", api_key="novexa-local")
+print(client.chat.completions.create(
+    model="lmstudio:qwen2.5-coder-7b-instruct",
+    messages=[{"role": "user", "content": "Write a tiny TypeScript add function."}],
+).choices[0].message.content)
+```
+
+Dashboard: **http://127.0.0.1:8788**
+
+<!-- A demo GIF will go here once recorded. -->
+
+![Novexa quick demo](./docs/assets/novexa-demo.gif)
+
+---
+
+## Key metrics
+
+Benchmarked on Ornith 9B and Qwen 3.5 9B via LM Studio.
+Full report: [`benchmarks/reports/SUMMARY-20260712.md`](benchmarks/reports/SUMMARY-20260712.md).
+
+| Metric | Direct (no Novexa) | Novexa | Change |
+|---|---|---|---|
+| JSON validity (agentic) | 0% | **100%** | +100% |
+| JSON + required keys | 0% | **100%** | +100% |
+| Tool-call accuracy | 100% | 100% | maintained |
+| Latency p50 (JSON) | 2,949 ms | **352 ms** | **8.4× faster** |
+| HTTP errors | ~50% | **0%** | eliminated |
+| Repetition false positives | 113 | **0** | eliminated |
+| Instruction following (structured) | 67% | **100%** | +33% |
+
+These per-turn gains compound across multi-turn agent loops (30+ turns),
+where a single broken JSON response can stall the entire run.
+
+---
+
+## Who is this for?
+
+- **OpenCode / Continue / Cline users** — You run a coding agent on a local
+  model and hit broken JSON, repeated output, or empty responses. Point your
+  client at Novexa instead of the raw provider and those failure modes
+  disappear.
+- **Ollama / LM Studio users** — You like local inference but the model is
+  rough in real apps. Novexa adds JSON repair, instruction-following assist,
+  anti-loop guards, and telemetry without replacing your model.
+- **Local AI app builders** — You're building on top of local models and need
+  an OpenAI-compatible reliability layer with model routing, memory, and
+  provider-specific fixes. Novexa is that layer.
+
+---
+
+## What makes Novexa different?
+
+| | Novexa | Raw Ollama / LM Studio | Cloud gateways |
+|---|---|---|---|
+| Runs locally (no data leaves your machine) | ✅ | ✅ | ❌ |
+| OpenAI-compatible drop-in | ✅ | partial | ✅ |
+| JSON validation + repair | ✅ | ❌ | varies |
+| Instruction-following assist | ✅ | ❌ | ❌ |
+| Per-step model routing (agent) | ✅ | ❌ | ❌ |
+| Persistent cross-model memory | ✅ | ❌ | ❌ |
+| Provider-specific quirk fixes | ✅ | ❌ | ❌ |
+| Local telemetry dashboard | ✅ | ❌ | ✅ |
+| Local-first, no cloud dependency | ✅ | ✅ | ❌ |
+
+Novexa improves the **layer around the model** instead of replacing the model.
+It is not an agent framework, a model, or a hosted cloud gateway — it is the
+runtime that makes whatever model you already run behave reliably.
+
+---
+
+## Screenshots
+
+> The Novexa dashboard runs at `http://127.0.0.1:8788` and shows request
+> metadata, provider status, telemetry, and diagnostics. Full prompts and
+> responses are hidden by default.
+
+<!-- Replace the placeholders below with real screenshots once captured. -->
+
+| Dashboard overview | Provider status |
+|---|---|
+| ![Dashboard overview](./docs/assets/dashboard-overview.png) | ![Provider status](./docs/assets/dashboard-providers.png) |
+
+| Request telemetry | Doctor diagnostics |
+|---|---|
+| ![Request telemetry](./docs/assets/dashboard-telemetry.png) | ![Doctor diagnostics](./docs/assets/dashboard-doctor.png) |
 
 ---
 
@@ -73,12 +197,12 @@ Or download a pre-built archive from
 ### Docker
 
 ```bash
-docker build -t novexa:0.1.0-alpha .
+docker build -t novexa:0.2.0-alpha .
 docker run -d --name novexa \
   -p 127.0.0.1:8787:8787 \
   -p 127.0.0.1:8788:8788 \
   -v novexa-data:/data \
-  novexa:0.1.0-alpha
+  novexa:0.2.0-alpha
 ```
 
 The runtime stores telemetry at `/data/.novexa/novexa.db` on a persistent Docker
@@ -653,7 +777,7 @@ responses unless explicitly configured. It does not send external telemetry.
 
 ## Alpha Limitations
 
-Novexa `0.1.0-alpha` is usable, but not feature-complete:
+Novexa `0.2.0-alpha` is usable, but not feature-complete:
 
 - Continue tab autocomplete should use LM Studio directly for now.
 - Dockerfile exists, but Docker image verification may vary by host.
@@ -685,6 +809,34 @@ Novexa follows these rules:
 6. Do not store prompts or responses by default.
 7. Do not send external telemetry by default.
 8. Benchmark before tuning model profiles.
+
+---
+
+## Contributing
+
+Contributions are welcome! Novexa is local-first and runtime-only — please
+read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR to understand the
+core rules (no cloud providers in V1, no billing, keep provider adapters thin,
+don't bypass the Pipeline Engine).
+
+Quick start for contributors:
+
+```bash
+make test    # go test ./runtime/...
+make vet     # go vet ./runtime/...
+make dashboard  # build the React dashboard
+make build   # build the runtime binary
+```
+
+Use the [bug report](.github/ISSUE_TEMPLATE/bug_report.md) and
+[feature request](.github/ISSUE_TEMPLATE/feature_request.md) templates when
+opening issues.
+
+---
+
+## Star history
+
+[![Star History Chart](https://api.star-history.com/svg?repos=EffNine/Novexa&type=Date)](https://star-history.com/#EffNine/Novexa&Date)
 
 ---
 
