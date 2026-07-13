@@ -138,6 +138,10 @@ type Context struct {
 	StreamingValidation   bool   `json:"streaming_validation,omitempty"`
 	StreamingTokenCount   int    `json:"streaming_token_count,omitempty"`
 
+	// Memory engine state — injected facts, episode summaries, model fit.
+	InjectedMemory string            `json:"injected_memory,omitempty"`
+	MemoryFacts    []MemoryFactRef   `json:"memory_facts,omitempty"`
+
 	// Tool-calling shim state for models with tool_calling: weak.
 	OriginalTools    []api.Tool `json:"original_tools,omitempty"`
 	ToolInstructions string     `json:"tool_instructions,omitempty"`
@@ -195,6 +199,15 @@ type ThinkingTelemetry struct {
 	ReasoningLength         int    `json:"reasoning_length,omitempty"`
 	OutputTokenBudget       int    `json:"output_token_budget,omitempty"`
 	ReasoningTokenBudget    int    `json:"reasoning_token_budget,omitempty"`
+}
+
+// MemoryFactRef is a lightweight reference to a stored memory fact, used
+// in pipeline context to track what was injected.
+type MemoryFactRef struct {
+	Key        string  `json:"key"`
+	Value      string  `json:"value"`
+	Confidence float64 `json:"confidence"`
+	Source     string  `json:"source,omitempty"`
 }
 
 // AddEvent appends a pipeline event to the context.

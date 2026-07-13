@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	guardengine "github.com/novexa/novexa/runtime/internal/guard"
 	instructionengine "github.com/novexa/novexa/runtime/internal/instruction"
 	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/novexa/novexa/runtime/internal/memory"
 	"github.com/novexa/novexa/runtime/internal/profiles"
 	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
 	"github.com/novexa/novexa/runtime/internal/provider"
@@ -49,6 +52,7 @@ type Engine struct {
 	codingRouter       *router.CodingRuleEngine
 	codingRegistry     *router.CodingModelRegistry
 	codingClassifier   *router.CodingTaskClassifier
+	memoryEngine       *memory.MemoryEngine
 }
 
 // Result is returned to Gateway Engine after pipeline execution.
@@ -86,10 +90,29 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 		codingClassifier = router.NewCodingTaskClassifier()
 	}
 
+	// Initialize memory engine if enabled.
+	var memEngine *memory.MemoryEngine
+	if cfg.Memory.Enabled {
+		dbPath := cfg.Memory.DBPath
+		if dbPath == "" {
+			home, err := os.UserHomeDir()
+			if err == nil {
+				dbPath = filepath.Join(home, ".novexa", "memory.db")
+			}
+		}
+		var err error
+		memEngine, err = memory.New(&cfg.Memory, dbPath)
+		if err != nil {
+			log.Info("memory engine initialization skipped", "error", err)
+			memEngine = nil
+		}
+	}
+
 	return &Engine{
 		cfg:               cfg,
 		manager:           manager,
 		log:               log,
+		memoryEngine:      memEngine,
 		contextEngine:     contextengine.New(),
 		promptEngine:      promptengine.New(),
 		guardEngine:       guardengine.New(),
@@ -130,6 +153,11 @@ func buildProviderModelMap(manager *provider.Manager) map[string][]string {
 // will simply skip telemetry recording.
 func (e *Engine) SetTelemetry(t *telemetry.Writer) {
 	e.telemetry = t
+}
+
+// MemoryEngine returns the memory engine, or nil if memory is disabled.
+func (e *Engine) MemoryEngine() *memory.MemoryEngine {
+	return e.memoryEngine
 }
 
 // RunChatCompletion executes a normalized chat completion request.
@@ -583,13 +611,18 @@ func (e *Engine) runStabilized(ctx context.Context, pc *Context) Result {
 	}
 	e.applyProfileDefaults(pc, &pc.NormalizedRequest)
 	e.applyThinkingPolicy(pc)
+	e.prepareMemory(pc)
 	e.prepareContext(pc)
 	e.buildPrompt(pc)
 	e.applyInstructionAssist(pc)
 	if result := e.applyGuard(pc); result.Error.Code != "" {
 		return result
 	}
-	return e.callProviderGenerate(ctx, pc)
+	result := e.callProviderGenerate(ctx, pc)
+	if result.Error.Code == "" {
+		e.extractMemory(pc)
+	}
+	return result
 }
 
 // runAgent implements the agent mode pipeline for non-streaming requests.
@@ -611,6 +644,9 @@ func (e *Engine) runAgent(ctx context.Context, pc *Context) Result {
 	pc.AgentMode = true
 	e.applyThinkingPolicy(pc)
 
+	// Memory injection: prepare relevant facts before context building.
+	e.prepareMemory(pc)
+
 	// Agent guard: step budget + tool-call loop detection.
 	// Run BEFORE prepareContext/buildPrompt so we check the original messages.
 	if result := e.applyAgentGuard(pc); result.Error.Code != "" {
@@ -631,6 +667,9 @@ func (e *Engine) runAgent(ctx context.Context, pc *Context) Result {
 
 	// Agent post-processing: strip reasoning, normalize tools, validate tool-call JSON.
 	e.agentPostProcess(pc)
+
+	// Memory extraction: store facts, update model fit, record episode.
+	e.extractMemory(pc)
 
 	pc.AddEvent("pipeline", "agent_completed", SeverityInfo, "agent mode pipeline completed", map[string]string{
 		"step_count": fmt.Sprintf("%d", pc.StepCount),
@@ -658,6 +697,9 @@ func (e *Engine) runStreamAgent(ctx context.Context, pc *Context, out chan<- api
 	pc.AgentMode = true
 	e.applyThinkingPolicy(pc)
 
+	// Memory injection for streaming agent.
+	e.prepareMemory(pc)
+
 	// Agent guard: step budget + tool-call loop detection.
 	// Run BEFORE prepareContext/buildPrompt so we check the original messages.
 	if result := e.applyAgentGuard(pc); result.Error.Code != "" {
@@ -678,6 +720,9 @@ func (e *Engine) runStreamAgent(ctx context.Context, pc *Context, out chan<- api
 
 	// Post-hoc tool-call validation on accumulated stream buffer.
 	e.agentPostProcessStream(pc)
+
+	// Memory extraction for streaming agent.
+	e.extractMemory(pc)
 
 	pc.AddEvent("pipeline", "streaming_agent_completed", SeverityInfo, "agent mode streaming pipeline completed", map[string]string{
 		"step_count": fmt.Sprintf("%d", pc.StepCount),
@@ -1164,6 +1209,196 @@ func (e *Engine) applyModelManagement(ctx context.Context, pc *Context) error {
 	}
 
 	return nil
+}
+
+// prepareMemory injects relevant memory facts into the context before
+// prompt building. It is called after resolveProviderAndProfile.
+// If the memory engine is not available or memory is disabled, this is a no-op.
+func (e *Engine) prepareMemory(pc *Context) {
+	if e.memoryEngine == nil || pc.SessionID == "" {
+		return
+	}
+
+	// Build the request text for relevance scoring.
+	var requestText string
+	for _, msg := range pc.NormalizedRequest.Messages {
+		if s, ok := msg.Content.(string); ok {
+			requestText += s + " "
+		}
+	}
+
+	// Select relevant facts.
+	facts := e.memoryEngine.SelectRelevantFacts(requestText, e.cfg.Memory.MaxInjectedFacts)
+	if len(facts) == 0 {
+		return
+	}
+
+	// Get episode summary for the current session.
+	episodeSummary, _ := e.memoryEngine.SummarizeEpisodes(pc.SessionID, e.cfg.Memory.MaxEpisodesPerSession)
+
+	// Get model fit data if routing is active.
+	var fitData []memory.ModelFitEntry
+	if pc.CodingRoute != nil {
+		fitData, _ = e.memoryEngine.ListModelFit()
+	}
+
+	// Format the memory block.
+	memoryBlock := e.memoryEngine.FormatInjection(
+		context.Background(),
+		facts,
+		episodeSummary,
+		fitData,
+		e.cfg.Memory.InjectionBudgetTokens,
+	)
+
+	if memoryBlock == "" {
+		return
+	}
+
+	pc.InjectedMemory = memoryBlock
+
+	// Inject memory as a prepended system message so it flows through
+	// prepareContext → buildPrompt naturally.
+	pc.NormalizedRequest.Messages = append([]api.Message{{
+		Role:    "system",
+		Content: memoryBlock,
+	}}, pc.NormalizedRequest.Messages...)
+
+	// Track injected facts as references for telemetry.
+	for _, f := range facts {
+		pc.MemoryFacts = append(pc.MemoryFacts, MemoryFactRef{
+			Key:        f.Key,
+			Value:      f.Value,
+			Confidence: f.Confidence,
+			Source:     f.Source,
+		})
+	}
+
+	pc.AddEvent("memory", "memory_injected", SeverityInfo, "injected memory into context", map[string]string{
+		"fact_count": fmt.Sprintf("%d", len(facts)),
+		"tokens":     fmt.Sprintf("%d", estimateTokens(memoryBlock)),
+	})
+}
+
+// extractMemory processes the provider response to extract facts and update
+// model fit data. It is called after callProviderGenerate.
+func (e *Engine) extractMemory(pc *Context) {
+	if e.memoryEngine == nil || pc.SessionID == "" || pc.ProviderResponse == nil {
+		return
+	}
+
+	// Extract facts from the response.
+	if e.cfg.Memory.ExtractEnabled {
+		facts := e.memoryEngine.ExtractFactsFromResponse(
+			pc.NormalizedRequest,
+			pc.ProviderResponse,
+			pc.SessionID,
+		)
+		for _, fact := range facts {
+			if fact.Confidence >= e.cfg.Memory.MinConfidence {
+				if err := e.memoryEngine.StoreFact(fact); err != nil {
+					e.log.Info("failed to store extracted fact", "error", err)
+				}
+			}
+		}
+		if len(facts) > 0 {
+			pc.AddEvent("memory", "facts_extracted", SeverityInfo, "extracted facts from response", map[string]string{
+				"fact_count": fmt.Sprintf("%d", len(facts)),
+			})
+		}
+	}
+
+	// Update model fit if routing is active.
+	if e.cfg.Memory.TrackModelFit && pc.CodingRoute != nil && pc.CodingRoute.Profile != nil {
+		success := pc.ValidationPassed && !pc.LoopDetected && pc.ProviderError == nil
+		e.memoryEngine.RecordOutcome(
+			pc.SelectedModel,
+			pc.CodingRoute.Profile.Difficulty,
+			pc.CodingRoute.Profile.TaskType,
+			success,
+			pc.ProviderLatency.Milliseconds(),
+			pc.Retry.Attempt,
+		)
+		pc.AddEvent("memory", "model_fit_updated", SeverityInfo, "recorded model performance", map[string]string{
+			"model":      pc.SelectedModel,
+			"difficulty": fmt.Sprintf("%d", pc.CodingRoute.Profile.Difficulty),
+			"task_type":  pc.CodingRoute.Profile.TaskType,
+			"success":    fmt.Sprintf("%t", success),
+		})
+	}
+
+	// Store the current step as an episode.
+	if pc.CodingRoute != nil && pc.CodingRoute.Profile != nil {
+		summary := buildEpisodeSummary(pc)
+		ep := memory.MemoryEpisode{
+			SessionID:         pc.SessionID,
+			Step:              pc.StepCount,
+			Task:              pc.CodingRoute.Profile.TaskType,
+			Difficulty:        pc.CodingRoute.Profile.Difficulty,
+			ModelUsed:         pc.SelectedModel,
+			Outcome:           episodeOutcome(pc),
+			Retries:           pc.Retry.Attempt,
+			LatencyMs:         pc.ProviderLatency.Milliseconds(),
+			TokensUsed:        estimateTotalTokens(pc),
+			CompressedSummary: summary,
+		}
+		if err := e.memoryEngine.StoreEpisode(ep); err != nil {
+			e.log.Info("failed to store episode", "error", err)
+		}
+	}
+}
+
+// buildEpisodeSummary creates a compressed summary of the current step.
+func buildEpisodeSummary(pc *Context) string {
+	if pc.ProviderResponse == nil || len(pc.ProviderResponse.Choices) == 0 {
+		return "unknown step"
+	}
+	content, ok := pc.ProviderResponse.Choices[0].Message.Content.(string)
+	if !ok {
+		return "unknown step"
+	}
+	if len(content) > 120 {
+		content = content[:117] + "..."
+	}
+	return strings.TrimSpace(content)
+}
+
+// episodeOutcome determines the outcome string for an episode.
+func episodeOutcome(pc *Context) string {
+	if pc.ProviderError != nil {
+		return "error"
+	}
+	if pc.LoopDetected {
+		return "loop_detected"
+	}
+	if pc.RepairApplied {
+		return "repaired"
+	}
+	if pc.ValidationPassed {
+		return "success"
+	}
+	return "failed_validation"
+}
+
+// estimateTotalTokens is a rough token estimate for the current step.
+func estimateTotalTokens(pc *Context) int {
+	tokens := 0
+	for _, msg := range pc.NormalizedRequest.Messages {
+		if s, ok := msg.Content.(string); ok {
+			tokens += estimateTokens(s)
+		}
+	}
+	if pc.ProviderResponse != nil && len(pc.ProviderResponse.Choices) > 0 {
+		if s, ok := pc.ProviderResponse.Choices[0].Message.Content.(string); ok {
+			tokens += estimateTokens(s)
+		}
+	}
+	return tokens
+}
+
+// estimateTokens is a rough token estimator (4 chars per token).
+func estimateTokens(s string) int {
+	return (len(s) + 3) / 4
 }
 
 // prepareToolShim enables prompt-based tool calling for models whose profile

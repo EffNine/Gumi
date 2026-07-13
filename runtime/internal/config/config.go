@@ -28,6 +28,24 @@ type Config struct {
 	Storage   StorageConfig               `json:"storage" yaml:"storage"`
 	Telemetry TelemetryConfig             `json:"telemetry" yaml:"telemetry"`
 	Routing   RoutingConfig               `json:"routing" yaml:"routing"`
+	Memory    MemoryConfig                `json:"memory" yaml:"memory"`
+}
+
+// MemoryConfig controls the zero-VRAM memory engine for agentic coding.
+type MemoryConfig struct {
+	Enabled               bool    `json:"enabled" yaml:"enabled"`
+	Engine                string  `json:"engine" yaml:"engine"`
+	DBPath                string  `json:"db_path" yaml:"db_path"`
+	MaxFacts              int     `json:"max_facts" yaml:"max_facts"`
+	MaxEpisodesPerSession int     `json:"max_episodes_per_session" yaml:"max_episodes_per_session"`
+	ModelFitRetentionDays int     `json:"model_fit_retention_days" yaml:"model_fit_retention_days"`
+	InjectionBudgetTokens int     `json:"injection_budget_tokens" yaml:"injection_budget_tokens"`
+	MinConfidence         float64 `json:"min_confidence" yaml:"min_confidence"`
+	MaxInjectedFacts      int     `json:"max_injected_facts" yaml:"max_injected_facts"`
+	ExtractEnabled        bool    `json:"extract_enabled" yaml:"extract_enabled"`
+	MinObservationCount   int     `json:"min_observation_count" yaml:"min_observation_count"`
+	TrackModelFit         bool    `json:"track_model_fit" yaml:"track_model_fit"`
+	ModelFitDecay         float64 `json:"model_fit_decay" yaml:"model_fit_decay"`
 }
 
 // RuntimeConfig controls the core API server behaviour.
@@ -177,10 +195,27 @@ func DefaultConfig() *Config {
 			LogPrompts:   false,
 			LogResponses: false,
 			RetainDays:   14,
-		},		Routing: RoutingConfig{
+		},
+		Routing: RoutingConfig{
 			Enabled: false, // Opt-in in V1
 			Mode:    "agentic_coding",
-		},	}
+		},
+		Memory: MemoryConfig{
+			Enabled:               false,  // Opt-in in V1
+			Engine:                "sqlite",
+			DBPath:                "",
+			MaxFacts:              10000,
+			MaxEpisodesPerSession: 500,
+			ModelFitRetentionDays: 90,
+			InjectionBudgetTokens: 1200,
+			MinConfidence:         0.3,
+			MaxInjectedFacts:      20,
+			ExtractEnabled:        true,
+			MinObservationCount:   2,
+			TrackModelFit:         true,
+			ModelFitDecay:         0.95,
+		},
+	}
 }
 
 // Load returns the runtime configuration.

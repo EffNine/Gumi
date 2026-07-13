@@ -15,6 +15,10 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/novexa/config", s.withAuthMiddleware(s.handleConfig))
 	mux.HandleFunc("GET /v1/novexa/doctor", s.withAuthMiddleware(s.handleDoctor))
 	mux.HandleFunc("GET /v1/novexa/profiles", s.withAuthMiddleware(s.handleProfiles))
+	mux.HandleFunc("GET /v1/novexa/memory/facts", s.withAuthMiddleware(s.handleMemoryFacts))
+	mux.HandleFunc("GET /v1/novexa/memory/model-fit", s.withAuthMiddleware(s.handleMemoryModelFit))
+	mux.HandleFunc("POST /v1/novexa/memory/clear", s.withAuthMiddleware(s.handleMemoryClear))
+	mux.HandleFunc("GET /v1/novexa/memory/status", s.withAuthMiddleware(s.handleMemoryStatus))
 }
 
 // withPublicMiddleware applies logging and request-ID middleware without auth.

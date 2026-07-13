@@ -33,6 +33,14 @@ type NovexaExtensions struct {
 	Telemetry  *TelemetryExtension `json:"telemetry,omitempty"`
 	Thinking   *ThinkingConfig     `json:"thinking,omitempty"`
 	Routing    *RoutingExtensions  `json:"routing,omitempty"`
+	Memory     *MemoryExtension    `json:"memory,omitempty"`
+}
+
+// MemoryExtension holds per-request overrides for the Memory Engine.
+type MemoryExtension struct {
+	EnableInjection  *bool `json:"enable_injection,omitempty"`
+	MaxInjectedFacts *int  `json:"max_injected_facts,omitempty"`
+	ResetSession     *bool `json:"reset_session,omitempty"`
 }
 
 // RoutingExtensions holds per-request overrides for the Agentic Coding Router.

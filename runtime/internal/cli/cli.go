@@ -61,6 +61,8 @@ func Execute() {
 		os.Exit(1)
 	case "lmstudio":
 		runLMStudio(os.Args[2:])
+	case "memory":
+		runMemory(os.Args[2:])
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -86,6 +88,7 @@ func printUsage() {
 	fmt.Println("  novexa benchmark [--json]")
 	fmt.Println("  novexa logs [--tail int]")
 	fmt.Println("  novexa lmstudio [status|load|unload|models] [flags]")
+	fmt.Println("  novexa memory [status|facts|clear] [flags]")
 	fmt.Println()
 	fmt.Println("Flags for start and restart:")
 	fmt.Println("  --config string         Path to configuration file")
