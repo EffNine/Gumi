@@ -1,0 +1,97 @@
+suite:
+  id: instruction-hard
+  category: instruction
+  tier: hard
+  description: "Instruction following with 6-7 simultaneous constraints"
+  target_direct_score: "0.20-0.50"
+  model_profiles: [medium, frontier]
+  attempts_recommended: 5
+  tests:
+    - id: inst-hard-01
+      difficulty: hard
+      description: "7 constraints: 6 sentences, JSON, no 'the', capital starts, end with done, no commas, min 300 chars"
+      prompt: |
+        Write exactly 6 sentences about space exploration. Return as valid JSON with key "response" and a string value.
+        Do not use the word "the". Each sentence must start with a capital letter.
+        End with the word "done". Do not use any commas. Your response must be at least 300 characters.
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: sentence_count
+          operator: eq
+          value: 6
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "done"
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: min_chars
+          operator: gte
+          value: 300
+
+    - id: inst-hard-02
+      difficulty: hard
+      description: "8 bullet points each exactly 15 words, no markdown, capital start, end with scale"
+      prompt: |
+        Write 8 bullet points about the future of renewable energy.
+        Each bullet point must be exactly 15 words. Use dash bullets.
+        Do not use markdown fences. Start each bullet with a capital letter.
+        End the entire response with the word "scale".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: dash_bullets
+          operator: eq
+          value: true
+        - field: line_count
+          operator: eq
+          value: 8
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "scale"
+
+    - id: inst-hard-03
+      difficulty: hard
+      description: "3 paragraphs each 4 sentences, no very, no commas, no markdown, end with complete, min 500 chars"
+      prompt: |
+        Write 3 paragraphs about the history of computing.
+        Each paragraph must be exactly 4 sentences.
+        Do not use the word "very". Do not use any commas.
+        Do not use markdown fences. End with the word "complete".
+        Your response must be at least 500 characters.
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: line_count
+          operator: eq
+          value: 3
+        - field: forbidden_words
+          operator: not_contains
+          value: ["very"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "complete"
+        - field: min_chars
+          operator: gte
+          value: 500

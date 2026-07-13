@@ -1,0 +1,40 @@
+suite:
+  id: repetition-hard
+  category: repetition
+  tier: hard
+  description: "Repetition resistance — rephrasing with minimum edit distance"
+  target_direct_score: "0.20-0.50"
+  model_profiles: [medium, frontier]
+  attempts_recommended: 5
+  tests:
+    - id: rep-hard-01
+      difficulty: hard
+      description: "Generate 10 unique customer records with all distinct values"
+      prompt: |
+        Generate 10 unique customer records as a JSON array.
+        Each record must have fields: id (number), name (string), city (string).
+        All id values must be distinct. All names must be distinct. All cities must be distinct.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: unique_values
+          operator: gte
+          value: 10
+
+    - id: rep-hard-02
+      difficulty: hard
+      description: "Write a 150-word article about climate change then rewrite it completely differently"
+      prompt: |
+        Write a 150-word article about climate change.
+        Then write the exact same article again but using completely different words and sentence structure.
+        The second version must share less than 60% similar phrasing with the first.
+        Separate the two versions with a line containing only "---SEPARATOR---".
+      timeout_seconds: 120
+      max_tokens: 2048
+      constraints:
+        - field: levenshtein_distance
+          operator: gte
+          value: 0.4

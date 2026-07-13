@@ -1,0 +1,32 @@
+suite:
+  id: repetition-easy
+  category: repetition
+  tier: easy
+  description: "Basic repetition avoidance — unique line count"
+  target_direct_score: "0.70-0.90"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: rep-easy-01
+      difficulty: easy
+      description: "List 3 different colors"
+      prompt: |
+        List 3 different colors. One per line.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: min_chars
+          operator: gte
+          value: 10
+
+    - id: rep-easy-02
+      difficulty: easy
+      description: "Name 3 programming languages"
+      prompt: |
+        Name 3 programming languages. One per line.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: min_chars
+          operator: gte
+          value: 10

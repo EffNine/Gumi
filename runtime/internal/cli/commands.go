@@ -11,10 +11,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/novexa/novexa/benchmark/runner"
 	"github.com/novexa/novexa/runtime/internal/config"
 )
 
 func runUtilityCommand(command string, args []string) {
+	// Benchmark has its own flag set — handle it before the generic flag parsing.
+	if command == "benchmark" {
+		cfg, _ := config.Load("")
+		base := fmt.Sprintf("http://%s:%d", cfg.Runtime.Host, cfg.Runtime.Port)
+		runBenchmark(base, cfg.Auth.LocalKey, false, args)
+		return
+	}
+
 	fs := flag.NewFlagSet(command, flag.ContinueOnError)
 	jsonOutput := fs.Bool("json", false, "output machine-readable JSON")
 	apiURL := fs.String("api-url", "", "runtime API base URL")
@@ -35,10 +44,6 @@ func runUtilityCommand(command string, args []string) {
 
 	if command == "logs" {
 		runLogs(*tail)
-		return
-	}
-	if command == "benchmark" {
-		runBenchmark(base, cfg.Auth.LocalKey, *jsonOutput)
 		return
 	}
 
@@ -128,34 +133,54 @@ func runLogs(tail int) {
 	fmt.Println(strings.Join(lines, "\n"))
 }
 
-func runBenchmark(base, key string, jsonOutput bool) {
-	start := time.Now()
-	_, err := apiGet(base+"/health", key)
-	latency := time.Since(start)
-	result := map[string]any{
-		"endpoint":           base,
-		"gateway_latency_ms": latency.Milliseconds(),
+func runBenchmark(base, key string, jsonOutput bool, args []string) {
+	fs := flag.NewFlagSet("benchmark", flag.ContinueOnError)
+	model := fs.String("model", "", "Model name (e.g., \"ornith-1.0-9b@q4_k_m\")")
+	mode := fs.String("mode", "auto", "Execution mode: auto | quick | thorough | frontier")
+	attempts := fs.Int("attempts", 3, "Attempts per condition")
+	conditions := fs.String("conditions", "direct,novexa-stabilized", "Comma-separated conditions")
+	frontierKey := fs.String("frontier-key", "", "API key for frontier baseline")
+	frontierModel := fs.String("frontier-model", "", "Frontier model name")
+	outputDir := fs.String("output", "benchmarks/reports/", "Output directory")
+	_ = fs.Parse(args)
+
+	cfg := runner.Config{
+		BaseURL:       base,
+		APIKey:        key,
+		JSONOutput:    jsonOutput,
+		Model:         *model,
+		Mode:          *mode,
+		Attempts:      *attempts,
+		Conditions:    parseBenchmarkConditions(*conditions),
+		FrontierKey:   *frontierKey,
+		FrontierModel: *frontierModel,
+		OutputDir:     *outputDir,
 	}
+	rep, err := runner.Run(cfg)
 	if err != nil {
-		result["status"] = "failed"
-		result["error"] = err.Error()
-		result["suggestion"] = "start the runtime with 'novexa start'"
-	} else {
-		result["status"] = "ok"
-	}
-	if jsonOutput {
-		body, _ := json.MarshalIndent(result, "", "  ")
-		fmt.Println(string(body))
-		if err != nil {
-			os.Exit(1)
-		}
-		return
-	}
-	fmt.Println("Novexa Benchmark")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Novexa benchmark failed: %v\nSuggestion: start the runtime with 'novexa start'.\n", err)
+		fmt.Fprintf(os.Stderr, "Benchmark failed: %v\n", err)
 		os.Exit(1)
 	}
-	body, _ := json.MarshalIndent(result, "", "  ")
-	fmt.Println(string(body))
+	if jsonOutput {
+		if err := json.NewEncoder(os.Stdout).Encode(rep); err != nil {
+			fmt.Fprintf(os.Stderr, "Error encoding JSON output: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		fmt.Printf("Novexa Benchmark\nRun: %s | Score: %.4f\n", rep.RunResult.RunID, rep.RunResult.Summary.OverallScore)
+	}
+}
+
+func parseBenchmarkConditions(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var conds []string
+	for _, c := range strings.Split(s, ",") {
+		c = strings.TrimSpace(c)
+		if c != "" {
+			conds = append(conds, c)
+		}
+	}
+	return conds
 }

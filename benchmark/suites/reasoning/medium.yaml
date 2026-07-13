@@ -1,0 +1,34 @@
+suite:
+  id: reasoning-medium
+  category: reasoning
+  tier: medium
+  description: "Multi-step math word problems"
+  target_direct_score: "0.50-0.80"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: reas-medium-01
+      difficulty: medium
+      description: "Average speed calculation: train travels 120 km in 2 hours"
+      prompt: >
+        If a train travels 120 kilometers in 2 hours, what is its average speed in km/h?
+        Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 60
+
+    - id: reas-medium-02
+      difficulty: medium
+      description: "Multi-step arithmetic: apples in a store"
+      prompt: >
+        A store has 45 apples, sells 18, then gets 30 more. How many apples does the store have now?
+        Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 57

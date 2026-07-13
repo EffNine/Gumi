@@ -1,0 +1,69 @@
+suite:
+  id: degradation-frontier
+  category: degradation
+  tier: frontier
+  description: "Frontier degradation — comprehensive over-repair detection across all Novexa engines"
+  target_direct_score: "0.95-1.00"
+  model_profiles: [frontier]
+  attempts_recommended: 5
+  tests:
+    - id: deg-frontier-01
+      difficulty: frontier
+      description: "Generate a complex JSON object with specific structure"
+      prompt: |
+        Generate a JSON object with these exact keys: model, provider, capabilities, config, metadata, benchmark_scores.
+        Use realistic values for a frontier AI model. Return ONLY the JSON object, no markdown fences.
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["model", "provider", "capabilities", "config", "metadata", "benchmark_scores"]
+
+    - id: deg-frontier-02
+      difficulty: frontier
+      description: "Write a well-formatted markdown document"
+      prompt: |
+        Write a markdown document with the following structure:
+        - A level-1 heading "Introduction"
+        - A paragraph with bold and italic text
+        - A level-2 heading "Features"
+        - A numbered list with 3 items
+        - A level-2 heading "Code Example"
+        - A fenced code block with a Go function
+        Use proper markdown formatting throughout.
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: content_unchanged
+          operator: eq
+          value: true
+
+        ```javascript
+        const greeting = "Hello, World!";
+        console.log(greeting);
+        ```
+
+        > This is a blockquote with multiple lines.
+        > It should remain exactly as written.
+
+        ---
+
+        | Header 1 | Header 2 |
+        |----------|----------|
+        | Cell 1   | Cell 2   |
+        | Cell 3   | Cell 4   |
+
+        - List item 1
+        - List item 2
+        - List item 3
+
+        **End of document.**
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: content_unchanged
+          operator: eq
+          value: true

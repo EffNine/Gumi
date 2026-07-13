@@ -1,0 +1,54 @@
+suite:
+  id: reasoning-frontier
+  category: reasoning
+  tier: frontier
+  description: "Advanced qualitative reasoning and proofs"
+  target_direct_score: "0.30-0.70"
+  model_profiles: [frontier]
+  attempts_recommended: 5
+  tests:
+    - id: reas-frontier-01
+      difficulty: frontier
+      description: "Multi-step math problem with 5 intermediate calculations"
+      prompt: |
+        Solve this multi-step problem. Show all intermediate steps.
+
+        A company has 3 factories that produce widgets:
+        - Factory A produces 500 widgets per day at a cost of $2.50 each
+        - Factory B produces 750 widgets per day at a cost of $1.80 each
+        - Factory C produces 300 widgets per day at a cost of $3.20 each
+
+        Step 1: Calculate daily production cost for each factory.
+        Step 2: Calculate total daily production cost across all factories.
+        Step 3: Calculate total daily widget production.
+        Step 4: Calculate the weighted average cost per widget.
+        Step 5: If they sell each widget for $5.00, calculate the daily profit.
+
+        Format your final answer as: "Average cost per widget: $X.XX, Daily profit: $X,XXX.XX"
+        Response must be at least 200 characters.
+      timeout_seconds: 120
+      max_tokens: 2048
+      constraints:
+        - field: answer_correct
+          operator: eq
+          value: true
+        - field: min_chars
+          operator: gte
+          value: 200
+
+    - id: reas-frontier-02
+      difficulty: frontier
+      description: "Prove or disprove: The square root of 2 is irrational"
+      prompt: |
+        Prove or disprove the following statement:
+        "The square root of 2 is an irrational number."
+        Provide a rigorous mathematical proof. Your response must be at least 200 characters.
+      timeout_seconds: 120
+      max_tokens: 2048
+      constraints:
+        - field: min_chars
+          operator: gte
+          value: 200
+        - field: reasoning_quality
+          operator: eq
+          value: true

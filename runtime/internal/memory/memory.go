@@ -244,6 +244,15 @@ func (m *MemoryEngine) StoreFact(fact MemoryFact) error {
 			fact.ID, fact.Key, fact.Value, fact.Source, fact.Confidence,
 			fact.SessionID, fact.CreatedAt, fact.UpdatedAt, fact.UpdatedAt, fact.AccessCount, fact.TTLSeconds)
 	}
+
+	// Emit telemetry for fact conflicts (value differs from existing).
+	if m.telemetryHook != nil {
+		m.telemetryHook("fact_conflict", map[string]string{
+			"key":            fact.Key,
+			"existing_value": existingValue,
+			"new_value":      fact.Value,
+		})
+	}
 	return err
 }
 

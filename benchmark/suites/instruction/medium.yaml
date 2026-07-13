@@ -1,0 +1,63 @@
+suite:
+  id: instruction-medium
+  category: instruction
+  tier: medium
+  description: "Instruction following with 2-3 simultaneous constraints"
+  target_direct_score: "0.50-0.80"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: inst-medium-01
+      difficulty: medium
+      description: "3 sentences with no commas"
+      prompt: |
+        Write exactly 3 sentences about the benefits of reading books.
+        Do not use any commas.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: sentence_count
+          operator: eq
+          value: 3
+        - field: no_commas
+          operator: eq
+          value: true
+
+    - id: inst-medium-02
+      difficulty: medium
+      description: "Return JSON with title and body, no markdown fences"
+      prompt: |
+        Return a JSON object with keys "title" and "body".
+        The title should be a short blog headline about AI.
+        The body should be 2 sentences of content.
+        Do not use markdown code fences.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["title", "body"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: inst-medium-03
+      difficulty: medium
+      description: "3 dash bullets, no commas"
+      prompt: |
+        List 3 reasons to exercise regularly using dash bullets.
+        Do not use any commas.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: dash_bullets
+          operator: eq
+          value: true
+        - field: line_count
+          operator: eq
+          value: 3
+        - field: no_commas
+          operator: eq
+          value: true

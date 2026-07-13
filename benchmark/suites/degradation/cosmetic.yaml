@@ -1,0 +1,50 @@
+suite:
+  id: degradation-cosmetic
+  category: degradation
+  tier: cosmetic
+  description: "Cosmetic degradation — Novexa must not alter whitespace or formatting of correct output"
+  target_direct_score: "0.95-1.00"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: deg-cosmetic-01
+      difficulty: cosmetic
+      description: "Output a simple JSON object verbatim"
+      prompt: |
+        Output exactly this JSON with no additional text:
+        {"a":1}
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: a
+          operator: eq
+          value: 1
+
+    - id: deg-cosmetic-02
+      difficulty: cosmetic
+      description: "Answer with a single word"
+      prompt: |
+        What is the capital of France? Answer with one word only.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: "Paris"
+
+    - id: deg-cosmetic-03
+      difficulty: cosmetic
+      description: "Output simple markdown verbatim"
+      prompt: |
+        Output exactly this markdown with no additional text:
+        # Hello
+
+        This is *markdown* content.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: content_unchanged
+          operator: eq
+          value: true

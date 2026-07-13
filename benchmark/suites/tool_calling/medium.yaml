@@ -1,0 +1,49 @@
+suite:
+  id: tool-calling-medium
+  category: tool_calling
+  tier: medium
+  description: "Two-step tool chain with dependency resolution"
+  target_direct_score: "0.50-0.80"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: tool-medium-01
+      difficulty: medium
+      description: "Read file config.json then write a new file backup.json with the same content"
+      prompt: |
+        First, call the "read_file" tool with path "config.json".
+        Then, call the "write_file" tool to write the content to "backup.json".
+        Return both calls as a JSON array of objects, each with keys "function" and "arguments".
+        No markdown fences.
+      timeout_seconds: 30
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["function", "arguments"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: tool-medium-02
+      difficulty: medium
+      description: "Call search with python tutorial then call get_page for the first result"
+      prompt: |
+        Call the "search" tool with query "python tutorial".
+        Then call the "get_page" tool using the URL of the first search result.
+        Return both calls as a JSON array of objects, each with keys "function" and "arguments".
+        Use the placeholder "https://example.com/result1" for the get_page URL.
+        No markdown fences.
+      timeout_seconds: 30
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["function", "arguments"]
+        - field: no_markdown
+          operator: eq
+          value: true

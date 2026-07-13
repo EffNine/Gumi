@@ -1,0 +1,57 @@
+suite:
+  id: json-medium
+  category: json
+  tier: medium
+  description: "Multi-record JSON transformation tasks"
+  target_direct_score: "0.50-0.80"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: json-medium-01
+      difficulty: medium
+      description: "Return a JSON object with a nested array"
+      prompt: |
+        Return a JSON object with key "items" containing an array of 3 strings:
+        "apple", "banana", "cherry".
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["items"]
+
+    - id: json-medium-02
+      difficulty: medium
+      description: "Generate a config JSON from a description"
+      prompt: |
+        Return a JSON object for a web server config with keys "host", "port", and "debug".
+        Use "0.0.0.0" for host, 8080 for port, and true for debug.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["host", "port", "debug"]
+
+    - id: json-medium-03
+      difficulty: medium
+      description: "Return a JSON object with nested address"
+      prompt: |
+        Return a JSON object with keys "name", "age", and "address".
+        "address" should be an object with keys "city" and "zip".
+        Use "John" for name, 25 for age, "New York" for city, "10001" for zip.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["name", "age", "address"]

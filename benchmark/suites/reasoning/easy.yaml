@@ -1,0 +1,34 @@
+suite:
+  id: reasoning-easy
+  category: reasoning
+  tier: easy
+  description: "Simple arithmetic and basic reasoning"
+  target_direct_score: "0.70-0.90"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: reas-easy-01
+      difficulty: easy
+      description: "Simple arithmetic: 15 + 27"
+      prompt: |
+        15 + 27 = ?
+        Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 42
+
+    - id: reas-easy-02
+      difficulty: easy
+      description: "What is the capital of France?"
+      prompt: |
+        Capital of France?
+        Answer with only the city name.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: "Paris"

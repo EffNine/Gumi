@@ -1,0 +1,54 @@
+suite:
+  id: json-easy
+  category: json
+  tier: easy
+  description: "Simple JSON output tasks"
+  target_direct_score: "0.70-0.90"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: json-easy-01
+      difficulty: easy
+      description: "Return a simple JSON object with name and value"
+      prompt: |
+        Return ONLY this exact JSON with no other text:
+        {"name":"test","value":42}
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["name", "value"]
+
+    - id: json-easy-02
+      difficulty: easy
+      description: "Return a simple JSON object with status and count"
+      prompt: |
+        Return ONLY this exact JSON with no other text:
+        {"status":"ok","count":1}
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["status", "count"]
+
+    - id: json-easy-03
+      difficulty: easy
+      description: "Return a JSON object with a nested structure"
+      prompt: |
+        Return a JSON object with key "person" containing an object with keys "name" and "age".
+        Use "Alice" for name and 30 for age.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["person"]

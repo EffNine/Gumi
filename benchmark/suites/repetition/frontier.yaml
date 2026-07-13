@@ -1,0 +1,55 @@
+suite:
+  id: repetition-frontier
+  category: repetition
+  tier: frontier
+  description: "Repetition resistance — unique JSON records from schema"
+  target_direct_score: "0.30-0.70"
+  model_profiles: [frontier]
+  attempts_recommended: 5
+  tests:
+    - id: rep-frontier-01
+      difficulty: frontier
+      description: "Generate 20 unique JSON objects with every id unique"
+      prompt: |
+        Generate 20 unique JSON objects following this schema:
+        {
+          "id": "unique string",
+          "name": "random name",
+          "email": "unique email",
+          "department": "department name"
+        }
+        Every "id" must be unique. Every "email" must be unique.
+        Return as a JSON array. Return only valid JSON. No markdown fences.
+      timeout_seconds: 120
+      max_tokens: 4096
+      constraints:
+        - field: json
+          operator: valid
+        - field: unique_count
+          operator: eq
+          value: 20
+
+    - id: rep-frontier-02
+      difficulty: frontier
+      description: "5 distinct summaries of the same paragraph in different styles"
+      prompt: |
+        Here is a paragraph:
+        "The Industrial Revolution was a period of major industrialization that took place during the late 1700s and early 1800s. This period saw the mechanization of textile manufacturing, the development of steam power, and the rise of the factory system. It fundamentally transformed economies and societies around the world."
+
+        Write 5 distinct summaries of this paragraph, each in a different style:
+        1. Formal academic style
+        2. Casual conversational style
+        3. Technical bullet-point style
+        4. Poetic metaphorical style
+        5. Minimal one-sentence-per-line style
+
+        Separate each summary with a blank line. All 5 must be clearly different from each other.
+      timeout_seconds: 120
+      max_tokens: 2048
+      constraints:
+        - field: unique_lines
+          operator: gte
+          value: 5
+        - field: stylistic_variance
+          operator: gte
+          value: 0.5

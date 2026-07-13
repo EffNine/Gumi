@@ -2,6 +2,39 @@
 
 All notable changes to Novexa are documented in this file.
 
+## 0.1.0-alpha — Spec Review Fix Sprint (WP7)
+
+### Fixed
+
+- **`docs/specs/04-api-specification.md`** §6 — Added memory engine routes
+  (`GET/POST /v1/novexa/memory/facts`, `GET /v1/novexa/memory/model-fit`,
+  `POST /v1/novexa/memory/clear`, `GET /v1/novexa/memory/status`) and LM Studio
+  model management routes to the V1 endpoint listing. §11.1 — Removed "reserved
+  for future use" for agent mode; documented agent mode as shipped with router
+  + memory + LM Studio model management integration.
+- **`docs/specs/05-configuration-specification.md`** §7.3 — Marked agent mode as
+  shipped (was "reserved for future versions"). §6 + §12.6 — Replaced the old
+  `engines.memory` two-field shape (`enabled` + `mode`) with the actual top-level
+  `memory:` block (14 fields matching `MemoryConfig` in `config.go`). Added
+  `routing:` block documentation (§12.7) with classifier escalation thresholds
+  (`retries`, `steps`, `repetitions`) and coding rules.
+- **`docs/specs/06-provider-adapter-specification.md`** — Added §22 LM Studio
+  Model Management documenting the `ModelManager` interface, `/api/v1/models/load`,
+  `/api/v1/models/unload`, `/api/v1/models` endpoints, per-model config
+  resolution, and pipeline integration. Renumbered subsequent sections (§23-27).
+- **`docs/specs/12-cli-and-dashboard-specification.md`** §5 — Added `novexa
+  lmstudio` (status, load, unload, models) and `novexa memory` (status, facts,
+  clear) to the V1 command set.
+- **`docs/specs/19-agentic-coding-router-specification.md`** — Marked Phase 2
+  (agent-state awareness) as shipped (Sprint 13). Documented `repetitions`
+  escalation — detects repeating tool-call patterns (same function name +
+  arguments) via `applyEscalation` in `classifier.go`.
+- **`docs/specs/20-memory-engine-specification.md`** — Marked Phase 1 + CLI as
+  shipped (Sprint 12). Added `POST /v1/novexa/memory/facts` to §6.3 (agent-driven
+  fact storage, Open Question #2 resolved). Updated implementation plan file
+  paths to match shipped code (`memory.go`, `schema.go`, `gateway/memory.go`,
+  `cli/memory.go`).
+
 ## 0.1.0-alpha — Sprint 12: Agentic Coding Memory Engine
 
 ### Added

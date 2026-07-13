@@ -1,0 +1,94 @@
+suite:
+  id: instruction-frontier
+  category: instruction
+  tier: frontier
+  description: "Instruction following with 8+ simultaneous constraints and self-consistency"
+  target_direct_score: "0.30-0.70"
+  model_profiles: [frontier]
+  attempts_recommended: 5
+  tests:
+    - id: inst-frontier-01
+      difficulty: frontier
+      description: "10+ constraints: 8 sentences, JSON with response array, no 'the', acrostic FRONTIER, end with done, no commas, numbers per sentence, no markdown, min 400 chars"
+      prompt: |
+        Write exactly 8 sentences. Return as valid JSON with key "response" and an array value.
+        Do not use the word "the". Each sentence must start with the next letter of "FRONTIER".
+        End with the word "done". Do not use any commas. Each sentence must contain exactly one number.
+        No markdown fences. At least 400 characters.
+      timeout_seconds: 120
+      max_tokens: 2048
+      constraints:
+        - field: sentence_count
+          operator: eq
+          value: 8
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["response"]
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "done"
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: min_chars
+          operator: gte
+          value: 400
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: inst-frontier-02
+      difficulty: frontier
+      description: "Self-consistency — 5 phrasings asking for heaviest naturally occurring element"
+      type: self_consistency
+      variants:
+        - "What is the heaviest naturally occurring element? Be concise."
+        - "Name the element with the highest atomic weight found in nature."
+        - "Which naturally occurring element has the greatest atomic mass?"
+        - "What element has the largest atomic number that occurs naturally?"
+        - "Identify the element with the maximum atomic mass in nature."
+      expected_answer: "uranium"
+      variance_metric: levenshtein
+      timeout_seconds: 30
+      max_tokens: 50
+      constraints: []
+
+    - id: inst-frontier-03
+      difficulty: frontier
+      description: "12 rules: 10 sentences, JSON, no 'that', capital starts, end with 'boundary', no markdown, min 500 chars"
+      prompt: |
+        Write exactly 10 sentences about ocean ecosystems. Return as valid JSON with key "response" and a string value.
+        Do not use the word "that". Each sentence must start with a capital letter.
+        End with the word "boundary". Do not use markdown fences.
+        Your response must be at least 500 characters.
+      timeout_seconds: 120
+      max_tokens: 2048
+      constraints:
+        - field: sentence_count
+          operator: eq
+          value: 10
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["that"]
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "boundary"
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: min_chars
+          operator: gte
+          value: 500

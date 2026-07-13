@@ -1,0 +1,84 @@
+suite:
+  id: json-hard
+  category: json
+  tier: hard
+  description: "Complex JSON generation from unstructured data"
+  target_direct_score: "0.20-0.50"
+  model_profiles: [medium, frontier]
+  attempts_recommended: 5
+  tests:
+    - id: json-hard-01
+      difficulty: hard
+      description: "Generate an OpenAPI path object from a description"
+      prompt: |
+        Generate a complete OpenAPI 3.0 path object for a GET /users/{userId} endpoint
+        that returns a user object with fields id, name, email, and createdAt.
+        Include both 200 and 404 responses with proper content types.
+        The response must have a "paths" key and a "responses" key inside each operation.
+        Return only valid JSON. Must be at least 200 characters.
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["paths", "responses"]
+        - field: min_chars
+          operator: gte
+          value: 200
+
+    - id: json-hard-02
+      difficulty: hard
+      description: "Build a nested tree from flat parent/child data"
+      prompt: |
+        Convert this flat parent/child data into a nested JSON tree structure.
+        Each node has an id, name, and children array.
+        root: id=1, name="Root"
+        child-a: id=2, parent=1, name="Branch A"
+        child-b: id=3, parent=1, name="Branch B"
+        grandchild: id=4, parent=2, name="Leaf A1"
+        The tree must nest at least 2 levels deep.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["id", "name", "children"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-03
+      difficulty: hard
+      description: "Output JSON with specific schema and required fields"
+      prompt: |
+        Generate a JSON object conforming to this schema:
+        {
+          "type": "object",
+          "required": ["productId", "productName", "price", "inStock", "categories"],
+          "properties": {
+            "productId": {"type": "string"},
+            "productName": {"type": "string"},
+            "price": {"type": "number"},
+            "inStock": {"type": "boolean"},
+            "categories": {"type": "array", "items": {"type": "string"}},
+            "tags": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+        All required fields must be present. Include at least one category and one tag.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["productId", "productName", "price", "inStock", "categories"]
+        - field: no_markdown
+          operator: eq
+          value: true

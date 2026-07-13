@@ -1,0 +1,48 @@
+suite:
+  id: degradation-semantic
+  category: degradation
+  tier: semantic
+  description: "Semantic degradation — Novexa must not change correct answers or reformat code"
+  target_direct_score: "0.95-1.00"
+  model_profiles: [medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: deg-semantic-01
+      difficulty: semantic
+      description: "Factual question with single correct answer"
+      prompt: |
+        What is the capital of Japan? Answer with one word only.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: contains
+          operator: eq
+          value: "Tokyo"
+
+    - id: deg-semantic-02
+      difficulty: semantic
+      description: "Generate a JSON object with specific fields"
+      prompt: |
+        Generate a JSON object with these exact keys: name, age, email, active, score, tags, address.
+        Use realistic values. Return ONLY the JSON object, no markdown fences.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["name", "age", "email", "active", "score", "tags", "address"]
+
+    - id: deg-semantic-03
+      difficulty: semantic
+      description: "Write a fibonacci function in Python"
+      prompt: |
+        Write a Python function fibonacci(n) that returns the nth Fibonacci number.
+        Use recursion. Include a loop that prints the first 10 numbers.
+      timeout_seconds: 30
+      max_tokens: 512
+      constraints:
+        - field: code_unchanged
+          operator: eq
+          value: true

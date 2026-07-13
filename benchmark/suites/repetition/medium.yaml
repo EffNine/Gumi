@@ -1,0 +1,35 @@
+suite:
+  id: repetition-medium
+  category: repetition
+  tier: medium
+  description: "Repetition resistance — unique sentence ratio"
+  target_direct_score: "0.50-0.80"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: rep-medium-01
+      difficulty: medium
+      description: "Write a 4-sentence product description for a coffee maker with no repeated sentences"
+      prompt: |
+        Write a 4-sentence product description for a coffee maker.
+        Each sentence must be unique. Do not repeat any sentence.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: unique_lines
+          operator: gte
+          value: 4
+
+    - id: rep-medium-02
+      difficulty: medium
+      description: "Describe 3 uses of machine learning each in exactly 2 sentences"
+      prompt: |
+        Describe 3 uses of machine learning.
+        Each use must be described in exactly 2 sentences.
+        Use dash bullets to separate each use.
+      timeout_seconds: 30
+      max_tokens: 512
+      constraints:
+        - field: unique_lines
+          operator: gte
+          value: 6

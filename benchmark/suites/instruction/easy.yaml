@@ -1,0 +1,47 @@
+suite:
+  id: instruction-easy
+  category: instruction
+  tier: easy
+  description: "Simple instruction following with 1 constraint"
+  target_direct_score: "0.70-0.90"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: inst-easy-01
+      difficulty: easy
+      description: "Answer without using the word maybe"
+      prompt: |
+        What is your favorite season and why?
+        Do not use the word "maybe".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["maybe"]
+
+    - id: inst-easy-02
+      difficulty: easy
+      description: "End with the word done"
+      prompt: |
+        Write a short instruction for how to brew tea.
+        End with the word "done".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: ends_with
+          operator: ends_with
+          value: "done"
+
+    - id: inst-easy-03
+      difficulty: easy
+      description: "Do not use any commas"
+      prompt: |
+        Describe your morning routine.
+        Do not use any commas.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: no_commas
+          operator: eq
+          value: true

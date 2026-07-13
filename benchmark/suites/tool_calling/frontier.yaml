@@ -1,0 +1,51 @@
+suite:
+  id: tool-calling-frontier
+  category: tool_calling
+  tier: frontier
+  description: "Complex tool chain with state tracking across 6+ calls"
+  target_direct_score: "0.30-0.70"
+  model_profiles: [frontier]
+  attempts_recommended: 5
+  tests:
+    - id: tool-frontier-01
+      difficulty: frontier
+      description: "6-step dependency chain with state tracking across calls"
+      prompt: |
+        Execute this 6-step tool chain where each step depends on the previous:
+        1. Call "init_session" with user_id="user_42" to get a session token
+        2. Call "authenticate" using the session token from step 1
+        3. Call "get_user_profile" using the session token
+        4. Call "get_user_orders" using the user_id from the profile
+        5. Call "get_order_details" for each order from step 4 (use "order_1" as placeholder)
+        6. Call "summarize_orders" with the order details from step 5
+        Track state across calls. Return as JSON array, each with keys "step", "function", "arguments", and "depends_on".
+        No markdown fences.
+      timeout_seconds: 120
+      max_tokens: 2048
+      constraints:
+        - field: json
+          operator: valid
+        - field: tool_count
+          operator: gte
+          value: 6
+
+    - id: tool-frontier-02
+      difficulty: frontier
+      description: "Parallel tool calls: fetch users and orders simultaneously then merge results"
+      prompt: |
+        Design a parallel tool calling workflow:
+        1. Call "fetch_users" and "fetch_orders" simultaneously (no dependency between them)
+        2. After both complete, call "merge_data" with the users and orders arrays to create a combined report
+        Return all calls as a JSON array, each with keys "function", "arguments", and "parallel_group" (1 for parallel, 2 for sequential merge).
+        Each call should have a unique "call_id". No markdown fences.
+      timeout_seconds: 120
+      max_tokens: 2048
+      constraints:
+        - field: json
+          operator: valid
+        - field: tool_count
+          operator: gte
+          value: 3
+        - field: no_markdown
+          operator: eq
+          value: true

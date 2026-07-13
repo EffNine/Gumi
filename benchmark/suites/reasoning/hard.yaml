@@ -1,0 +1,51 @@
+suite:
+  id: reasoning-hard
+  category: reasoning
+  tier: hard
+  description: "Logic puzzles with multiple constraints"
+  target_direct_score: "0.20-0.50"
+  model_profiles: [medium, frontier]
+  attempts_recommended: 5
+  tests:
+    - id: reas-hard-01
+      difficulty: hard
+      description: "Logic puzzle: 5 people in different colored houses"
+      prompt: |
+        Solve this logic puzzle:
+        There are 5 houses in a row, each painted a different color.
+        - The English person lives in the red house.
+        - The Spaniard owns the dog.
+        - Coffee is drunk in the green house.
+        - The Ukrainian drinks tea.
+        - The green house is immediately to the right of the ivory house.
+        - The Winston smoker owns snails.
+        - The Pall Mall smoker lives in the yellow house.
+        - Milk is drunk in the middle house.
+        - The Norwegian lives in the first house.
+        - The Chesterfield smoker lives next to the fox owner.
+        - The Kools smoker lives next to the horse owner.
+        - The Lucky Strike smoker drinks orange juice.
+        - The Japanese person smokes Parliaments.
+        - The Norwegian lives next to the blue house.
+
+        Who drinks water? Who owns the zebra?
+        Answer with the names: "[water drinker] drinks water, [zebra owner] owns the zebra".
+      timeout_seconds: 120
+      max_tokens: 512
+      constraints:
+        - field: answer_correct
+          operator: eq
+          value: true
+
+    - id: reas-hard-02
+      difficulty: hard
+      description: "Bat and ball cognitive bias test"
+      prompt: >
+        A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball.
+        How much does the ball cost? Think step by step, then give your final answer as a dollar amount.
+      timeout_seconds: 60
+      max_tokens: 256
+      constraints:
+        - field: value
+          operator: eq
+          value: 0.05

@@ -1,0 +1,49 @@
+suite:
+  id: tool-calling-hard
+  category: tool_calling
+  tier: hard
+  description: "Multi-step tool chain with conditional branching"
+  target_direct_score: "0.20-0.50"
+  model_profiles: [medium, frontier]
+  attempts_recommended: 5
+  tests:
+    - id: tool-hard-01
+      difficulty: hard
+      description: "3-step chain: read customers.csv, find active customers, calculate total revenue"
+      prompt: |
+        Perform this 3-step tool chain:
+        1. Call "read_file" with path "customers.csv"
+        2. Call "filter_records" to find active customers (status="active")
+        3. Call "calculate_sum" on the "revenue" field of filtered records
+        Return all three calls as a JSON array, each with keys "function" and "arguments".
+        No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: tool_count
+          operator: gte
+          value: 3
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: tool-hard-02
+      difficulty: hard
+      description: "Conditional workflow: if file exists read it, if not create it with default content"
+      prompt: |
+        Simulate a conditional file workflow:
+        Call "file_exists" with path "settings.json".
+        If it exists, call "read_file" with path "settings.json".
+        If it does NOT exist, call "write_file" with path "settings.json" and content "{"theme": "dark", "language": "en"}".
+        Return all calls as a JSON array, each with keys "function" and "arguments".
+        No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: no_markdown
+          operator: eq
+          value: true

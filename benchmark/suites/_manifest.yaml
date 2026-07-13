@@ -1,0 +1,26 @@
+# Suite registry for the Novexa Benchmark subsystem.
+# Lists all categories and their difficulty tiers.
+categories:
+  - id: json
+    name: JSON Generation
+    tiers: [easy, medium, hard, frontier]
+
+  - id: instruction
+    name: Instruction Following
+    tiers: [easy, medium, hard, frontier]
+
+  - id: repetition
+    name: Repetition Resistance
+    tiers: [easy, medium, hard, frontier]
+
+  - id: tool_calling
+    name: Tool Calling
+    tiers: [easy, medium, hard, frontier]
+
+  - id: reasoning
+    name: Reasoning
+    tiers: [easy, medium, hard, frontier]
+
+  - id: degradation
+    name: Degradation Detection
+    tiers: [cosmetic, semantic, frontier]

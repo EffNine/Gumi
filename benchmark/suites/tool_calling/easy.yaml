@@ -1,0 +1,38 @@
+suite:
+  id: tool-calling-easy
+  category: tool_calling
+  tier: easy
+  description: "Single tool call with correct name and arguments"
+  target_direct_score: "0.70-0.90"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: tool-easy-01
+      difficulty: easy
+      description: "Call the function get_weather with city=London"
+      prompt: |
+        Return this exact JSON with no other text:
+        {"function":"get_weather","arguments":{"city":"London"}}
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["function", "arguments"]
+
+    - id: tool-easy-02
+      difficulty: easy
+      description: "Use the search tool with query=AI news"
+      prompt: |
+        Return this exact JSON with no other text:
+        {"function":"search","arguments":{"query":"AI news"}}
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["function", "arguments"]

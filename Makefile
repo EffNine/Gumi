@@ -53,3 +53,15 @@ check-release: release
 # Remove generated build artifacts. Preserve the source lockfiles and profiles.
 clean:
 	rm -rf dist/releases dashboard/dist novexa runtime/novexa
+
+# ── Benchmark ──────────────────────────────────────────────
+.PHONY: benchmark benchmark-quick benchmark-thorough
+
+benchmark: build
+	./novexa benchmark --model "$(MODEL)" --mode auto
+
+benchmark-quick: build
+	./novexa benchmark --model "$(MODEL)" --mode quick
+
+benchmark-thorough: build
+	./novexa benchmark --model "$(MODEL)" --mode thorough --attempts 10

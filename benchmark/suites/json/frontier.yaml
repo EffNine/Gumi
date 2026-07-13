@@ -1,0 +1,107 @@
+suite:
+  id: json-frontier
+  category: json
+  tier: frontier
+  description: "Full schema generation and multi-schema conditional JSON"
+  target_direct_score: "0.30-0.70"
+  model_profiles: [frontier]
+  attempts_recommended: 5
+  tests:
+    - id: json-frontier-01
+      difficulty: frontier
+      description: "Generate a full OpenAPI 3.1 schema from a prose description"
+      prompt: |
+        Generate a complete OpenAPI 3.1 specification for a pet store API based on the following description:
+
+        The API manages pets, orders, and users. It has endpoints for:
+        - GET /pets (list all pets, supports pagination via limit/offset query params)
+        - POST /pets (create a new pet, requires name, species, age)
+        - GET /pets/{petId} (get a single pet by ID)
+        - PUT /pets/{petId} (update a pet)
+        - DELETE /pets/{petId} (delete a pet)
+        - GET /orders (list orders)
+        - POST /orders (place an order for a pet)
+        - GET /orders/{orderId} (get order by ID)
+        - POST /users/signup (create account)
+        - POST /users/login (authenticate)
+
+        The pet object has: id (integer), name (string), species (enum: cat, dog, bird, fish),
+        age (integer), status (enum: available, pending, adopted), photoUrls (array of strings).
+        The order object has: id (integer), petId (integer), quantity (integer),
+        shipDate (string, date-time), status (enum: placed, approved, delivered), complete (boolean).
+        The user object has: id (integer), username (string), firstName (string),
+        lastName (string), email (string), password (string), phone (string).
+
+        Include at least 20 distinct keys across the entire specification.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 120
+      max_tokens: 4096
+      constraints:
+        - field: json
+          operator: valid
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-frontier-02
+      difficulty: frontier
+      description: "Multi-schema conditional JSON with if/then/else"
+      prompt: |
+        Generate a JSON object that demonstrates JSON Schema conditional validation.
+        Create a "shippingOrder" object where:
+
+        If "method" is "express", then "deliveryBy" must be a date string and "surcharge" must be a number >= 10.
+        If "method" is "standard", then "deliveryBy" is not required but "estimatedDays" must be an integer.
+        If "method" is "pickup", then neither deliveryBy nor surcharge nor estimatedDays should be present,
+        but "location" must be a string.
+
+        Include all three examples in an array under the key "examples".
+        Each example must have "method" set appropriately and the corresponding conditional fields.
+        Return only valid JSON.
+      timeout_seconds: 120
+      max_tokens: 2048
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["examples"]
+
+    - id: json-frontier-03
+      difficulty: frontier
+      description: "Generate a JSON Patch sequence from a diff description"
+      prompt: |
+        Given this original JSON:
+        {
+          "name": "Old Product",
+          "price": 100,
+          "tags": ["sale", "new"],
+          "metadata": {
+            "color": "red",
+            "size": "M"
+          }
+        }
+
+        And this desired JSON:
+        {
+          "name": "New Product",
+          "price": 89.99,
+          "tags": ["sale", "new", "featured"],
+          "metadata": {
+            "color": "blue",
+            "size": "M",
+            "material": "cotton"
+          }
+        }
+
+        Generate a JSON Patch (RFC 6902) sequence that transforms the original into the desired.
+        Use "op", "path", and "value" keys for each patch operation.
+        Return at least 3 operations. Return only valid JSON.
+      timeout_seconds: 60
+    max_tokens: 1024
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["op", "path", "value"]
