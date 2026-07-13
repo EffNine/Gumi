@@ -118,10 +118,10 @@ func New(cfg *config.MemoryConfig, dbPath string) (*MemoryEngine, error) {
 			return nil, fmt.Errorf("apply memory schema: %w", err)
 		}
 		return &MemoryEngine{
-			db:            db,
-			cfg:           cfg,
-			hotCache:      make(map[string]*MemoryFact),
-			hotCacheList:  list.New(),
+			db:           db,
+			cfg:          cfg,
+			hotCache:     make(map[string]*MemoryFact),
+			hotCacheList: list.New(),
 		}, nil
 	}
 
@@ -139,10 +139,10 @@ func New(cfg *config.MemoryConfig, dbPath string) (*MemoryEngine, error) {
 	}
 
 	return &MemoryEngine{
-		db:            db,
-		cfg:           cfg,
-		hotCache:      make(map[string]*MemoryFact),
-		hotCacheList:  list.New(),
+		db:           db,
+		cfg:          cfg,
+		hotCache:     make(map[string]*MemoryFact),
+		hotCacheList: list.New(),
 	}, nil
 }
 

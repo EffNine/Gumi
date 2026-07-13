@@ -559,7 +559,7 @@ func TestRoute_PreferenceFastest(t *testing.T) {
 	}
 	available := map[string]bool{
 		"provider-tiny:tiny-model:v1":   true,
-		"provider-small:small-model:v1":  true,
+		"provider-small:small-model:v1": true,
 		"provider-large:large-model:v1": true,
 	}
 	result := engine.Route(profile, available, nil)
@@ -593,7 +593,7 @@ func TestRoute_PreferenceBestCoding(t *testing.T) {
 	}
 	available := map[string]bool{
 		"provider-tiny:tiny-model:v1":   true,
-		"provider-small:small-model:v1":  true,
+		"provider-small:small-model:v1": true,
 		"provider-large:large-model:v1": true,
 	}
 	result := engine.Route(profile, available, nil)
@@ -628,7 +628,7 @@ func TestRoute_PreferenceBestCombo(t *testing.T) {
 	}
 	available := map[string]bool{
 		"provider-tiny:tiny-model:v1":   true,
-		"provider-small:small-model:v1":  true,
+		"provider-small:small-model:v1": true,
 		"provider-large:large-model:v1": true,
 	}
 	result := engine.Route(profile, available, nil)
@@ -667,7 +667,7 @@ func TestRoute_Alternatives_RejectedCandidates(t *testing.T) {
 	}
 	available := map[string]bool{
 		"provider-tiny:tiny-model:v1":   true,
-		"provider-small:small-model:v1":  true,
+		"provider-small:small-model:v1": true,
 		"provider-large:large-model:v1": true,
 	}
 	result := engine.Route(profile, available, nil)

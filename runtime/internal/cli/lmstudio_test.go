@@ -34,10 +34,10 @@ func newLMStudioCLITestServer(t *testing.T) *httptest.Server {
 			}
 			modelID, _ := req["model"].(string)
 			resp := map[string]interface{}{
-				"type":             "model_loaded",
-				"instance_id":      "inst_" + modelID,
+				"type":              "model_loaded",
+				"instance_id":       "inst_" + modelID,
 				"load_time_seconds": 2.5,
-				"status":           "loaded",
+				"status":            "loaded",
 				"load_config": map[string]interface{}{
 					"context_length": 32768,
 				},
