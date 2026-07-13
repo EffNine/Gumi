@@ -91,3 +91,4 @@ telemetry:
 #   min_observation_count: 2
 #   track_model_fit: true
 #   model_fit_decay: 0.95
+#   hot_cache_max_size: 500   # max L1 hot cache entries (default: 500)

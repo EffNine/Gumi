@@ -4,6 +4,7 @@
 package memory
 
 import (
+	"container/list"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -86,6 +87,10 @@ type MemoryEngine struct {
 	// Hot cache for frequently accessed facts (L1).
 	hotCache map[string]*MemoryFact
 
+	// hotCacheList is an LRU ordering of hot cache keys. The front is the
+	// least-recently-used entry; the back is the most-recently-used.
+	hotCacheList *list.List
+
 	// telemetryHook is called for significant memory events (eviction, etc.).
 	// Set via SetTelemetryHook after construction.
 	telemetryHook func(event string, metadata map[string]string)
@@ -113,9 +118,10 @@ func New(cfg *config.MemoryConfig, dbPath string) (*MemoryEngine, error) {
 			return nil, fmt.Errorf("apply memory schema: %w", err)
 		}
 		return &MemoryEngine{
-			db:       db,
-			cfg:      cfg,
-			hotCache: make(map[string]*MemoryFact),
+			db:            db,
+			cfg:           cfg,
+			hotCache:      make(map[string]*MemoryFact),
+			hotCacheList:  list.New(),
 		}, nil
 	}
 
@@ -133,9 +139,10 @@ func New(cfg *config.MemoryConfig, dbPath string) (*MemoryEngine, error) {
 	}
 
 	return &MemoryEngine{
-		db:       db,
-		cfg:      cfg,
-		hotCache: make(map[string]*MemoryFact),
+		db:            db,
+		cfg:           cfg,
+		hotCache:      make(map[string]*MemoryFact),
+		hotCacheList:  list.New(),
 	}, nil
 }
 
@@ -240,6 +247,57 @@ func (m *MemoryEngine) StoreFact(fact MemoryFact) error {
 	return err
 }
 
+// hotCacheMaxSize returns the configured hot cache size limit, falling back to
+// the default if not set.
+func (m *MemoryEngine) hotCacheMaxSize() int {
+	if m.cfg != nil && m.cfg.HotCacheMaxSize > 0 {
+		return m.cfg.HotCacheMaxSize
+	}
+	return config.DefaultHotCacheMaxSize
+}
+
+// evictHotCacheEntry removes the least-recently-used entry from the hot cache.
+// Must be called with m.mu held.
+func (m *MemoryEngine) evictHotCacheEntry() {
+	elem := m.hotCacheList.Front()
+	if elem == nil {
+		return
+	}
+	key := elem.Value.(string)
+	delete(m.hotCache, key)
+	m.hotCacheList.Remove(elem)
+
+	if m.telemetryHook != nil {
+		m.telemetryHook("hot_cache_eviction", map[string]string{
+			"key": key,
+		})
+	}
+}
+
+// promoteHotCacheKey moves the given key to the back (most-recently-used end)
+// of the LRU list. Must be called with m.mu held.
+func (m *MemoryEngine) promoteHotCacheKey(key string) {
+	for e := m.hotCacheList.Front(); e != nil; e = e.Next() {
+		if e.Value.(string) == key {
+			m.hotCacheList.MoveToBack(e)
+			return
+		}
+	}
+}
+
+// insertHotCache adds a fact to the hot cache, enforcing the LRU size limit.
+// Must be called with m.mu held.
+func (m *MemoryEngine) insertHotCache(key string, f *MemoryFact) {
+	m.hotCache[key] = f
+	m.hotCacheList.PushBack(key)
+
+	// Evict oldest if over capacity.
+	maxSize := m.hotCacheMaxSize()
+	for m.hotCacheList.Len() > maxSize {
+		m.evictHotCacheEntry()
+	}
+}
+
 // GetFact retrieves a fact by key. Updates access_count and accessed_at.
 func (m *MemoryEngine) GetFact(key string) (*MemoryFact, error) {
 	m.mu.Lock()
@@ -248,6 +306,7 @@ func (m *MemoryEngine) GetFact(key string) (*MemoryFact, error) {
 	// Check hot cache first.
 	if cached, ok := m.hotCache[key]; ok {
 		go m.touchFact(cached.ID) // async update access time
+		m.promoteHotCacheKey(key)
 		factCopy := *cached // copy to avoid data race on the pointer
 		return &factCopy, nil
 	}
@@ -271,7 +330,7 @@ func (m *MemoryEngine) GetFact(key string) (*MemoryFact, error) {
 
 	// Add to hot cache if frequently accessed.
 	if f.AccessCount >= 3 {
-		m.hotCache[key] = &f
+		m.insertHotCache(key, &f)
 	}
 
 	return &f, nil
@@ -316,8 +375,20 @@ func (m *MemoryEngine) DeleteFact(key string) error {
 	defer m.mu.Unlock()
 
 	delete(m.hotCache, key)
+	m.removeFromHotCacheList(key)
 	_, err := m.db.Exec("DELETE FROM facts WHERE key = ?", key)
 	return err
+}
+
+// removeFromHotCacheList removes a key from the LRU list if present.
+// Must be called with m.mu held.
+func (m *MemoryEngine) removeFromHotCacheList(key string) {
+	for e := m.hotCacheList.Front(); e != nil; e = e.Next() {
+		if e.Value.(string) == key {
+			m.hotCacheList.Remove(e)
+			return
+		}
+	}
 }
 
 // ListFacts returns all facts, ordered by recency.
@@ -961,6 +1032,7 @@ func (m *MemoryEngine) GarbageCollectExpired() (int64, error) {
 
 	// Reset hot cache after GC; let it repopulate on access.
 	m.hotCache = make(map[string]*MemoryFact)
+	m.hotCacheList.Init()
 
 	// Model fit retention: delete old entries.
 	retainDays := m.cfg.ModelFitRetentionDays
@@ -982,6 +1054,7 @@ func (m *MemoryEngine) ClearAll() error {
 	defer m.mu.Unlock()
 
 	m.hotCache = make(map[string]*MemoryFact)
+	m.hotCacheList.Init()
 	_, err := m.db.Exec("DELETE FROM facts")
 	if err != nil {
 		return err

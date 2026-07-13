@@ -31,6 +31,11 @@ type Config struct {
 	Memory    MemoryConfig                `json:"memory" yaml:"memory"`
 }
 
+// DefaultHotCacheMaxSize is the default maximum number of entries in the hot
+// cache (L1). This prevents unbounded memory growth from frequently accessed
+// facts.
+const DefaultHotCacheMaxSize = 500
+
 // MemoryConfig controls the zero-VRAM memory engine for agentic coding.
 type MemoryConfig struct {
 	Enabled               bool    `json:"enabled" yaml:"enabled"`
@@ -46,6 +51,7 @@ type MemoryConfig struct {
 	MinObservationCount   int     `json:"min_observation_count" yaml:"min_observation_count"`
 	TrackModelFit         bool    `json:"track_model_fit" yaml:"track_model_fit"`
 	ModelFitDecay         float64 `json:"model_fit_decay" yaml:"model_fit_decay"`
+	HotCacheMaxSize       int     `json:"hot_cache_max_size" yaml:"hot_cache_max_size"`
 }
 
 // RuntimeConfig controls the core API server behaviour.
