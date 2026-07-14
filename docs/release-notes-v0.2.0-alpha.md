@@ -1,7 +1,7 @@
 # Release v0.2.0-alpha — Agent Mode, Memory Engine & LM Studio Management
 
 **Tag:** `v0.2.0-alpha`
-**Date:** 2026-07-14
+**Date:** 2026-07-15
 **Status:** Pre-release (alpha)
 **License:** Apache-2.0
 
@@ -80,6 +80,11 @@ disabled for JSON and tool-calling workflows.
 - Validation telemetry now writes issue code + message + location (was `{}`)
 - Repetition detection skips JSON/structured output (113 false positives → 0)
 - JSON repair handles any language-tagged code fence (```python, ```javascript)
+
+### Hardening (post-initial build)
+- **Deep tool schema validation** — Recursive checks for argument types, enums, nested objects, and array items, with schema violations fed back into retry prompts.
+- **Integration test harness** — 8 deterministic tests across the gateway → pipeline → provider → telemetry chain.
+- **Documentation site** — Static docs site at `/docs-site/` with Quickstart, Integrations, Architecture, Benchmarks, and Changelog pages.
 
 ---
 
