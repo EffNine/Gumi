@@ -15,6 +15,7 @@ Thumbs.db
 
 # Internal spec/architecture docs (not for public repo)
 docs/specs/
+docs/posts/
 docs/guides/release-checklist.md
 
 # Playwright / browser test artifacts
