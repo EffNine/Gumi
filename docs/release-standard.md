@@ -24,7 +24,7 @@ While Gumi is in alpha/beta (v0.x), the convention is:
 
 ### Current Version
 
-`0.1.0-alpha`
+`0.2.0-alpha`
 
 ### When to Increment
 

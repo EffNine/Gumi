@@ -13,7 +13,7 @@ keeps the API and dashboard bound to `127.0.0.1` by default.
 ## Build from source
 
 ```bash
-git clone https://github.com/gumi/gumi.git
+git clone https://github.com/EffNine/Gumi.git
 cd gumi
 make build
 ```
@@ -28,7 +28,7 @@ dashboard from `dashboard/dist`.
 
 ## Download a release archive
 
-1. Visit the [GitHub releases](https://github.com/gumi/gumi/releases) page.
+1. Visit the [GitHub releases](https://github.com/EffNine/Gumi/releases) page.
 2. Download the archive for your OS and architecture:
    - macOS Apple Silicon: `gumi-<version>-darwin-arm64.tar.gz`
    - macOS Intel: `gumi-<version>-darwin-amd64.tar.gz`
@@ -41,8 +41,8 @@ dashboard from `dashboard/dist`.
 Example (macOS Apple Silicon):
 
 ```bash
-tar -xzf gumi-0.1.0-alpha-darwin-arm64.tar.gz
-cd gumi-0.1.0-alpha-darwin-arm64
+tar -xzf gumi-0.2.0-alpha-darwin-arm64.tar.gz
+cd gumi-0.2.0-alpha-darwin-arm64
 ./gumi version
 ./gumi start
 ```
@@ -76,7 +76,7 @@ symlink at `/usr/local/bin/gumi`.
 Build the image:
 
 ```bash
-docker build -t gumi:0.1.0-alpha .
+docker build -t gumi:0.2.0-alpha .
 ```
 
 Run with the API and dashboard published only to localhost, and persist the
@@ -88,7 +88,7 @@ docker run -d \
   -p 127.0.0.1:8787:8787 \
   -p 127.0.0.1:8788:8788 \
   -v gumi-data:/data \
-  gumi:0.1.0-alpha
+  gumi:0.2.0-alpha
 ```
 
 The runtime stores telemetry at `/data/.gumi/gumi.db` because the container
@@ -123,8 +123,8 @@ Download the `linux-amd64` or `linux-arm64` archive, extract it, and run the
 binary. No additional dependencies are required.
 
 ```bash
-tar -xzf gumi-0.1.0-alpha-linux-amd64.tar.gz
-cd gumi-0.1.0-alpha-linux-amd64
+tar -xzf gumi-0.2.0-alpha-linux-amd64.tar.gz
+cd gumi-0.2.0-alpha-linux-amd64
 ./gumi start
 ```
 
@@ -134,7 +134,7 @@ cd gumi-0.1.0-alpha-linux-amd64
 2. Extract it with File Explorer or PowerShell:
 
 ```powershell
-Expand-Archive -Path gumi-0.1.0-alpha-windows-amd64.zip -DestinationPath gumi
+Expand-Archive -Path gumi-0.2.0-alpha-windows-amd64.zip -DestinationPath gumi
 ```
 
 3. Run the binary in PowerShell:

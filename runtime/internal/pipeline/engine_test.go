@@ -1145,7 +1145,7 @@ func TestRunChatCompletionToolShimForWeakModels(t *testing.T) {
 		Model:    "ollama:qwen3.5:2b",
 		Messages: []api.Message{{Role: "user", Content: "Read main.go"}},
 		Tools:    tools,
-		Gumi:   &api.GumiExtensions{Mode: string(ModeLightweight)},
+		Gumi:     &api.GumiExtensions{Mode: string(ModeLightweight)},
 	})
 
 	if result.Error.Code != "" {

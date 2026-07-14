@@ -13,7 +13,7 @@ reliable, and production-ready.**
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/EffNine/Gumi?style=social)](https://github.com/EffNine/Gumi/stargazers)
 
-[Quick start](#get-started) · [Benchmarks](#benchmarks) · [Docs](./docs/) · [Integrations](./docs/integrations/README.md) · [Changelog](./CHANGELOG.md)
+[Quick start](#get-started) · [Benchmarks](#benchmarks) · [Docs](./docs/) · [Integrations](./docs/integrations/) · [Changelog](./CHANGELOG.md)
 
 </div>
 
@@ -37,9 +37,9 @@ around local AI.
 
 ---
 
-## Quick demo
+## Try it
 
-Start Gumi and point any OpenAI-compatible client at it — that's it.
+Start Gumi and point any OpenAI-compatible client at it:
 
 ```bash
 # Build and start
@@ -68,9 +68,8 @@ print(client.chat.completions.create(
 
 Dashboard: **http://127.0.0.1:8788**
 
-<!-- A demo GIF will go here once recorded. -->
-
-![Gumi quick demo](./docs/assets/gumi-demo.gif)
+![Gumi dashboard](./docs/assets/dashboard-overview.png)
+*Gumi dashboard — local telemetry and diagnostics at http://127.0.0.1:8788*
 
 ---
 
@@ -134,8 +133,6 @@ runtime that makes whatever model you already run behave reliably.
 > The Gumi dashboard runs at `http://127.0.0.1:8788` and shows request
 > metadata, provider status, telemetry, and diagnostics. Full prompts and
 > responses are hidden by default.
-
-<!-- Replace the placeholders below with real screenshots once captured. -->
 
 | Dashboard overview | Provider status |
 |---|---|
@@ -221,7 +218,7 @@ See:
 - [Installation](./docs/installation.md)
 - [Quickstart](./docs/quickstart.md)
 - [Troubleshooting](./docs/troubleshooting.md)
-- [Integration guides](./docs/integrations/README.md)
+- [Integration guides](./docs/integrations/)
 
 ---
 

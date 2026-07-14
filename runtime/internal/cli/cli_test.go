@@ -9,8 +9,8 @@ func TestVersionConstant(t *testing.T) {
 	if Version == "" {
 		t.Error("Version must not be empty")
 	}
-	if Version != "0.1.0" {
-		t.Errorf("expected version 0.1.0, got %q", Version)
+	if Version != "0.2.0" {
+		t.Errorf("expected version 0.2.0, got %q", Version)
 	}
 }
 

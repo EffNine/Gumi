@@ -10,11 +10,11 @@ import "fmt"
 
 // Release metadata. Override at link time with:
 //
-//	-X github.com/EffNine/gumi/runtime/internal/version.Version=0.1.0
+//	-X github.com/EffNine/gumi/runtime/internal/version.Version=0.2.0
 //	-X github.com/EffNine/gumi/runtime/internal/version.Commit=<sha>
 //	-X github.com/EffNine/gumi/runtime/internal/version.BuildDate=<iso>
 var (
-	Version   = "0.1.0"
+	Version   = "0.2.0"
 	Commit    = "dev"
 	BuildDate = "unknown"
 )

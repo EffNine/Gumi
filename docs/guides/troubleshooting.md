@@ -118,7 +118,7 @@ mkdir -p ~/.gumi
    container user:
 
 ```bash
-docker run -v gumi-data:/data gumi:0.1.0-alpha
+docker run -v gumi-data:/data gumi:0.2.0-alpha
 ```
 
 The runtime uses `~/.gumi/gumi.db` by default. In the official Docker

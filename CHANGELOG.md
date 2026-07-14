@@ -2,6 +2,34 @@
 
 All notable changes to Gumi are documented in this file.
 
+## 0.2.0-alpha — 2026-07-14
+
+### Added
+
+- **Agent mode** — Dedicated runtime mode for agentic coding loops with step-budget enforcement, tool-call loop detection, tool-call JSON validation, and sliding-window context compaction.
+- **Agentic Coding Router** — Automatic per-step model selection by difficulty (trivial → novel) and task type (fix, refactor, feature, test, review, docs, search, plan). Opt-in, agent-mode only.
+- **Memory Engine** — Zero-VRAM persistent memory for coding agents. Facts, episode summaries, and model-fit data stored in SQLite. Shared across all models, survives session boundaries.
+- **LM Studio Model Management** — Load, unload, and list models via LM Studio's v1 REST API. Per-model config overrides for context length, flash attention, KV-cache offload, and more.
+- **Instruction-Following Assist** — Auto-detects 14 constraint types from user prompts and injects explicit numbered reminders. Post-generation validation with automatic retry.
+- **Managed Thinking** — Controlled reasoning for local reasoning models with token budget split, reasoning stripping, and automatic disable for JSON/tool-calling workflows.
+
+### Fixed
+
+- **P0: Retry backoff** — Exponential backoff for LM Studio model-loading 502s (~50% → 0% HTTP errors).
+- **P1: Validation telemetry** — Validation failures now record issue code, message, and location (was empty `{}`).
+- **P2: JSON repetition** — Repetition detection skips JSON/structured output (113 false positives → 0).
+- **P3: Non-JSON fence repair** — JSON repair handles any language-tagged code fence (```python, ```javascript, etc.).
+- **`fmtInt` recursion bug** — Removed recursive call causing stack overflow on negative values.
+- **Unused import** — Removed unused `strings` import from `router/engine.go`.
+
+### Changed
+
+- **Pipeline engine** — Memory engine, router, and LM Studio model management integrated into pipeline.
+- **Tool shim** — Only "weak", "none", "unknown" tool-calling models trigger the shim (saves tokens on mid-tier models).
+- **Agent thinking policy** — Agent mode no longer unconditionally disables thinking; profiles with reasoning models opt-in via `thinking_policy`.
+- **Context compaction** — Upgraded from hint-only to sliding-window trim that actually removes old messages.
+- **Lightweight mode anti-loop** — New guard detects repeated tool calls and long conversations.
+
 ## 0.1.0-alpha — Spec Review Fix Sprint (WP7)
 
 ### Fixed

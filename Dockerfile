@@ -1,10 +1,10 @@
 # Multi-stage Dockerfile for Gumi Runtime.
 #
 # Build:
-#   docker build -t gumi:0.1.0-alpha .
+#   docker build -t gumi:0.2.0-alpha .
 #
 # Run (local-first, dashboard/API on localhost inside the container):
-#   docker run -p 127.0.0.1:8787:8787 -p 127.0.0.1:8788:8788 -v gumi-data:/data gumi:0.1.0-alpha
+#   docker run -p 127.0.0.1:8787:8787 -p 127.0.0.1:8788:8788 -v gumi-data:/data gumi:0.2.0-alpha
 #
 # The runtime stores its SQLite telemetry database under /data/.gumi/gumi.db
 # because the non-root user has its home directory set to /data.
@@ -40,7 +40,7 @@ COPY runtime/ ./
 
 # Build the binary with release metadata injected via ldflags.
 # modernc.org/sqlite is pure Go, so CGO can be disabled for a static binary.
-ARG VERSION=0.1.0-alpha
+ARG VERSION=0.2.0-alpha
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
 RUN CGO_ENABLED=0 go build \
