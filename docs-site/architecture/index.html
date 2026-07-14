@@ -115,6 +115,7 @@
     <p>Classifies each agent step by difficulty (trivial → novel) and task type (fix, refactor, feature, test, review, docs, search, plan) using structural heuristics. Selects the optimal model from available profiles. Re-evaluated each agent step.</p>
 
     <h2>Runtime modes</h2>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr><th>Mode</th><th>Context</th><th>Prompt</th><th>Guard</th><th>Validation</th><th>Repair</th><th>Memory</th><th>Router</th></tr>
@@ -127,6 +128,7 @@
         <tr><td>agent</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>opt-in</td><td>opt-in</td></tr>
       </tbody>
     </table>
+    </div>
 
     <h2>Storage</h2>
     <p>Gumi uses SQLite for local storage with two databases:</p>

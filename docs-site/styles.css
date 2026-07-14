@@ -126,21 +126,7 @@ pre, code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
 .use-case-card h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.5rem; }
 .use-case-card p { font-size: 0.9rem; color: #6c757d; }
 
-/* ── Tables ────────────────────────────────────────────────── */
-.model-table-wrapper, .comparison-table-wrapper {
-  overflow-x: auto; max-width: 900px; margin: 0 auto;
-}
-.model-table, .comparison-table {
-  width: 100%; border-collapse: collapse; font-size: 0.9rem;
-}
-.model-table th, .comparison-table th {
-  text-align: left; padding: 0.75rem 1rem;
-  border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057;
-}
-.model-table td, .comparison-table td {
-  padding: 0.75rem 1rem; border-bottom: 1px solid #e9ecef;
-}
-.model-table tbody tr:hover, .comparison-table tbody tr:hover { background: #f8f9fa; }
+/* ── Tables (deprecated wrappers — kept for backward compat) ── */
 
 /* ── Code Blocks ───────────────────────────────────────────── */
 .code-block {
@@ -156,16 +142,40 @@ pre, code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
 
 /* ── Page Content ─────────────────────────────────────────── */
 .page-content {
-  max-width: 800px; margin: 0 auto; padding: 3rem 1.5rem 5rem;
+  max-width: 960px; margin: 0 auto; padding: 3rem 1.5rem 5rem;
 }
 .page-content h1 { font-size: 2.25rem; font-weight: 800; margin-bottom: 0.5rem; }
-.page-content h2 { font-size: 1.5rem; font-weight: 700; margin: 2rem 0 0.75rem; }
+.page-content h2 { font-size: 1.5rem; font-weight: 700; margin: 2.5rem 0 0.75rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e9ecef; }
 .page-content h3 { font-size: 1.15rem; font-weight: 600; margin: 1.5rem 0 0.5rem; }
 .page-content p { margin-bottom: 1rem; color: #495057; }
 .page-content ul, .page-content ol { margin: 0 0 1rem 1.5rem; color: #495057; }
 .page-content li { margin-bottom: 0.25rem; }
 .page-content .code-block { margin: 1rem 0; }
 .page-content .btn { margin: 1rem 0; }
+
+/* ── Data Tables ──────────────────────────────────────────── */
+.page-content table {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  font-size: 0.875rem; margin: 1rem 0 1.5rem;
+  border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden;
+}
+.page-content thead th {
+  background: #f1f3f5; text-align: left; padding: 0.65rem 0.85rem;
+  font-weight: 600; font-size: 0.8rem; text-transform: uppercase;
+  letter-spacing: 0.03em; color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+.page-content tbody td {
+  padding: 0.6rem 0.85rem; border-bottom: 1px solid #f1f3f5;
+  vertical-align: middle;
+}
+.page-content tbody tr:last-child td { border-bottom: none; }
+.page-content tbody tr:nth-child(even) { background: #f8f9fa; }
+.page-content tbody tr:hover { background: #eef1ff; }
+.page-content tbody td:first-child { font-weight: 500; }
+.page-content table strong { color: #2b8a3e; }
+.page-content .table-wrap { overflow-x: auto; margin: 1rem 0 1.5rem; }
+.page-content .table-wrap table { margin: 0; }
 
 /* ── Footer ────────────────────────────────────────────────── */
 .footer {
