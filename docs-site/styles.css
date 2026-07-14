@@ -26,9 +26,9 @@ pre, code { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; }
 }
 .nav-logo {
   font-weight: 800; font-size: 1.3rem; color: #f5efe8;
-  display: flex; align-items: center; gap: 0.4rem;
+  display: flex; align-items: center; gap: 0.55rem;
 }
-.nav-logo::before { content: "🍡"; font-size: 1.2rem; }
+.logo-mark { width: 1.5rem; height: 1.5rem; }
 .nav-logo:hover { text-decoration: none; }
 .nav-links { display: flex; gap: 1.5rem; align-items: center; }
 .nav-links a { font-size: 0.9rem; color: #9c8f82; font-weight: 500; transition: color 0.15s; }
