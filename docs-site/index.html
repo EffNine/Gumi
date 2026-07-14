@@ -24,15 +24,15 @@
   <main>
     <section class="hero">
       <div class="hero-badge">v0.2.0-alpha</div>
-      <h1 class="hero-title">Local AI that <span class="gradient-text">actually works</span></h1>
+      <h1 class="hero-title">Local AI that <span class="gradient-text">doesn't drive you crazy</span></h1>
       <p class="hero-subtitle">
-        Gumi is an intelligence runtime that makes local AI models more stable,
-        reliable, and production-ready. It sits between your app and your local
-        inference server, hardening every turn so local models behave like cloud-grade ones.
+        Gumi is a little runtime that sits between your app and your local model.
+        It catches broken JSON, stops repetition loops, and makes small models
+        behave like they had a good night's sleep. All local, all private.
       </p>
       <div class="hero-cta">
-        <a href="/docs-site/quickstart" class="btn btn-primary">Get Started</a>
-        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener" class="btn btn-secondary">View on GitHub</a>
+        <a href="/docs-site/quickstart" class="btn btn-primary">Get Started →</a>
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener" class="btn btn-secondary">Star on GitHub</a>
       </div>
     </section>
 
@@ -60,43 +60,46 @@
     </section>
 
     <section class="section">
-      <h2 class="section-title">What makes Gumi different</h2>
+      <h2 class="section-title">What it does</h2>
       <div class="feature-grid">
         <div class="feature-card">
           <div class="feature-icon">🔧</div>
-          <h3>JSON validation + repair</h3>
-          <p>Local models often produce broken JSON. Gumi detects, repairs, and retries automatically — no more parsing failures in your agent loops.</p>
+          <h3>Fixes broken JSON</h3>
+          <p>Local models love to produce almost-JSON. Gumi catches it, fixes it, and retries — so your agent loops don't grind to a halt over a missing comma.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🎯</div>
-          <h3>Instruction-following assist</h3>
-          <p>Auto-detects 14 constraint types from user prompts and injects explicit reminders. Post-generation validation with automatic retry.</p>
+          <h3>Helps models follow instructions</h3>
+          <p>Small models forget what you asked for. Gumi spots 14 kinds of constraints in your prompt and gently reminds the model before it answers.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🔄</div>
-          <h3>Anti-loop detection</h3>
-          <p>Detects repeated output, tool-call loops, and context overflow. Injects loop-break hints before the model spirals.</p>
+          <h3>Stops repetition loops</h3>
+          <p>Models get stuck in loops. Gumi detects repeated output, repeated tool calls, and context overflow — and breaks the cycle before you do.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🧠</div>
-          <h3>Memory engine</h3>
-          <p>Zero-VRAM persistent memory for coding agents. Facts, episode summaries, and model-fit data stored in SQLite — shared across all models.</p>
+          <h3>Remembers what matters</h3>
+          <p>Zero-VRAM memory that survives model swaps and session restarts. Facts, episode summaries, and model-fit data in SQLite — no GPU needed.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🚀</div>
-          <h3>Agentic coding router</h3>
-          <p>Automatic per-step model selection by difficulty and task type. A "fix typo" routes to a tiny model; "implement payment handler" escalates to a strong one.</p>
+          <h3>Picks the right model per step</h3>
+          <p>A "fix typo" step routes to a tiny fast model. "Implement payment handler" escalates to a strong one. All automatic, all per-agent-step.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">📊</div>
-          <h3>Local telemetry dashboard</h3>
-          <p>11-page dashboard with real-time logs, request analytics, provider health, model management, and diagnostic checks — all local, all private.</p>
+          <h3>Shows you what's happening</h3>
+          <p>11-page dashboard with live logs, request analytics, provider health, and diagnostics. Everything stays on your machine.</p>
         </div>
       </div>
     </section>
 
     <section class="section section-dark">
       <h2 class="section-title">How it works</h2>
+      <p style="text-align:center;color:#6b6478;margin-bottom:2rem;max-width:600px;margin-left:auto;margin-right:auto;">
+        You point your app at Gumi. Gumi points at your local model. Everything else is automatic.
+      </p>
       <div class="diagram">
         <div class="diagram-box">Your App<br/><span class="diagram-sub">OpenCode / Continue / Cline / SDK</span></div>
         <div class="diagram-arrow">↓</div>
@@ -112,16 +115,16 @@
       <h2 class="section-title">Who is this for?</h2>
       <div class="use-case-grid">
         <div class="use-case-card">
-          <h3>OpenCode / Continue / Cline users</h3>
-          <p>You run a coding agent on a local model and hit broken JSON, repeated output, or empty responses. Point your client at Gumi instead of the raw provider and those failure modes disappear.</p>
+          <h3>You run a coding agent locally</h3>
+          <p>OpenCode, Continue, Cline — you've tried them with a local model and hit broken JSON, repeated output, or empty responses. Point your client at Gumi instead of the raw provider and those problems disappear.</p>
         </div>
         <div class="use-case-card">
-          <h3>Ollama / LM Studio users</h3>
-          <p>You like local inference but the model is rough in real apps. Gumi adds JSON repair, instruction-following assist, anti-loop guards, and telemetry without replacing your model.</p>
+          <h3>You use Ollama or LM Studio</h3>
+          <p>You like running models locally but they feel rough in real apps. Gumi adds JSON repair, instruction help, anti-loop guards, and a dashboard — without replacing your model or your workflow.</p>
         </div>
         <div class="use-case-card">
-          <h3>Local AI app builders</h3>
-          <p>You're building on top of local models and need an OpenAI-compatible reliability layer with model routing, memory, and provider-specific fixes. Gumi is that layer.</p>
+          <h3>You're building something on local AI</h3>
+          <p>You need an OpenAI-compatible reliability layer with model routing, memory, and provider-specific fixes. Gumi is that layer — one less thing for you to build.</p>
         </div>
       </div>
     </section>
@@ -191,7 +194,7 @@ print(response.choices[0].message.content)</code></pre>
     </section>
 
     <section class="section section-dark">
-      <h2 class="section-title">Why Gumi?</h2>
+      <h2 class="section-title">Gumi vs the alternatives</h2>
       <div class="table-wrap">
         <table>
           <thead>
