@@ -26,57 +26,54 @@
     <p>Gumi is a Go modular monolith that sits between your application and your local inference engine. Every request flows through the Pipeline Engine, which orchestrates a series of specialized sub-engines.</p>
 
     <h2>Request flow</h2>
-    <div class="code-block">
-      <div class="code-header">Pipeline</div>
-      <pre><code>Application (OpenCode / Continue / Cline / SDK)
-    │
-    ▼
-┌─────────────────────────────────────────┐
-│  Gateway Engine                         │
-│  • HTTP routing                         │
-│  • Auth (local key)                     │
-│  • Request ID generation                │
-│  • Provider resolution                  │
-└────────────────┬────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────┐
-│  Pipeline Engine                         │
-│  • Mode dispatch (direct/lightweight/   │
-│    stabilized/structured/agent)         │
-│  • Retry orchestration                  │
-│  • Telemetry recording                  │
-└────────────────┬────────────────────────┘
-                 │
-    ┌────────────┼────────────┬────────────┐
-    ▼            ▼            ▼            ▼
-┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐
-│Context │ │Prompt  │ │Guard   │ │Tool Shim │
-│Engine  │ │Engine  │ │Engine  │ │Engine    │
-└────────┘ └────────┘ └────────┘ └──────────┘
-    │            │            │            │
-    └────────────┴────────────┴────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────┐
-│  Provider Adapter                        │
-│  • Ollama / LM Studio / OpenAI-compat   │
-│  • Model management (load/unload)       │
-│  • Error normalization                  │
-└────────────────┬────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────┐
-│  Post-Processing                          │
-│  • Validation Engine (JSON, schema)      │
-│  • Repair Engine (JSON repair)          │
-│  • Tool-call validation                  │
-│  • Instruction-following validation      │
-│  • Memory extraction                    │
-└─────────────────────────────────────────┘
-                 │
-                 ▼
-         Response to Application</code></pre>
+    <div class="pipeline-diagram">
+      <div class="pipeline-node">
+        <div class="pipeline-label">Your App</div>
+        <div class="pipeline-desc">OpenCode / Continue / Cline / SDK</div>
+      </div>
+      <div class="pipeline-connector">↓</div>
+      <div class="pipeline-node highlight">
+        <div class="pipeline-label">Gateway Engine</div>
+        <div class="pipeline-desc">HTTP routing · Auth · Request ID · Provider resolution</div>
+      </div>
+      <div class="pipeline-connector">↓</div>
+      <div class="pipeline-node highlight">
+        <div class="pipeline-label">Pipeline Engine</div>
+        <div class="pipeline-desc">Mode dispatch · Retry orchestration · Telemetry</div>
+      </div>
+      <div class="pipeline-split">
+        <div class="pipeline-node sub">
+          <div class="pipeline-label">Context Engine</div>
+          <div class="pipeline-desc">Session · Memory · Token estimation</div>
+        </div>
+        <div class="pipeline-node sub">
+          <div class="pipeline-label">Prompt Engine</div>
+          <div class="pipeline-desc">System prompt · Format instructions</div>
+        </div>
+        <div class="pipeline-node sub">
+          <div class="pipeline-label">Guard Engine</div>
+          <div class="pipeline-desc">Anti-loop · Overflow · Structured output</div>
+        </div>
+        <div class="pipeline-node sub">
+          <div class="pipeline-label">Tool Shim</div>
+          <div class="pipeline-desc">Prompt-based tool calling · Schema validation</div>
+        </div>
+      </div>
+      <div class="pipeline-connector">↓</div>
+      <div class="pipeline-node highlight">
+        <div class="pipeline-label">Provider Adapter</div>
+        <div class="pipeline-desc">Ollama · LM Studio · OpenAI-compat · Model management</div>
+      </div>
+      <div class="pipeline-connector">↓</div>
+      <div class="pipeline-node highlight">
+        <div class="pipeline-label">Post-Processing</div>
+        <div class="pipeline-desc">Validation · Repair · Tool-call check · Memory extraction</div>
+      </div>
+      <div class="pipeline-connector">↓</div>
+      <div class="pipeline-node">
+        <div class="pipeline-label">Response</div>
+        <div class="pipeline-desc">To your application</div>
+      </div>
     </div>
 
     <h2>Engines</h2>

@@ -260,6 +260,30 @@ pre, code { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; }
 .comparison-list li.cross::before { content: "❌"; }
 .comparison-list li.partial::before { content: "⚠️"; }
 .comparison-list li:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+/* ── Pipeline Diagram ─────────────────────────────────────── */
+.pipeline-diagram {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0.5rem; max-width: 600px; margin: 0 auto;
+}
+.pipeline-node {
+  background: #1d1a2a; border: 2px solid #3a3350; border-radius: 12px;
+  padding: 0.85rem 1.5rem; text-align: center; width: 100%;
+  transition: border-color 0.2s;
+}
+.pipeline-node:hover { border-color: #5a4f70; }
+.pipeline-node.highlight { border-color: #6c4cf5; background: rgba(108,76,245,0.08); }
+.pipeline-node.sub {
+  border-color: #2a2538; background: rgba(255,255,255,0.02);
+  padding: 0.6rem 1rem;
+}
+.pipeline-label { font-weight: 700; font-size: 0.95rem; color: #f0ebe5; }
+.pipeline-desc { font-size: 0.78rem; color: #8a7fa3; margin-top: 0.2rem; }
+.pipeline-connector { font-size: 1.1rem; color: #5a4f70; }
+.pipeline-split {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+  width: 100%;
+}
 .page-content table {
   width: 100%; border-collapse: separate; border-spacing: 0;
   font-size: 0.875rem; margin: 1rem 0 1.5rem;
