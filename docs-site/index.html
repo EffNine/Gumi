@@ -262,49 +262,28 @@ print(response.choices[0].message.content)</code></pre>
 
     <section class="section section-dark">
       <h2 class="section-title">Gumi vs the alternatives</h2>
-      <div class="comparison-grid">
-        <div class="comparison-card comparison-highlight">
-          <h3>Gumi</h3>
-          <ul class="comparison-list">
-            <li class="check">Runs locally</li>
-            <li class="check">OpenAI-compatible drop-in</li>
-            <li class="check">JSON validation + repair</li>
-            <li class="check">Instruction-following assist</li>
-            <li class="check">Per-step model routing</li>
-            <li class="check">Persistent cross-model memory</li>
-            <li class="check">Provider-specific quirk fixes</li>
-            <li class="check">Local telemetry dashboard</li>
-            <li class="check">Local-first, no cloud dependency</li>
-          </ul>
-        </div>
-        <div class="comparison-card">
-          <h3>Raw Ollama / LM Studio</h3>
-          <ul class="comparison-list">
-            <li class="check">Runs locally</li>
-            <li class="partial">OpenAI-compatible drop-in</li>
-            <li class="cross">JSON validation + repair</li>
-            <li class="cross">Instruction-following assist</li>
-            <li class="cross">Per-step model routing</li>
-            <li class="cross">Persistent cross-model memory</li>
-            <li class="cross">Provider-specific quirk fixes</li>
-            <li class="cross">Local telemetry dashboard</li>
-            <li class="check">Local-first, no cloud dependency</li>
-          </ul>
-        </div>
-        <div class="comparison-card">
-          <h3>Cloud gateways</h3>
-          <ul class="comparison-list">
-            <li class="cross">Runs locally</li>
-            <li class="check">OpenAI-compatible drop-in</li>
-            <li class="partial">JSON validation + repair</li>
-            <li class="cross">Instruction-following assist</li>
-            <li class="cross">Per-step model routing</li>
-            <li class="cross">Persistent cross-model memory</li>
-            <li class="cross">Provider-specific quirk fixes</li>
-            <li class="check">Local telemetry dashboard</li>
-            <li class="cross">Local-first, no cloud dependency</li>
-          </ul>
-        </div>
+      <div class="table-wrap">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th class="gumi-col">Gumi</th>
+              <th>Raw Ollama / LM Studio</th>
+              <th>Cloud gateways</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Runs locally</td><td class="gumi-col check">✓</td><td class="check">✓</td><td class="cross">✗</td></tr>
+            <tr><td>OpenAI-compatible drop-in</td><td class="gumi-col check">✓</td><td class="partial">~</td><td class="check">✓</td></tr>
+            <tr><td>JSON validation + repair</td><td class="gumi-col check">✓</td><td class="cross">✗</td><td class="partial">~</td></tr>
+            <tr><td>Instruction-following assist</td><td class="gumi-col check">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+            <tr><td>Per-step model routing</td><td class="gumi-col check">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+            <tr><td>Persistent cross-model memory</td><td class="gumi-col check">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+            <tr><td>Provider-specific quirk fixes</td><td class="gumi-col check">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+            <tr><td>Local telemetry dashboard</td><td class="gumi-col check">✓</td><td class="cross">✗</td><td class="check">✓</td></tr>
+            <tr><td>Local-first, no cloud dependency</td><td class="gumi-col check">✓</td><td class="check">✓</td><td class="cross">✗</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
