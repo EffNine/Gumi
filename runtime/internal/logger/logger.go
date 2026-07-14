@@ -23,12 +23,16 @@ const (
 	ErrorLevel
 )
 
-// Logger is a simple leveled logger.
+// LogSubscriber receives structured log lines in real-time.
+type LogSubscriber func(timestamp, level, msg string, pairs ...any)
+
+// Logger is a simple leveled logger with optional real-time subscriptions.
 type Logger struct {
-	level  Level
-	out    io.Writer
-	errOut io.Writer
-	mu     sync.Mutex
+	level       Level
+	out         io.Writer
+	errOut      io.Writer
+	mu          sync.Mutex
+	subscribers []LogSubscriber
 }
 
 // New creates a logger with the given level string (debug, info, error).
@@ -47,6 +51,14 @@ func NewWithWriters(level string, out, errOut io.Writer) *Logger {
 		out:    out,
 		errOut: errOut,
 	}
+}
+
+// Subscribe adds a callback that receives every log line in real-time.
+// The callback is called synchronously; slow subscribers will block the logger.
+func (l *Logger) Subscribe(fn LogSubscriber) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.subscribers = append(l.subscribers, fn)
 }
 
 // Info writes an informational message.
@@ -85,6 +97,11 @@ func (l *Logger) log(w io.Writer, level, msg string, pairs ...any) {
 	}
 
 	fmt.Fprintf(w, "[%s] %s: %s%s\n", timestamp, level, msg, fields)
+
+	// Broadcast to subscribers
+	for _, fn := range l.subscribers {
+		fn(timestamp, level, msg, pairs...)
+	}
 }
 
 func (l *Logger) shouldLog(level string) bool {

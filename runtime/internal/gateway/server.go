@@ -67,6 +67,11 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 		}
 	}
 
+	// Subscribe logger to broadcast logs to dashboard subscribers
+	log.Subscribe(func(timestamp, level, msg string, pairs ...any) {
+		BroadcastLog(timestamp, level, msg, pairs...)
+	})
+
 	s := &Server{
 		cfg:       cfg,
 		log:       log,

@@ -13,6 +13,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/gumi/telemetry/recent", s.withAuthMiddleware(s.handleTelemetryRecent))
 	mux.HandleFunc("GET /v1/gumi/status", s.withAuthMiddleware(s.handleStatus))
 	mux.HandleFunc("GET /v1/gumi/config", s.withAuthMiddleware(s.handleConfig))
+	mux.HandleFunc("POST /v1/gumi/config", s.withAuthMiddleware(s.handleConfigSave))
 	mux.HandleFunc("GET /v1/gumi/doctor", s.withAuthMiddleware(s.handleDoctor))
 	mux.HandleFunc("GET /v1/gumi/profiles", s.withAuthMiddleware(s.handleProfiles))
 	mux.HandleFunc("GET /v1/gumi/memory/facts", s.withAuthMiddleware(s.handleMemoryFacts))
@@ -20,6 +21,13 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/gumi/memory/model-fit", s.withAuthMiddleware(s.handleMemoryModelFit))
 	mux.HandleFunc("POST /v1/gumi/memory/clear", s.withAuthMiddleware(s.handleMemoryClear))
 	mux.HandleFunc("GET /v1/gumi/memory/status", s.withAuthMiddleware(s.handleMemoryStatus))
+	// LM Studio model management
+	mux.HandleFunc("GET /v1/gumi/providers/lmstudio/models", s.withAuthMiddleware(s.handleLMStudioModels))
+	mux.HandleFunc("POST /v1/gumi/providers/lmstudio/models/load", s.withAuthMiddleware(s.handleLMStudioLoadModel))
+	mux.HandleFunc("POST /v1/gumi/providers/lmstudio/models/unload", s.withAuthMiddleware(s.handleLMStudioUnloadModel))
+	mux.HandleFunc("GET /v1/gumi/providers/lmstudio/loaded", s.withAuthMiddleware(s.handleLMStudioLoaded))
+	// Log streaming
+	mux.HandleFunc("GET /v1/gumi/logs/stream", s.withAuthMiddleware(s.handleLogStream))
 }
 
 // withPublicMiddleware applies logging and request-ID middleware without auth.
