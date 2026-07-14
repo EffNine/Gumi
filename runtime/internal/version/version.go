@@ -10,17 +10,17 @@ import "fmt"
 
 // Release metadata. Override at link time with:
 //
-//	-X github.com/EffNine/gumi/runtime/internal/version.Version=0.2.0
+//	-X github.com/EffNine/gumi/runtime/internal/version.Version=0.2.0-alpha
 //	-X github.com/EffNine/gumi/runtime/internal/version.Commit=<sha>
 //	-X github.com/EffNine/gumi/runtime/internal/version.BuildDate=<iso>
 var (
-	Version   = "0.2.0"
+	Version   = "0.2.0-alpha"
 	Commit    = "dev"
 	BuildDate = "unknown"
 )
 
 // Short returns the version string only. It is the stable part of the
-// `gumi version` output and defaults to "0.1.0" for development builds.
+// `gumi version` output and defaults to "0.2.0-alpha" for development builds.
 func Short() string {
 	return Version
 }

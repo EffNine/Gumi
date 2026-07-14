@@ -6,6 +6,7 @@
 
 VERSION_GIT ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "")
 VERSION     ?= $(if $(filter v%,$(VERSION_GIT)),$(VERSION_GIT),0.2.0-alpha)
+# ^ fallback dev version; keep in sync with runtime/internal/version/version.go
 COMMIT     ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
