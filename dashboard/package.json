@@ -1,7 +1,7 @@
 {
   "name": "gumi-dashboard",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0-alpha",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 8788",
@@ -10,21 +10,21 @@
     "preview": "vite preview --host 127.0.0.1 --port 8788"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "lucide-react": "latest",
-    "vite": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+    "@vitejs/plugin-react": "6.0.3",
+    "lucide-react": "1.24.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "vite": "8.1.4"
   },
   "devDependencies": {
-    "@eslint/js": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "eslint": "latest",
-    "eslint-plugin-react-hooks": "latest",
-    "eslint-plugin-react-refresh": "latest",
-    "globals": "latest",
-    "typescript": "latest",
-    "typescript-eslint": "latest"
+    "@eslint/js": "10.0.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "eslint": "10.6.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.3",
+    "globals": "17.7.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.63.0"
   }
 }
