@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gumi — Intelligence Runtime for Local AI</title>
+  <link rel="stylesheet" href="/docs-site/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🍡</text></svg>" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/docs-site/" class="nav-logo">Gumi</a>
+      <div class="nav-links">
+        <a href="/docs-site/quickstart">Quickstart</a>
+        <a href="/docs-site/integrations">Integrations</a>
+        <a href="/docs-site/architecture">Architecture</a>
+        <a href="/docs-site/benchmarks">Benchmarks</a>
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="hero-badge">v0.2.0-alpha</div>
+      <h1 class="hero-title">Local AI that <span class="gradient-text">actually works</span></h1>
+      <p class="hero-subtitle">
+        Gumi is an intelligence runtime that makes local AI models more stable,
+        reliable, and production-ready. It sits between your app and your local
+        inference server, hardening every turn so local models behave like cloud-grade ones.
+      </p>
+      <div class="hero-cta">
+        <a href="/docs-site/quickstart" class="btn btn-primary">Get Started</a>
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener" class="btn btn-secondary">View on GitHub</a>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <div class="metric-card">
+        <span class="metric-value">100%</span>
+        <span class="metric-label">JSON validity</span>
+        <span class="metric-delta positive">+100% vs direct</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value">8.4×</span>
+        <span class="metric-label">Faster JSON latency</span>
+        <span class="metric-delta positive">352ms vs 2,949ms</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value">0%</span>
+        <span class="metric-label">HTTP errors</span>
+        <span class="metric-delta positive">eliminated</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value">0</span>
+        <span class="metric-label">Repetition false positives</span>
+        <span class="metric-delta positive">113 → 0</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">What makes Gumi different</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🔧</div>
+          <h3>JSON validation + repair</h3>
+          <p>Local models often produce broken JSON. Gumi detects, repairs, and retries automatically — no more parsing failures in your agent loops.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Instruction-following assist</h3>
+          <p>Auto-detects 14 constraint types from user prompts and injects explicit reminders. Post-generation validation with automatic retry.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔄</div>
+          <h3>Anti-loop detection</h3>
+          <p>Detects repeated output, tool-call loops, and context overflow. Injects loop-break hints before the model spirals.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🧠</div>
+          <h3>Memory engine</h3>
+          <p>Zero-VRAM persistent memory for coding agents. Facts, episode summaries, and model-fit data stored in SQLite — shared across all models.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🚀</div>
+          <h3>Agentic coding router</h3>
+          <p>Automatic per-step model selection by difficulty and task type. A "fix typo" routes to a tiny model; "implement payment handler" escalates to a strong one.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Local telemetry dashboard</h3>
+          <p>11-page dashboard with real-time logs, request analytics, provider health, model management, and diagnostic checks — all local, all private.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-dark">
+      <h2 class="section-title">How it works</h2>
+      <div class="diagram">
+        <div class="diagram-box">Your App<br/><span class="diagram-sub">OpenCode / Continue / Cline / SDK</span></div>
+        <div class="diagram-arrow">↓</div>
+        <div class="diagram-box diagram-highlight">Gumi Runtime<br/><span class="diagram-sub">http://127.0.0.1:8787/v1</span></div>
+        <div class="diagram-arrow">↓</div>
+        <div class="diagram-box">Local Inference<br/><span class="diagram-sub">LM Studio / Ollama / OpenAI-compatible</span></div>
+        <div class="diagram-arrow">↓</div>
+        <div class="diagram-box">Local Model</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Who is this for?</h2>
+      <div class="use-case-grid">
+        <div class="use-case-card">
+          <h3>OpenCode / Continue / Cline users</h3>
+          <p>You run a coding agent on a local model and hit broken JSON, repeated output, or empty responses. Point your client at Gumi instead of the raw provider and those failure modes disappear.</p>
+        </div>
+        <div class="use-case-card">
+          <h3>Ollama / LM Studio users</h3>
+          <p>You like local inference but the model is rough in real apps. Gumi adds JSON repair, instruction-following assist, anti-loop guards, and telemetry without replacing your model.</p>
+        </div>
+        <div class="use-case-card">
+          <h3>Local AI app builders</h3>
+          <p>You're building on top of local models and need an OpenAI-compatible reliability layer with model routing, memory, and provider-specific fixes. Gumi is that layer.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-dark">
+      <h2 class="section-title">Tested models</h2>
+      <div class="model-table-wrapper">
+        <table class="model-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Size</th>
+              <th>Role</th>
+              <th>Provider</th>
+              <th>Stabilized</th>
+              <th>Structured</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Ornith 9B</td><td>9B</td><td>Quality alternative</td><td>LM Studio</td><td>100%</td><td>100%</td></tr>
+            <tr><td>Qwen 2.5 Coder 7B</td><td>7B</td><td>Primary fast coder</td><td>LM Studio</td><td>100%</td><td>100%</td></tr>
+            <tr><td>Qwen 3.5 9B</td><td>9B</td><td>Complex reasoning</td><td>LM Studio</td><td>100%</td><td>100%</td></tr>
+            <tr><td>Essential AI RNJ-1</td><td>—</td><td>Reasoning</td><td>LM Studio</td><td>100%</td><td>100%</td></tr>
+            <tr><td>Qwen 3 1.7B</td><td>1.7B</td><td>Fast chat</td><td>LM Studio</td><td>100%</td><td>100%</td></tr>
+            <tr><td>Gemma 4 E4B</td><td>4B</td><td>Mid-size</td><td>LM Studio</td><td>67%</td><td>100%</td></tr>
+            <tr><td>Llama 3.2 3B</td><td>3B</td><td>Fast chat</td><td>Ollama</td><td>78%</td><td>100%</td></tr>
+            <tr><td>Gemma 3 4B</td><td>4B</td><td>Mid-size</td><td>Ollama</td><td>67%</td><td>100%</td></tr>
+            <tr><td>Gemma 3 1B</td><td>1B</td><td>Small chat</td><td>Ollama</td><td>67%</td><td>100%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Quick start</h2>
+      <div class="code-block">
+        <div class="code-header">Terminal</div>
+        <pre><code>git clone https://github.com/EffNine/Gumi.git
+cd Gumi
+make build
+./gumi start</code></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header">cURL</div>
+        <pre><code>curl http://127.0.0.1:8787/v1/chat/completions \
+  -H "Authorization: Bearer gumi-local" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "lmstudio:qwen2.5-coder-7b-instruct",
+    "messages": [{"role": "user", "content": "Write a Go function that adds two ints. Code only."}]
+  }'</code></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header">Python</div>
+        <pre><code>from openai import OpenAI
+
+client = OpenAI(base_url="http://127.0.0.1:8787/v1", api_key="gumi-local")
+response = client.chat.completions.create(
+    model="lmstudio:qwen2.5-coder-7b-instruct",
+    messages=[{"role": "user", "content": "Write a tiny TypeScript add function."}],
+)
+print(response.choices[0].message.content)</code></pre>
+      </div>
+      <div style="text-align:center;margin-top:2rem;">
+        <a href="/docs-site/quickstart" class="btn btn-primary">Full Quickstart Guide →</a>
+      </div>
+    </section>
+
+    <section class="section section-dark">
+      <h2 class="section-title">Why Gumi?</h2>
+      <div class="comparison-table-wrapper">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Gumi</th>
+              <th>Raw Ollama / LM Studio</th>
+              <th>Cloud gateways</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Runs locally</td><td>✅</td><td>✅</td><td>❌</td></tr>
+            <tr><td>OpenAI-compatible drop-in</td><td>✅</td><td>partial</td><td>✅</td></tr>
+            <tr><td>JSON validation + repair</td><td>✅</td><td>❌</td><td>varies</td></tr>
+            <tr><td>Instruction-following assist</td><td>✅</td><td>❌</td><td>❌</td></tr>
+            <tr><td>Per-step model routing</td><td>✅</td><td>❌</td><td>❌</td></tr>
+            <tr><td>Persistent cross-model memory</td><td>✅</td><td>❌</td><td>❌</td></tr>
+            <tr><td>Provider-specific quirk fixes</td><td>✅</td><td>❌</td><td>❌</td></tr>
+            <tr><td>Local telemetry dashboard</td><td>✅</td><td>❌</td><td>✅</td></tr>
+            <tr><td>Local-first, no cloud dependency</td><td>✅</td><td>✅</td><td>❌</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-col">
+          <strong>Gumi</strong>
+          <span class="footer-sub">Intelligence Runtime for Local AI</span>
+        </div>
+        <div class="footer-col">
+          <a href="/docs-site/quickstart">Quickstart</a>
+          <a href="/docs-site/integrations">Integrations</a>
+          <a href="/docs-site/architecture">Architecture</a>
+          <a href="/docs-site/benchmarks">Benchmarks</a>
+        </div>
+        <div class="footer-col">
+          <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/EffNine/Gumi/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/EffNine/Gumi/blob/main/LICENSE" target="_blank" rel="noopener">Apache-2.0 License</a>
+        </div>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture — Gumi</title>
+  <link rel="stylesheet" href="/docs-site/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🍡</text></svg>" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/docs-site/" class="nav-logo">Gumi</a>
+      <div class="nav-links">
+        <a href="/docs-site/quickstart">Quickstart</a>
+        <a href="/docs-site/integrations">Integrations</a>
+        <a href="/docs-site/architecture">Architecture</a>
+        <a href="/docs-site/benchmarks">Benchmarks</a>
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-content">
+    <h1>Architecture</h1>
+    <p>Gumi is a Go modular monolith that sits between your application and your local inference engine. Every request flows through the Pipeline Engine, which orchestrates a series of specialized sub-engines.</p>
+
+    <h2>Request flow</h2>
+    <div class="code-block">
+      <div class="code-header">Pipeline</div>
+      <pre><code>Application (OpenCode / Continue / Cline / SDK)
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│  Gateway Engine                         │
+│  • HTTP routing                         │
+│  • Auth (local key)                     │
+│  • Request ID generation                │
+│  • Provider resolution                  │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────┐
+│  Pipeline Engine                         │
+│  • Mode dispatch (direct/lightweight/   │
+│    stabilized/structured/agent)         │
+│  • Retry orchestration                  │
+│  • Telemetry recording                  │
+└────────────────┬────────────────────────┘
+                 │
+    ┌────────────┼────────────┬────────────┐
+    ▼            ▼            ▼            ▼
+┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐
+│Context │ │Prompt  │ │Guard   │ │Tool Shim │
+│Engine  │ │Engine  │ │Engine  │ │Engine    │
+└────────┘ └────────┘ └────────┘ └──────────┘
+    │            │            │            │
+    └────────────┴────────────┴────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────┐
+│  Provider Adapter                        │
+│  • Ollama / LM Studio / OpenAI-compat   │
+│  • Model management (load/unload)       │
+│  • Error normalization                  │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────┐
+│  Post-Processing                          │
+│  • Validation Engine (JSON, schema)      │
+│  • Repair Engine (JSON repair)          │
+│  • Tool-call validation                  │
+│  • Instruction-following validation      │
+│  • Memory extraction                    │
+└─────────────────────────────────────────┘
+                 │
+                 ▼
+         Response to Application</code></pre>
+    </div>
+
+    <h2>Engines</h2>
+
+    <h3>Gateway Engine</h3>
+    <p>Handles HTTP routing, authentication, request ID generation, and provider resolution. Stays intentionally thin — it forwards inference requests to the Pipeline Engine.</p>
+
+    <h3>Pipeline Engine</h3>
+    <p>The central orchestrator. Dispatches requests to the correct mode pipeline (direct, lightweight, stabilized, structured, or agent) and coordinates all sub-engines. Manages retry logic with exponential backoff.</p>
+
+    <h3>Context Engine</h3>
+    <p>Assembles session context, memory facts, and conversation history. Handles token estimation, message normalization, and sliding-window context compaction for long conversations.</p>
+
+    <h3>Prompt Engine</h3>
+    <p>Builds the final system prompt by combining base instructions, context blocks, format instructions, model profile instructions, and tool-calling hints. Produces a telemetry report of what was added.</p>
+
+    <h3>Guard Engine</h3>
+    <p>Pre-generation safety checks: anti-loop detection, context overflow prevention, and structured output enforcement. Runs before the provider call to prevent known failure modes.</p>
+
+    <h3>Tool Shim Engine</h3>
+    <p>Converts native OpenAI tool definitions into prompt-based instructions for models that don't reliably support native tool calling. Parses JSON tool calls from model output and validates them against the tool schemas.</p>
+
+    <h3>Validation Engine</h3>
+    <p>Post-generation checks: JSON validity, required keys, empty response detection, and schema compliance. Produces structured reports for telemetry and retry decisions.</p>
+
+    <h3>Repair Engine</h3>
+    <p>Attempts to fix common model output issues: broken JSON (missing braces, trailing commas), markdown-wrapped JSON, and repeated content. Reports success/failure for telemetry.</p>
+
+    <h3>Memory Engine</h3>
+    <p>Zero-VRAM persistent memory using SQLite. Stores facts (key-value with TTL and confidence), episode summaries (compressed step histories), and model-fit data (per-model performance tracking). Injects relevant facts into the system prompt before generation.</p>
+
+    <h3>Instruction-Following Assist</h3>
+    <p>Auto-detects 14 constraint types from user prompts (sentence count, word limits, forbidden words, JSON, line count, bullets, etc.) and injects explicit numbered reminders. Validates responses post-generation with automatic retry on failure.</p>
+
+    <h3>Agentic Coding Router</h3>
+    <p>Classifies each agent step by difficulty (trivial → novel) and task type (fix, refactor, feature, test, review, docs, search, plan) using structural heuristics. Selects the optimal model from available profiles. Re-evaluated each agent step.</p>
+
+    <h2>Runtime modes</h2>
+    <table>
+      <thead>
+        <tr><th>Mode</th><th>Context</th><th>Prompt</th><th>Guard</th><th>Validation</th><th>Repair</th><th>Memory</th><th>Router</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>direct</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr><td>lightweight</td><td>—</td><td>profile</td><td>anti-loop</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr><td>stabilized</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>opt-in</td><td>—</td></tr>
+        <tr><td>structured</td><td>✅</td><td>✅</td><td>✅</td><td>strict JSON</td><td>✅</td><td>opt-in</td><td>—</td></tr>
+        <tr><td>agent</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>opt-in</td><td>opt-in</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Storage</h2>
+    <p>Gumi uses SQLite for local storage with two databases:</p>
+    <ul>
+      <li><strong>Telemetry database</strong> (<code>~/.gumi/gumi.db</code>) — request metadata, pipeline events, validation reports, repair reports, provider health. Retained for 14 days by default. Full prompts and responses are never stored.</li>
+      <li><strong>Memory database</strong> (<code>~/.gumi/memory.db</code>) — facts, episode summaries, model-fit data. Optional, opt-in via config.</li>
+    </ul>
+
+    <h2>Provider adapters</h2>
+    <p>Gumi supports three local providers out of the box:</p>
+    <ul>
+      <li><strong>Ollama</strong> — <code>http://localhost:11434</code></li>
+      <li><strong>LM Studio</strong> — <code>http://localhost:1234/v1</code></li>
+      <li><strong>OpenAI-compatible local server</strong> — <code>http://localhost:8000/v1</code></li>
+    </ul>
+    <p>Provider adapters are intentionally thin: they handle URL routing, request/response translation, and error normalization. All intelligence lives in the pipeline engines.</p>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-col">
+        <strong>Gumi</strong>
+        <span class="footer-sub">Intelligence Runtime for Local AI</span>
+      </div>
+      <div class="footer-col">
+        <a href="/docs-site/quickstart">Quickstart</a>
+        <a href="/docs-site/integrations">Integrations</a>
+        <a href="/docs-site/architecture">Architecture</a>
+        <a href="/docs-site/benchmarks">Benchmarks</a>
+      </div>
+      <div class="footer-col">
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/EffNine/Gumi/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/EffNine/Gumi/blob/main/LICENSE" target="_blank" rel="noopener">Apache-2.0 License</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

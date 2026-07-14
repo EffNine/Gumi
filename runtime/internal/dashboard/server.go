@@ -35,6 +35,15 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 	}
 	mux.Handle("/api/", proxy)
 
+	// Serve the documentation site from docs-site/ directory.
+	// The docs site is a set of static HTML pages that explain Gumi's
+	// architecture, quickstart, integrations, and benchmarks.
+	docsDir := findDocsSiteDir()
+	if docsDir != "" {
+		docsFiles := http.FileServer(http.Dir(docsDir))
+		mux.Handle("/docs-site/", http.StripPrefix("/docs-site/", docsFiles))
+	}
+
 	dist := findDistDir()
 	if dist == "" {
 		mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
@@ -88,6 +97,33 @@ func findDistDir() string {
 		current := start
 		for i := 0; i < 6; i++ {
 			candidate := filepath.Join(current, "dashboard", "dist")
+			if info, err := os.Stat(filepath.Join(candidate, "index.html")); err == nil && !info.IsDir() {
+				return candidate
+			}
+			parent := filepath.Dir(current)
+			if parent == current {
+				break
+			}
+			current = parent
+		}
+	}
+	return ""
+}
+
+// findDocsSiteDir locates the docs-site/ directory by walking up from the
+// current working directory and the executable directory. Returns "" if not found.
+func findDocsSiteDir() string {
+	starts := []string{}
+	if cwd, err := os.Getwd(); err == nil {
+		starts = append(starts, cwd)
+	}
+	if exe, err := os.Executable(); err == nil {
+		starts = append(starts, filepath.Dir(exe))
+	}
+	for _, start := range starts {
+		current := start
+		for i := 0; i < 6; i++ {
+			candidate := filepath.Join(current, "docs-site")
 			if info, err := os.Stat(filepath.Join(candidate, "index.html")); err == nil && !info.IsDir() {
 				return candidate
 			}

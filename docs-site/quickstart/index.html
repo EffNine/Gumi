@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quickstart — Gumi</title>
+  <link rel="stylesheet" href="/docs-site/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🍡</text></svg>" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/docs-site/" class="nav-logo">Gumi</a>
+      <div class="nav-links">
+        <a href="/docs-site/quickstart">Quickstart</a>
+        <a href="/docs-site/integrations">Integrations</a>
+        <a href="/docs-site/architecture">Architecture</a>
+        <a href="/docs-site/benchmarks">Benchmarks</a>
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-content">
+    <h1>Quickstart</h1>
+    <p>Get Gumi running in under 2 minutes. You'll need a local inference engine (LM Studio or Ollama) with a model loaded.</p>
+
+    <h2>1. Build and start</h2>
+    <div class="code-block">
+      <div class="code-header">Terminal</div>
+      <pre><code>git clone https://github.com/EffNine/Gumi.git
+cd Gumi
+make build
+./gumi start</code></pre>
+    </div>
+    <p>Gumi starts on <code>http://127.0.0.1:8787</code> (API) and <code>http://127.0.0.1:8788</code> (dashboard). Leave this terminal open.</p>
+
+    <h2>2. Open the dashboard</h2>
+    <p>Navigate to <a href="http://127.0.0.1:8788" target="_blank">http://127.0.0.1:8788</a>. The dashboard has 11 pages covering every aspect of the runtime:</p>
+    <ul>
+      <li><strong>Overview</strong> — Runtime status, pipeline visualization, provider health</li>
+      <li><strong>Playground</strong> — Interactive chat with provider/model/mode selection</li>
+      <li><strong>Requests</strong> — Request history with filtering and status indicators</li>
+      <li><strong>Analytics</strong> — Latency distribution, provider breakdown, success rate</li>
+      <li><strong>Providers</strong> — Provider health cards with model counts</li>
+      <li><strong>Models</strong> — Model listing with load/unload and configuration</li>
+      <li><strong>Memory</strong> — Facts CRUD, model-fit leaderboard, memory engine status</li>
+      <li><strong>Profiles</strong> — Model profile listing with capabilities</li>
+      <li><strong>Logs</strong> — Real-time log viewer via SSE with level filtering</li>
+      <li><strong>Config</strong> — Resolved config viewer with redacted secrets</li>
+      <li><strong>Doctor</strong> — Visual diagnostic checks with suggestions</li>
+    </ul>
+
+    <h2>3. Call the API</h2>
+    <p>Any OpenAI-compatible client works out of the box:</p>
+
+    <div class="code-block">
+      <div class="code-header">cURL</div>
+      <pre><code>curl http://127.0.0.1:8787/v1/chat/completions \
+  -H "Authorization: Bearer gumi-local" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "lmstudio:qwen2.5-coder-7b-instruct",
+    "messages": [{"role": "user", "content": "Write a Go function that adds two ints. Code only."}]
+  }'</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">Python</div>
+      <pre><code>from openai import OpenAI
+
+client = OpenAI(base_url="http://127.0.0.1:8787/v1", api_key="gumi-local")
+response = client.chat.completions.create(
+    model="lmstudio:qwen2.5-coder-7b-instruct",
+    messages=[{"role": "user", "content": "Write a tiny TypeScript add function."}],
+)
+print(response.choices[0].message.content)</code></pre>
+    </div>
+
+    <h2>4. Model naming</h2>
+    <p>When routing through Gumi, prefix the model name with the provider:</p>
+    <ul>
+      <li><code>lmstudio:qwen2.5-coder-7b-instruct</code> — LM Studio</li>
+      <li><code>ollama:llama3.2:3b</code> — Ollama</li>
+      <li><code>local:auto</code> — Auto-select the first available provider</li>
+    </ul>
+
+    <h2>5. Pipeline modes</h2>
+    <p>Gumi supports five runtime modes. Pass them via the <code>gumi</code> extension in your request:</p>
+    <div class="code-block">
+      <div class="code-header">Request with mode selection</div>
+      <pre><code>{
+  "model": "ollama:llama3.2:3b",
+  "messages": [{"role": "user", "content": "What is 2+2?"}],
+  "gumi": {
+    "mode": "stabilized"
+  }
+}</code></pre>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Mode</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>direct</code></td><td>Thin proxy — no processing</td></tr>
+        <tr><td><code>lightweight</code></td><td>Profile defaults + anti-loop guard only</td></tr>
+        <tr><td><code>stabilized</code></td><td>Full pipeline: context, prompt, validation, repair, telemetry</td></tr>
+        <tr><td><code>structured</code></td><td>Stabilized + strict JSON/schema output enforcement</td></tr>
+        <tr><td><code>agent</code></td><td>Stabilized + step budget, tool-call loop detection, context compaction</td></tr>
+      </tbody>
+    </table>
+
+    <h2>6. Configuration</h2>
+    <p>Copy the example config and customize:</p>
+    <div class="code-block">
+      <div class="code-header">Terminal</div>
+      <pre><code>cp gumi.example.yaml ~/.gumi/gumi.yaml
+# Edit ~/.gumi/gumi.yaml to set your default provider and model</code></pre>
+    </div>
+    <p>Environment variables override YAML values:</p>
+    <ul>
+      <li><code>GUMI_PROVIDER_DEFAULT=lmstudio</code></li>
+      <li><code>GUMI_LMSTUDIO_URL=http://192.168.0.164:1234/v1</code></li>
+      <li><code>GUMI_DEFAULT_MODEL=ornith-1.0-9b@q4_k_m</code></li>
+      <li><code>GUMI_PROVIDER_TIMEOUT_SECONDS=120</code></li>
+    </ul>
+
+    <h2>7. Next steps</h2>
+    <ul>
+      <li>Explore the <a href="/docs-site/architecture">architecture</a> to understand the pipeline</li>
+      <li>Check <a href="/docs-site/integrations">integrations</a> for OpenCode, Continue, and Cline setup</li>
+      <li>Review <a href="/docs-site/benchmarks">benchmarks</a> to see how Gumi improves model output</li>
+    </ul>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-col">
+        <strong>Gumi</strong>
+        <span class="footer-sub">Intelligence Runtime for Local AI</span>
+      </div>
+      <div class="footer-col">
+        <a href="/docs-site/quickstart">Quickstart</a>
+        <a href="/docs-site/integrations">Integrations</a>
+        <a href="/docs-site/architecture">Architecture</a>
+        <a href="/docs-site/benchmarks">Benchmarks</a>
+      </div>
+      <div class="footer-col">
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/EffNine/Gumi/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/EffNine/Gumi/blob/main/LICENSE" target="_blank" rel="noopener">Apache-2.0 License</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

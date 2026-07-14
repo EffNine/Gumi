@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Integrations — Gumi</title>
+  <link rel="stylesheet" href="/docs-site/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🍡</text></svg>" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/docs-site/" class="nav-logo">Gumi</a>
+      <div class="nav-links">
+        <a href="/docs-site/quickstart">Quickstart</a>
+        <a href="/docs-site/integrations">Integrations</a>
+        <a href="/docs-site/architecture">Architecture</a>
+        <a href="/docs-site/benchmarks">Benchmarks</a>
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-content">
+    <h1>Integrations</h1>
+    <p>Gumi is a drop-in OpenAI-compatible endpoint. Any tool that supports OpenAI's API can use Gumi by changing the <code>base_url</code> and <code>api_key</code>.</p>
+
+    <h2>OpenCode</h2>
+    <p>Configure OpenCode to use Gumi as its LLM provider:</p>
+    <div class="code-block">
+      <div class="code-header">~/.opencode/config.json</div>
+      <pre><code>{
+  "providers": {
+    "gumi": {
+      "name": "Gumi",
+      "apiBase": "http://127.0.0.1:8787/v1",
+      "apiKey": "gumi-local",
+      "models": [
+        {
+          "name": "lmstudio:qwen2.5-coder-7b-instruct",
+          "type": "chat"
+        },
+        {
+          "name": "lmstudio:ornith-1.0-9b@q4_k_m",
+          "type": "chat"
+        }
+      ]
+    }
+  }
+}</code></pre>
+    </div>
+
+    <h2>Continue</h2>
+    <p>Add Gumi as a provider in Continue's config:</p>
+    <div class="code-block">
+      <div class="code-header">~/.continue/config.json</div>
+      <pre><code>{
+  "models": [
+    {
+      "title": "Gumi (Qwen 2.5 Coder)",
+      "provider": "openai",
+      "model": "lmstudio:qwen2.5-coder-7b-instruct",
+      "apiBase": "http://127.0.0.1:8787/v1",
+      "apiKey": "gumi-local"
+    },
+    {
+      "title": "Gumi (Ornith 9B)",
+      "provider": "openai",
+      "model": "lmstudio:ornith-1.0-9b@q4_k_m",
+      "apiBase": "http://127.0.0.1:8787/v1",
+      "apiKey": "gumi-local"
+    }
+  ],
+  "tabAutocompleteModel": {
+    "title": "Gumi (Tab)",
+    "provider": "openai",
+    "model": "lmstudio:qwen2.5-coder-7b-instruct",
+    "apiBase": "http://127.0.0.1:8787/v1",
+    "apiKey": "gumi-local"
+  }
+}</code></pre>
+    </div>
+    <p><strong>Note:</strong> For tab autocomplete, you may want to use LM Studio directly for lower latency. Gumi's pipeline adds ~100-500ms overhead which can feel sluggish for inline completions.</p>
+
+    <h2>Cline</h2>
+    <p>Configure Cline to use Gumi as its API provider:</p>
+    <div class="code-block">
+      <div class="code-header">Cline Settings → API Provider</div>
+      <pre><code>API Provider: OpenAI Compatible
+Base URL: http://127.0.0.1:8787/v1
+API Key: gumi-local
+Model: lmstudio:qwen2.5-coder-7b-instruct</code></pre>
+    </div>
+
+    <h2>Open WebUI</h2>
+    <p>Connect Open WebUI to Gumi as an OpenAI-compatible endpoint:</p>
+    <div class="code-block">
+      <div class="code-header">Open WebUI → Admin Settings → Connections</div>
+      <pre><code>URL: http://127.0.0.1:8787/v1
+Key: gumi-local</code></pre>
+    </div>
+
+    <h2>Any OpenAI SDK</h2>
+    <p>All OpenAI-compatible SDKs work with Gumi by changing two values:</p>
+    <div class="code-block">
+      <div class="code-header">Python</div>
+      <pre><code>from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:8787/v1",
+    api_key="gumi-local"
+)</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header">Node.js</div>
+      <pre><code>import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'http://127.0.0.1:8787/v1',
+  apiKey: 'gumi-local',
+});</code></pre>
+    </div>
+
+    <h2>Recommended models</h2>
+    <table>
+      <thead>
+        <tr><th>Use case</th><th>Model</th><th>Provider</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Coding</td><td><code>qwen2.5-coder-7b-instruct</code></td><td>LM Studio</td></tr>
+        <tr><td>Fast general chat</td><td><code>qwen/qwen3-1.7b</code></td><td>LM Studio</td></tr>
+        <tr><td>Quality alternative</td><td><code>ornith-1.0-9b@q4_k_m</code></td><td>LM Studio</td></tr>
+        <tr><td>Ollama fast chat</td><td><code>llama3.2:3b</code></td><td>Ollama</td></tr>
+        <tr><td>Ollama mid-size</td><td><code>gemma3:4b</code></td><td>Ollama</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-col">
+        <strong>Gumi</strong>
+        <span class="footer-sub">Intelligence Runtime for Local AI</span>
+      </div>
+      <div class="footer-col">
+        <a href="/docs-site/quickstart">Quickstart</a>
+        <a href="/docs-site/integrations">Integrations</a>
+        <a href="/docs-site/architecture">Architecture</a>
+        <a href="/docs-site/benchmarks">Benchmarks</a>
+      </div>
+      <div class="footer-col">
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/EffNine/Gumi/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/EffNine/Gumi/blob/main/LICENSE" target="_blank" rel="noopener">Apache-2.0 License</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
