@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Changelog — Gumi</title>
+  <link rel="stylesheet" href="/docs-site/styles.css" />
+  <link rel="icon" href="/docs-site/logo.svg" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/docs-site/" class="nav-logo"><img src="/docs-site/logo.svg" alt="" class="logo-mark" />Gumi</a>
+      <div class="nav-links">
+        <a href="/docs-site/quickstart">Quickstart</a>
+        <a href="/docs-site/integrations">Integrations</a>
+        <a href="/docs-site/architecture">Architecture</a>
+        <a href="/docs-site/benchmarks">Benchmarks</a>
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-content">
+    <h1>Changelog</h1>
+    <p>What shipped, what's coming, and where the rough edges still are.</p>
+
+    <div class="content-card">
+      <div class="hero-badge">v0.2.0-alpha · 2026-07-14</div>
+      <h2 id="v020">First tagged release: agent mode, memory, model management</h2>
+      <p>This is the first public alpha. It bundles 13 sprints of runtime work into something you can drop between your coding agent and a local model.</p>
+
+      <h3>New</h3>
+      <ul>
+        <li><strong>Agent mode</strong> — step budgets, tool-call loop detection, JSON validation, and sliding-window context compaction.</li>
+        <li><strong>Agentic coding router</strong> — per-step model routing by difficulty and task type, no extra inference.</li>
+        <li><strong>Memory engine</strong> — SQLite facts, episode summaries, and model-fit tracking shared across all models.</li>
+        <li><strong>LM Studio model management</strong> — load, unload, list models via LM Studio's v1 REST API.</li>
+        <li><strong>Instruction-following assist</strong> — detects 14 constraint types and enforces them post-generation.</li>
+        <li><strong>Managed thinking</strong> — reasoning budgets, stripping, and auto-disable for JSON/tool workflows.</li>
+      </ul>
+
+      <h3>Reliability fixes (P0–P3)</h3>
+      <ul>
+        <li>P0: Exponential backoff for LM Studio 502s — ~50% HTTP errors → 0%.</li>
+        <li>P1: Validation telemetry now records issue code, message, and location.</li>
+        <li>P2: Repetition detection skips JSON/structured output — 113 false positives → 0.</li>
+        <li>P3: JSON repair handles any language-tagged code fence.</li>
+      </ul>
+
+      <h3>Headline metrics</h3>
+      <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Metric</th><th>Before (direct)</th><th>After (Gumi)</th><th>Change</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>JSON validity (agentic)</td><td>0%</td><td><strong>100%</strong></td><td><strong>+100%</strong></td></tr>
+          <tr><td>Latency p50 (JSON)</td><td>2,949 ms</td><td><strong>352 ms</strong></td><td><strong>8.4× faster</strong></td></tr>
+          <tr><td>HTTP errors</td><td>~50%</td><td><strong>0%</strong></td><td>eliminated</td></tr>
+          <tr><td>Repetition false positives</td><td>113</td><td><strong>0</strong></td><td>eliminated</td></tr>
+          <tr><td>Instruction following (structured)</td><td>67%</td><td><strong>100%</strong></td><td><strong>+33%</strong></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p><a class="btn btn-primary" href="/docs-site/benchmarks/">See full benchmarks →</a></p>
+    </div>
+
+    <div class="content-card">
+      <div class="hero-badge">Roadmap</div>
+      <h2>What's next</h2>
+      <p>The runtime is solid for an alpha. The next phase is about smoothing adoption and hardening edge cases.</p>
+
+      <h3>Near term (v0.3.0-alpha)</h3>
+      <ul>
+        <li>Provider health checks and automatic failover in the dashboard.</li>
+        <li>Structured-output mode hardening (schema enforcement in retry prompts).</li>
+        <li>Profile Doctor goes from read-only to auto-fix suggestions.</li>
+        <li>Continue.dev tab-autocomplete path tested and documented.</li>
+      </ul>
+
+      <h3>Medium term (v0.4.0-alpha and beyond)</h3>
+      <ul>
+        <li>More provider adapters beyond LM Studio and Ollama.</li>
+        <li>Streaming parity across all pipeline modes.</li>
+        <li>Memory engine search and fact editing UI.</li>
+        <li>Public model-profile registry so users don't have to hand-tune YAML.</li>
+      </ul>
+    </div>
+
+    <div class="content-card">
+      <div class="hero-badge">Earlier sprints</div>
+      <h2>Pre-v0.2.0 highlights</h2>
+      <ul>
+        <li><strong>Sprint 12</strong> — Memory engine, JSON-repair telemetry, and LM Studio model management specs aligned.</li>
+        <li><strong>Sprint 11</strong> — Agentic coding router and per-step difficulty classification.</li>
+        <li><strong>Sprint 10</strong> — Pipeline rewrite with modes: Direct, Lightweight, Stabilized, Structured.</li>
+        <li><strong>Sprints 0–9</strong> — Gateway, telemetry, dashboard, prompt repair, validation, and tool shims. See <a href="https://github.com/EffNine/Gumi/blob/main/CHANGELOG.md" target="_blank" rel="noopener">CHANGELOG.md</a> for the full history.</li>
+      </ul>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-col">
+        <strong>Gumi</strong>
+        <span class="footer-sub">Intelligence Runtime for Local AI</span>
+      </div>
+      <div class="footer-col">
+        <a href="/docs-site/quickstart">Quickstart</a>
+        <a href="/docs-site/integrations">Integrations</a>
+        <a href="/docs-site/architecture">Architecture</a>
+        <a href="/docs-site/benchmarks">Benchmarks</a>
+        <a href="/docs-site/changelog">Changelog</a>
+      </div>
+      <div class="footer-col">
+        <a href="https://github.com/EffNine/Gumi" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/EffNine/Gumi/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/EffNine/Gumi/blob/main/LICENSE" target="_blank" rel="noopener">Apache-2.0 License</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
