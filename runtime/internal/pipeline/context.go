@@ -147,6 +147,7 @@ type Context struct {
 	ToolInstructions string     `json:"tool_instructions,omitempty"`
 	ToolSchemaHint   string     `json:"tool_schema_hint,omitempty"`
 	ToolShimActive   bool       `json:"tool_shim_active"`
+	ToolValidation   string     `json:"tool_validation,omitempty"` // schema violations summary for retry
 
 	// Managed thinking state.
 	ThinkingMode            string `json:"thinking_mode,omitempty"`

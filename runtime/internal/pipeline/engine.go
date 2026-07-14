@@ -2633,6 +2633,8 @@ func (e *Engine) normalizeToolResponse(pc *Context) {
 
 // checkToolCalls validates parsed tool calls when the prompt-based shim was
 // active. It returns true when there are no tool calls or all calls are valid.
+// On failure, it stores the schema violations summary in pc.ToolValidation for
+// use in retry prompts.
 func (e *Engine) checkToolCalls(pc *Context) bool {
 	if !pc.ToolShimActive || pc.FinalResponse == nil || len(pc.FinalResponse.Choices) == 0 {
 		return true
@@ -2645,12 +2647,14 @@ func (e *Engine) checkToolCalls(pc *Context) bool {
 
 	report := toolengine.ValidateToolCalls(calls, pc.OriginalTools)
 	if report.Valid {
+		pc.ToolValidation = ""
 		pc.AddEvent("tool", "tool_calls_valid", SeverityInfo, "tool shim tool calls passed validation", map[string]string{
 			"tool_count": fmt.Sprintf("%d", len(calls)),
 		})
 		return true
 	}
 
+	pc.ToolValidation = toolengine.SchemaViolations(report)
 	pc.AddEvent("tool", "tool_calls_invalid", SeverityWarning, "tool shim tool calls failed validation", map[string]string{
 		"issue_count": fmt.Sprintf("%d", len(report.Issues)),
 	})
@@ -2748,7 +2752,7 @@ func (e *Engine) validateRepairAndMaybeRetry(ctx context.Context, pc *Context, a
 		retryReq := providerReq
 		retryReq.Messages = prependRetryInstruction(providerReq.Messages)
 		if pc.ToolShimActive {
-			retryReq.Messages = prependToolRetryInstruction(retryReq.Messages)
+			retryReq.Messages = prependToolRetryInstruction(retryReq.Messages, pc.ToolValidation)
 		}
 		resp, result := e.generateOnce(ctx, pc, adapter, retryReq)
 		if result.Error.Code != "" {
@@ -2863,8 +2867,11 @@ func prependRetryInstruction(messages []api.Message) []api.Message {
 	return mergeSystemInstruction(messages, instruction)
 }
 
-func prependToolRetryInstruction(messages []api.Message) []api.Message {
+func prependToolRetryInstruction(messages []api.Message, violations string) []api.Message {
 	instruction := "Retry because the previous tool call was invalid. Return ONLY a JSON object like {\"tool\":\"name\",\"arguments\":{...}} with a valid tool name and arguments. Do not wrap it in markdown fences."
+	if violations != "" {
+		instruction += "\n\nValidation errors from the previous attempt:\n" + violations
+	}
 	return mergeSystemInstruction(messages, instruction)
 }
 

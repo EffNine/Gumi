@@ -204,3 +204,230 @@ func TestValidateToolCallsInvalidJSON(t *testing.T) {
 		t.Errorf("expected INVALID_JSON_ARGUMENTS issue, got %v", report.Issues)
 	}
 }
+
+func TestValidateToolCallsWrongArgumentType(t *testing.T) {
+	tools := []api.Tool{
+		{
+			Type: "function",
+			Function: api.ToolFunction{
+				Name: "search_code",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"max_results": map[string]interface{}{"type": "integer"},
+						"query":       map[string]interface{}{"type": "string"},
+					},
+					"required": []interface{}{"query"},
+				},
+			},
+		},
+	}
+	calls := []api.ToolCall{
+		{Function: api.ToolFunction{Name: "search_code", Arguments: `{"query":"find x","max_results":"not_a_number"}`}},
+	}
+	report := ValidateToolCalls(calls, tools)
+	if report.Valid {
+		t.Fatal("expected invalid report for wrong argument type")
+	}
+	found := false
+	for _, issue := range report.Issues {
+		if issue.Code == "INVALID_ARGUMENT_TYPE" {
+			found = true
+			if !strings.Contains(issue.Message, "max_results") || !strings.Contains(issue.Message, "integer") {
+				t.Errorf("expected type mismatch message about max_results/integer, got: %s", issue.Message)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected INVALID_ARGUMENT_TYPE issue, got %v", report.Issues)
+	}
+}
+
+func TestValidateToolCallsEnumConstraint(t *testing.T) {
+	tools := []api.Tool{
+		{
+			Type: "function",
+			Function: api.ToolFunction{
+				Name: "set_log_level",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"level": map[string]interface{}{
+							"type": "string",
+							"enum": []interface{}{"debug", "info", "error"},
+						},
+					},
+					"required": []interface{}{"level"},
+				},
+			},
+		},
+	}
+	calls := []api.ToolCall{
+		{Function: api.ToolFunction{Name: "set_log_level", Arguments: `{"level":"trace"}`}},
+	}
+	report := ValidateToolCalls(calls, tools)
+	if report.Valid {
+		t.Fatal("expected invalid report for enum violation")
+	}
+	found := false
+	for _, issue := range report.Issues {
+		if issue.Code == "INVALID_ARGUMENT_TYPE" {
+			found = true
+			if !strings.Contains(issue.Message, "trace") || !strings.Contains(issue.Message, "debug") {
+				t.Errorf("expected enum violation message, got: %s", issue.Message)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected INVALID_ARGUMENT_TYPE for enum, got %v", report.Issues)
+	}
+}
+
+func TestValidateToolCallsNestedObject(t *testing.T) {
+	tools := []api.Tool{
+		{
+			Type: "function",
+			Function: api.ToolFunction{
+				Name: "create_user",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"name": map[string]interface{}{"type": "string"},
+						"address": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"city": map[string]interface{}{"type": "string"},
+								"zip":  map[string]interface{}{"type": "string"},
+							},
+							"required": []interface{}{"city", "zip"},
+						},
+					},
+					"required": []interface{}{"name", "address"},
+				},
+			},
+		},
+	}
+	// Missing nested required key "zip"
+	calls := []api.ToolCall{
+		{Function: api.ToolFunction{Name: "create_user", Arguments: `{"name":"Alice","address":{"city":"NYC"}}`}},
+	}
+	report := ValidateToolCalls(calls, tools)
+	if report.Valid {
+		t.Fatal("expected invalid report for missing nested required key")
+	}
+	found := false
+	for _, issue := range report.Issues {
+		if issue.Code == "INVALID_ARGUMENT_TYPE" && strings.Contains(issue.Message, "zip") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected INVALID_ARGUMENT_TYPE for missing nested key, got %v", report.Issues)
+	}
+}
+
+func TestValidateToolCallsArrayItemType(t *testing.T) {
+	tools := []api.Tool{
+		{
+			Type: "function",
+			Function: api.ToolFunction{
+				Name: "batch_process",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"ids": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "integer",
+							},
+						},
+					},
+					"required": []interface{}{"ids"},
+				},
+			},
+		},
+	}
+	// Array contains a string instead of integer
+	calls := []api.ToolCall{
+		{Function: api.ToolFunction{Name: "batch_process", Arguments: `{"ids":[1, "two", 3]}`}},
+	}
+	report := ValidateToolCalls(calls, tools)
+	if report.Valid {
+		t.Fatal("expected invalid report for wrong array item type")
+	}
+	found := false
+	for _, issue := range report.Issues {
+		if issue.Code == "INVALID_ARGUMENT_TYPE" && strings.Contains(issue.Message, `"ids"[1]`) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected INVALID_ARGUMENT_TYPE for array item, got %v", report.Issues)
+	}
+}
+
+func TestSchemaViolations(t *testing.T) {
+	report := ValidationReport{
+		Valid: false,
+		Issues: []ValidationIssue{
+			{Code: "MISSING_REQUIRED_ARGUMENT", Message: `tool "read_file": missing required argument "path"`, ToolCall: api.ToolCall{}},
+			{Code: "INVALID_ARGUMENT_TYPE", Message: `tool "search_code": argument "max_results" expected type "integer" but got "string"`, ToolCall: api.ToolCall{}},
+		},
+	}
+	violations := SchemaViolations(report)
+	if violations == "" {
+		t.Fatal("expected non-empty violations summary")
+	}
+	if !strings.Contains(violations, "MISSING_REQUIRED_ARGUMENT") || !strings.Contains(violations, "INVALID_ARGUMENT_TYPE") {
+		t.Errorf("violations should contain both issue codes, got: %s", violations)
+	}
+}
+
+func TestSchemaViolationsValid(t *testing.T) {
+	report := ValidationReport{Valid: true}
+	if v := SchemaViolations(report); v != "" {
+		t.Errorf("expected empty violations for valid report, got: %s", v)
+	}
+}
+
+func TestValidateToolCallsEmptyCalls(t *testing.T) {
+	report := ValidateToolCalls(nil, nil)
+	if !report.Valid {
+		t.Error("expected valid report for empty calls")
+	}
+}
+
+func TestValidateToolCallsEmptyToolName(t *testing.T) {
+	calls := []api.ToolCall{
+		{Function: api.ToolFunction{Name: "", Arguments: `{}`}},
+	}
+	report := ValidateToolCalls(calls, []api.Tool{})
+	if report.Valid {
+		t.Fatal("expected invalid report for empty tool name")
+	}
+	if len(report.Issues) != 1 || report.Issues[0].Code != "MISSING_TOOL_NAME" {
+		t.Errorf("expected MISSING_TOOL_NAME, got %v", report.Issues)
+	}
+}
+
+func TestValidateToolCallsEmptyArguments(t *testing.T) {
+	tools := []api.Tool{
+		{Type: "function", Function: api.ToolFunction{Name: "test", Parameters: map[string]interface{}{}}},
+	}
+	calls := []api.ToolCall{
+		{Function: api.ToolFunction{Name: "test", Arguments: ""}},
+	}
+	report := ValidateToolCalls(calls, tools)
+	if report.Valid {
+		t.Fatal("expected invalid report for empty arguments")
+	}
+	found := false
+	for _, issue := range report.Issues {
+		if issue.Code == "EMPTY_ARGUMENTS" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected EMPTY_ARGUMENTS, got %v", report.Issues)
+	}
+}
