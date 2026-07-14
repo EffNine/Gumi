@@ -9,10 +9,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
-// ProviderClient communicates with a model provider (direct or through Novexa runtime).
+// ProviderClient communicates with a model provider (direct or through Gumi runtime).
 type ProviderClient struct {
 	baseURL    string
 	apiKey     string

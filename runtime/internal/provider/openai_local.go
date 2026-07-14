@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 const openAICompatibleDefaultURL = "http://localhost:8000/v1"

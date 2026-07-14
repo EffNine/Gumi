@@ -87,4 +87,4 @@ notes:
   - May repeat when context is too long.
   - Requires explicit JSON-only instructions for structured output.
   - May over-explain simple answers.
-  - Validated with LM Studio model qwen/qwen3.5-9b (Good baseline, Novexa 18/21, direct p50 197ms).
+  - Validated with LM Studio model qwen/qwen3.5-9b (Good baseline, Gumi 18/21, direct p50 197ms).

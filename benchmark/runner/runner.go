@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/benchmark"
-	"github.com/novexa/novexa/benchmark/report"
-	"github.com/novexa/novexa/benchmark/scorer"
+	"github.com/EffNine/gumi/benchmark"
+	"github.com/EffNine/gumi/benchmark/report"
+	"github.com/EffNine/gumi/benchmark/scorer"
 )
 
 // Config describes the parameters for a benchmark run.
@@ -63,7 +63,7 @@ func NewOrchestrator(cfg Config) *Orchestrator {
 //  1. Resolve model tier (small / medium / frontier)
 //  2. Load YAML test suites matching the tier
 //  3. Parse conditions from config
-//  4. Create provider clients (direct, novexa, optional frontier)
+//  4. Create provider clients (direct, gumi, optional frontier)
 //  5. Loop: suites → tests → conditions → attempts
 //  6. Score each response against constraints
 //  7. Aggregate per-capability metrics
@@ -86,12 +86,12 @@ func (o *Orchestrator) Execute() (*report.Report, error) {
 	// 3. Parse conditions
 	conditions := ParseConditions(o.config.Conditions)
 	if len(conditions) == 0 {
-		conditions = []Condition{ConditionDirect, ConditionNovexaStabilized}
+		conditions = []Condition{ConditionDirect, ConditionGumiStabilized}
 	}
 
 	// 4. Create provider clients
 	directClient := NewProviderClient(o.directBaseURL(), "")
-	novexaClient := NewProviderClient(o.novexaBaseURL(), o.config.APIKey)
+	gumiClient := NewProviderClient(o.gumiBaseURL(), o.config.APIKey)
 
 	var frontierClient *ProviderClient
 	if o.config.FrontierModel != "" {
@@ -114,7 +114,7 @@ func (o *Orchestrator) Execute() (*report.Report, error) {
 	for _, suite := range suites {
 		for _, test := range suite.Tests {
 			for _, cond := range conditions {
-				client := o.clientForCondition(cond, directClient, novexaClient, frontierClient)
+				client := o.clientForCondition(cond, directClient, gumiClient, frontierClient)
 				if client == nil {
 					continue
 				}
@@ -145,7 +145,7 @@ func (o *Orchestrator) Execute() (*report.Report, error) {
 	for k, v := range caps {
 		benchmarkCaps[k] = benchmark.Capability{
 			Direct:     benchmark.MetricSet{Mean: v.Direct.Mean, Std: v.Direct.Std, N: v.Direct.N},
-			Novexa:     benchmark.MetricSet{Mean: v.Novexa.Mean, Std: v.Novexa.Std, N: v.Novexa.N},
+			Gumi:     benchmark.MetricSet{Mean: v.Gumi.Mean, Std: v.Gumi.Std, N: v.Gumi.N},
 			Delta:      v.Delta,
 			EffectSize: v.EffectSize,
 		}
@@ -251,27 +251,27 @@ func (o *Orchestrator) runSingleAttempt(
 }
 
 // clientForCondition selects the appropriate provider client based on the condition.
-func (o *Orchestrator) clientForCondition(cond Condition, direct, novexa, frontier *ProviderClient) *ProviderClient {
+func (o *Orchestrator) clientForCondition(cond Condition, direct, gumi, frontier *ProviderClient) *ProviderClient {
 	switch cond {
 	case ConditionDirect:
 		return direct
 	case ConditionFrontier:
 		return frontier
 	default:
-		// All novexa-* conditions route through the novexa runtime
-		return novexa
+		// All gumi-* conditions route through the gumi runtime
+		return gumi
 	}
 }
 
 // directBaseURL returns the URL for direct (raw provider) API calls.
-// This always goes to the raw provider (LM Studio), never through Novexa.
-// The BaseURL config is only for the Novexa runtime, not for direct calls.
+// This always goes to the raw provider (LM Studio), never through Gumi.
+// The BaseURL config is only for the Gumi runtime, not for direct calls.
 func (o *Orchestrator) directBaseURL() string {
 	return "http://192.168.0.164:1234"
 }
 
-// novexaBaseURL returns the URL for Novexa runtime API calls.
-func (o *Orchestrator) novexaBaseURL() string {
+// gumiBaseURL returns the URL for Gumi runtime API calls.
+func (o *Orchestrator) gumiBaseURL() string {
 	return o.config.BaseURL
 }
 
@@ -289,30 +289,30 @@ func (o *Orchestrator) frontierBaseURL() string {
 	}
 }
 
-// computeLatencyOverhead calculates the average latency overhead of Novexa conditions
+// computeLatencyOverhead calculates the average latency overhead of Gumi conditions
 // compared to direct condition across all results.
 func computeLatencyOverhead(results []benchmark.TestResult) float64 {
-	var directLatency, novexaLatency float64
-	var directCount, novexaCount int
+	var directLatency, gumiLatency float64
+	var directCount, gumiCount int
 
 	for _, r := range results {
 		if r.Condition == string(ConditionDirect) {
 			directLatency += r.LatencyMs
 			directCount++
-		} else if strings.HasPrefix(r.Condition, "novexa-") {
-			novexaLatency += r.LatencyMs
-			novexaCount++
+		} else if strings.HasPrefix(r.Condition, "gumi-") {
+			gumiLatency += r.LatencyMs
+			gumiCount++
 		}
 	}
 
-	if directCount == 0 || novexaCount == 0 {
+	if directCount == 0 || gumiCount == 0 {
 		return 0
 	}
 
 	directAvg := directLatency / float64(directCount)
-	novexaAvg := novexaLatency / float64(novexaCount)
+	gumiAvg := gumiLatency / float64(gumiCount)
 
-	overhead := novexaAvg - directAvg
+	overhead := gumiAvg - directAvg
 	if overhead < 0 {
 		overhead = 0
 	}

@@ -2,7 +2,7 @@ suite:
   id: degradation-cosmetic
   category: degradation
   tier: cosmetic
-  description: "Cosmetic degradation — Novexa must not alter whitespace or formatting of correct output"
+  description: "Cosmetic degradation — Gumi must not alter whitespace or formatting of correct output"
   target_direct_score: "0.95-1.00"
   model_profiles: [small, medium, frontier]
   attempts_recommended: 3

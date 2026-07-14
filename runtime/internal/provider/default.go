@@ -1,8 +1,8 @@
 package provider
 
 import (
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 // DefaultRegistry returns a registry with all built-in local provider adapters

@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/config"
 )
 
 // runLMStudio dispatches lmstudio subcommands.
-// Usage: novexa lmstudio [status|load|unload|models] [flags]
+// Usage: gumi lmstudio [status|load|unload|models] [flags]
 func runLMStudio(args []string) {
 	if len(args) < 1 {
 		printLMStudioUsage()
@@ -45,18 +45,18 @@ func runLMStudio(args []string) {
 func printLMStudioUsage() {
 	fmt.Println("LM Studio management commands:")
 	fmt.Println()
-	fmt.Println("  novexa lmstudio status [--url <base>] [--json]")
+	fmt.Println("  gumi lmstudio status [--url <base>] [--json]")
 	fmt.Println("    Show the currently loaded model on LM Studio.")
 	fmt.Println()
-	fmt.Println("  novexa lmstudio load <model> [flags]")
+	fmt.Println("  gumi lmstudio load <model> [flags]")
 	fmt.Println("    Load a model on LM Studio.")
 	fmt.Println("    Flags: --url, --context-length, --flash-attention, --offload-kv-cache, --json")
 	fmt.Println()
-	fmt.Println("  novexa lmstudio unload <instance-id>")
+	fmt.Println("  gumi lmstudio unload <instance-id>")
 	fmt.Println("    Unload a model instance from LM Studio.")
 	fmt.Println("    Flags: --url, --json")
 	fmt.Println()
-	fmt.Println("  novexa lmstudio models [--url <base>] [--json]")
+	fmt.Println("  gumi lmstudio models [--url <base>] [--json]")
 	fmt.Println("    List all models available on LM Studio (on disk).")
 	fmt.Println()
 	fmt.Println("  Use --url to override the LM Studio API base URL.")
@@ -136,7 +136,7 @@ func lmstudioAPIPost(url string, payload interface{}) ([]byte, error) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// novexa lmstudio status
+// gumi lmstudio status
 // ────────────────────────────────────────────────────────────────────────────
 
 func runLMStudioStatus(args []string) {
@@ -198,7 +198,7 @@ func runLMStudioStatus(args []string) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// novexa lmstudio load
+// gumi lmstudio load
 // ────────────────────────────────────────────────────────────────────────────
 
 func runLMStudioLoad(args []string) {
@@ -215,7 +215,7 @@ func runLMStudioLoad(args []string) {
 	modelID := fs.Arg(0)
 	if modelID == "" {
 		fmt.Fprintln(os.Stderr, "Error: model ID is required")
-		fmt.Fprintln(os.Stderr, "Usage: novexa lmstudio load <model> [flags]")
+		fmt.Fprintln(os.Stderr, "Usage: gumi lmstudio load <model> [flags]")
 		os.Exit(1)
 	}
 
@@ -274,7 +274,7 @@ func runLMStudioLoad(args []string) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// novexa lmstudio unload
+// gumi lmstudio unload
 // ────────────────────────────────────────────────────────────────────────────
 
 func runLMStudioUnload(args []string) {
@@ -288,7 +288,7 @@ func runLMStudioUnload(args []string) {
 	instanceID := fs.Arg(0)
 	if instanceID == "" {
 		fmt.Fprintln(os.Stderr, "Error: instance ID is required")
-		fmt.Fprintln(os.Stderr, "Usage: novexa lmstudio unload <instance-id>")
+		fmt.Fprintln(os.Stderr, "Usage: gumi lmstudio unload <instance-id>")
 		os.Exit(1)
 	}
 
@@ -319,7 +319,7 @@ func runLMStudioUnload(args []string) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// novexa lmstudio models
+// gumi lmstudio models
 // ────────────────────────────────────────────────────────────────────────────
 
 func runLMStudioListModels(args []string) {

@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/novexa/novexa/runtime/internal/profiles"
+	"github.com/EffNine/gumi/runtime/internal/profiles"
 )
 
 // ---------------------------------------------------------------------------

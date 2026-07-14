@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 // newLMStudioMgmtTestServer creates an httptest.Server that simulates the

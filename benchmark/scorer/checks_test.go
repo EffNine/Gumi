@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
 func eq(t *testing.T, response string, value interface{}) CheckResult {

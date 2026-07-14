@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="Inter, ui-sans-serif, system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .term-bg { fill: #1a1e1b; }
+      .term-title { fill: #aab1ad; font-size: 12px; }
+      .term-dot-red { fill: #c43f3f; }
+      .term-dot-amber { fill: #b26a16; }
+      .term-dot-green { fill: #18865a; }
+      .prompt { fill: #e9ff65; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .output { fill: #c9cec9; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .output-green { fill: #4caf7a; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .output-blue { fill: #6b9eff; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .dim { fill: #5a605c; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    </style>
+    <clipPath id="term-clip">
+      <rect x="40" y="116" width="820" height="414" rx="0"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="560" fill="#f3f4f1"/>
+
+  <!-- Novexa brand header -->
+  <g transform="translate(40, 30)">
+    <rect x="0" y="0" width="31" height="31" rx="0" fill="#e9ff65"/>
+    <text x="15.5" y="21" text-anchor="middle" fill="#182019" font-size="15px" font-weight="800" font-family="ui-monospace, monospace">N</text>
+    <text x="42" y="14" fill="#171a18" font-size="15px" font-weight="700">Novexa</text>
+    <text x="42" y="28" fill="#68706b" font-size="11px">Intelligence Runtime · Quick Demo</text>
+  </g>
+
+  <!-- Terminal window -->
+  <rect x="40" y="80" width="820" height="450" rx="8" fill="#1a1e1b" stroke="#3a403c" stroke-width="1"/>
+
+  <!-- Terminal title bar -->
+  <rect x="40" y="80" width="820" height="36" rx="8" fill="#252a27"/>
+  <rect x="40" y="100" width="820" height="16" fill="#252a27"/>
+
+  <!-- Window dots -->
+  <circle cx="62" cy="98" r="6" class="term-dot-red"/>
+  <circle cx="82" cy="98" r="6" class="term-dot-amber"/>
+  <circle cx="102" cy="98" r="6" class="term-dot-green"/>
+
+  <!-- Terminal title -->
+  <text x="450" y="102" text-anchor="middle" class="term-title">novexa-demo — curl — 80×24</text>
+
+  <!-- Terminal content (clipped to window) -->
+  <g clip-path="url(#term-clip)">
+    <g transform="translate(60, 140)">
+      <!-- Line 1 -->
+      <text x="0" y="0" class="prompt">$</text>
+      <text x="20" y="0" class="output">curl http://127.0.0.1:8787/v1/chat/completions \</text>
+
+      <!-- Line 2 -->
+      <text x="20" y="22" class="output">  -H "Authorization: Bearer novexa-local" \</text>
+
+      <!-- Line 3 -->
+      <text x="20" y="44" class="output">  -H "Content-Type: application/json" \</text>
+
+      <!-- Line 4 -->
+      <text x="20" y="66" class="output">  -d '{</text>
+
+      <!-- Line 5 -->
+      <text x="20" y="88" class="output-blue">    "model": "lmstudio:qwen3.5-9b",</text>
+
+      <!-- Line 6 -->
+      <text x="20" y="110" class="output-blue">    "messages": [</text>
+
+      <!-- Line 7 -->
+      <text x="20" y="132" class="output-blue">      {"role": "user", "content": "Write a Go function that adds two ints"}</text>
+
+      <!-- Line 8 -->
+      <text x="20" y="154" class="output-blue">    ]</text>
+
+      <!-- Line 9 -->
+      <text x="20" y="176" class="output">  }'</text>
+
+      <!-- Line 10: blank -->
+      <text x="0" y="200" class="dim">│</text>
+
+      <!-- Line 11: response header -->
+      <text x="0" y="222" class="dim">HTTP/1.1 200 OK</text>
+
+      <!-- Line 12 -->
+      <text x="0" y="244" class="dim">content-type: application/json</text>
+
+      <!-- Line 13: blank -->
+      <text x="0" y="266" class="dim">│</text>
+
+      <!-- Line 14: JSON response -->
+      <text x="0" y="288" class="output-green">{</text>
+      <text x="0" y="310" class="output-green">  "id": "chatcmpl-nx-7f8a2b1e",</text>
+      <text x="0" y="332" class="output-green">  "object": "chat.completion",</text>
+      <text x="0" y="354" class="output-green">  "model": "lmstudio:qwen3.5-9b",</text>
+      <text x="0" y="376" class="output-green">  "choices": [</text>
+      <text x="0" y="398" class="output-green">    {</text>
+      <text x="0" y="420" class="output-green">      "index": 0,</text>
+      <text x="0" y="442" class="output-green">      "message": {</text>
+      <text x="0" y="464" class="output-green">        "role": "assistant",</text>
+      <text x="0" y="486" class="output-green">        "content": "```go\nfunc add(a, b int) int {\n  return a + b\n}\n```"</text>
+      <text x="0" y="508" class="output-green">      },</text>
+      <text x="0" y="530" class="output-green">      "finish_reason": "stop"</text>
+      <text x="0" y="552" class="output-green">    }</text>
+      <text x="0" y="574" class="output-green">  ],</text>
+      <text x="0" y="596" class="output-green">  "usage": {</text>
+      <text x="0" y="618" class="output-green">    "prompt_tokens": 28,</text>
+      <text x="0" y="640" class="output-green">    "completion_tokens": 32,</text>
+      <text x="0" y="662" class="output-green">    "total_tokens": 60</text>
+      <text x="0" y="684" class="output-green">  },</text>
+      <text x="0" y="706" class="output-green">  "x_novexa": {</text>
+      <text x="0" y="728" class="output-green">    "mode": "stabilized",</text>
+      <text x="0" y="750" class="output-green">    "repair_applied": false,</text>
+      <text x="0" y="772" class="output-green">    "latency_ms": 342</text>
+      <text x="0" y="794" class="output-green">  }</text>
+      <text x="0" y="816" class="output-green">}</text>
+
+      <!-- Blinking cursor -->
+      <rect x="0" y="840" width="8" height="16" fill="#e9ff65" opacity="0.8">
+        <animate attributeName="opacity" values="0.8;0;0.8" dur="1s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+  </g>
+</svg>

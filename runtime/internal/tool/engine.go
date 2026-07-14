@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/profiles"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/profiles"
 )
 
 // Input is the Tool Engine request.

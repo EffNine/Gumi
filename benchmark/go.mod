@@ -1,4 +1,4 @@
-module github.com/novexa/novexa/benchmark
+module github.com/EffNine/gumi/benchmark
 
 go 1.25.0
 

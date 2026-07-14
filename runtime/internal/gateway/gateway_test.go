@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 // testServer builds a gateway Server bound to a random free port.
@@ -30,8 +30,8 @@ func testServer(t *testing.T, mode string) (*Server, *config.Config, *logger.Log
 	// Bind to port 0 so the OS assigns an unused port.
 	cfg.Runtime.Host = "127.0.0.1"
 	cfg.Runtime.Port = 0
-	// Use a temporary database so tests do not write to ~/.novexa.
-	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "novexa.db")
+	// Use a temporary database so tests do not write to ~/.gumi.
+	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "gumi.db")
 	// Point providers at an unreachable port so tests are deterministic.
 	for key := range cfg.Providers {
 		settings := cfg.Providers[key]
@@ -69,8 +69,8 @@ func TestHealthEndpoint(t *testing.T) {
 	if body.Status != "ok" {
 		t.Errorf("expected status ok, got %s", body.Status)
 	}
-	if body.Runtime != "novexa" {
-		t.Errorf("expected runtime novexa, got %s", body.Runtime)
+	if body.Runtime != "gumi" {
+		t.Errorf("expected runtime gumi, got %s", body.Runtime)
 	}
 }
 
@@ -78,7 +78,7 @@ func TestModelsEndpointAuthorized(t *testing.T) {
 	srv, _, _ := testServer(t, "local")
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
-	req.Header.Set("Authorization", "Bearer novexa-local")
+	req.Header.Set("Authorization", "Bearer gumi-local")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -156,7 +156,7 @@ func TestChatCompletionsSuccessWithMockProvider(t *testing.T) {
 
 	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Hello"}]}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
-	req.Header.Set("Authorization", "Bearer novexa-local")
+	req.Header.Set("Authorization", "Bearer gumi-local")
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
@@ -181,11 +181,11 @@ func TestChatCompletionsSuccessWithMockProvider(t *testing.T) {
 	if rr.Header().Get("X-Request-ID") == "" {
 		t.Error("expected X-Request-ID response header")
 	}
-	if rr.Header().Get("X-Novexa-Provider") != "ollama" {
-		t.Errorf("expected ollama provider header, got %s", rr.Header().Get("X-Novexa-Provider"))
+	if rr.Header().Get("X-Gumi-Provider") != "ollama" {
+		t.Errorf("expected ollama provider header, got %s", rr.Header().Get("X-Gumi-Provider"))
 	}
-	if rr.Header().Get("X-Novexa-Runtime-Mode") != "stabilized" {
-		t.Errorf("expected stabilized runtime mode header, got %s", rr.Header().Get("X-Novexa-Runtime-Mode"))
+	if rr.Header().Get("X-Gumi-Runtime-Mode") != "stabilized" {
+		t.Errorf("expected stabilized runtime mode header, got %s", rr.Header().Get("X-Gumi-Runtime-Mode"))
 	}
 }
 
@@ -213,8 +213,8 @@ func TestChatCompletionsUsesPipelineModeResolution(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
-	if rr.Header().Get("X-Novexa-Runtime-Mode") != "structured" {
-		t.Errorf("expected structured mode resolved by pipeline, got %s", rr.Header().Get("X-Novexa-Runtime-Mode"))
+	if rr.Header().Get("X-Gumi-Runtime-Mode") != "structured" {
+		t.Errorf("expected structured mode resolved by pipeline, got %s", rr.Header().Get("X-Gumi-Runtime-Mode"))
 	}
 }
 
@@ -691,7 +691,7 @@ func assertAuthError(t *testing.T, rr *httptest.ResponseRecorder) {
 func TestTelemetryRecentRequiresAuth(t *testing.T) {
 	srv, _, _ := testServer(t, "local")
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/telemetry/recent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/telemetry/recent", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -706,7 +706,7 @@ func TestTelemetryRecentReturnsRequestMetadata(t *testing.T) {
 	cfg.Auth.Mode = "local"
 	cfg.Runtime.Host = "127.0.0.1"
 	cfg.Runtime.Port = 0
-	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "novexa.db")
+	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "gumi.db")
 
 	mock := newOllamaMockServer(t)
 	defer mock.Close()
@@ -719,7 +719,7 @@ func TestTelemetryRecentReturnsRequestMetadata(t *testing.T) {
 
 	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Say hello from telemetry test"}]}`
 	chatReq := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
-	chatReq.Header.Set("Authorization", "Bearer novexa-local")
+	chatReq.Header.Set("Authorization", "Bearer gumi-local")
 	chatReq.Header.Set("Content-Type", "application/json")
 	chatRR := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(chatRR, chatReq)
@@ -727,8 +727,8 @@ func TestTelemetryRecentReturnsRequestMetadata(t *testing.T) {
 		t.Fatalf("expected chat 200, got %d: %s", chatRR.Code, chatRR.Body.String())
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/telemetry/recent", nil)
-	req.Header.Set("Authorization", "Bearer novexa-local")
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/telemetry/recent", nil)
+	req.Header.Set("Authorization", "Bearer gumi-local")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -754,8 +754,8 @@ func TestTelemetryRecentReturnsRequestMetadata(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatalf("failed to decode telemetry recent response: %v", err)
 	}
-	if body.Object != "novexa.telemetry.recent" {
-		t.Errorf("expected object novexa.telemetry.recent, got %s", body.Object)
+	if body.Object != "gumi.telemetry.recent" {
+		t.Errorf("expected object gumi.telemetry.recent, got %s", body.Object)
 	}
 	if len(body.Data) != 1 {
 		t.Fatalf("expected 1 recent request, got %d", len(body.Data))
@@ -776,7 +776,7 @@ func TestTelemetryRecentDoesNotExposeFullPromptOrResponse(t *testing.T) {
 	cfg.Auth.Mode = "local"
 	cfg.Runtime.Host = "127.0.0.1"
 	cfg.Runtime.Port = 0
-	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "novexa.db")
+	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "gumi.db")
 
 	mock := newOllamaMockServer(t)
 	defer mock.Close()
@@ -789,7 +789,7 @@ func TestTelemetryRecentDoesNotExposeFullPromptOrResponse(t *testing.T) {
 
 	payload := `{"model":"local:auto","messages":[{"role":"user","content":"Say hello from telemetry test"}]}`
 	chatReq := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
-	chatReq.Header.Set("Authorization", "Bearer novexa-local")
+	chatReq.Header.Set("Authorization", "Bearer gumi-local")
 	chatReq.Header.Set("Content-Type", "application/json")
 	chatRR := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(chatRR, chatReq)
@@ -797,8 +797,8 @@ func TestTelemetryRecentDoesNotExposeFullPromptOrResponse(t *testing.T) {
 		t.Fatalf("expected chat 200, got %d: %s", chatRR.Code, chatRR.Body.String())
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/telemetry/recent", nil)
-	req.Header.Set("Authorization", "Bearer novexa-local")
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/telemetry/recent", nil)
+	req.Header.Set("Authorization", "Bearer gumi-local")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -814,7 +814,7 @@ func TestTelemetryRecentDoesNotExposeFullPromptOrResponse(t *testing.T) {
 func TestStatusEndpointRequiresAuth(t *testing.T) {
 	srv, _, _ := testServer(t, "local")
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/status", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/status", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -827,8 +827,8 @@ func TestStatusEndpointRequiresAuth(t *testing.T) {
 func TestStatusEndpointReturnsRuntimeAndProviders(t *testing.T) {
 	srv, _, _ := testServer(t, "local")
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/status", nil)
-	req.Header.Set("Authorization", "Bearer novexa-local")
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/status", nil)
+	req.Header.Set("Authorization", "Bearer gumi-local")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -862,7 +862,7 @@ func TestProviderErrorRecordedInTelemetry(t *testing.T) {
 	cfg.Auth.Mode = "local"
 	cfg.Runtime.Host = "127.0.0.1"
 	cfg.Runtime.Port = 0
-	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "novexa.db")
+	cfg.Storage.DBPath = filepath.Join(t.TempDir(), "gumi.db")
 	for key := range cfg.Providers {
 		settings := cfg.Providers[key]
 		settings.URL = "http://127.0.0.1:1"
@@ -873,7 +873,7 @@ func TestProviderErrorRecordedInTelemetry(t *testing.T) {
 
 	payload := `{"model":"ollama:llama3","messages":[{"role":"user","content":"Hello"}]}`
 	chatReq := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
-	chatReq.Header.Set("Authorization", "Bearer novexa-local")
+	chatReq.Header.Set("Authorization", "Bearer gumi-local")
 	chatReq.Header.Set("Content-Type", "application/json")
 	chatRR := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(chatRR, chatReq)
@@ -882,8 +882,8 @@ func TestProviderErrorRecordedInTelemetry(t *testing.T) {
 		t.Fatalf("expected 502, got %d: %s", chatRR.Code, chatRR.Body.String())
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/telemetry/recent", nil)
-	req.Header.Set("Authorization", "Bearer novexa-local")
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/telemetry/recent", nil)
+	req.Header.Set("Authorization", "Bearer gumi-local")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -904,7 +904,7 @@ func TestProviderErrorRecordedInTelemetry(t *testing.T) {
 
 func TestConfigEndpointRedactsLocalKey(t *testing.T) {
 	srv, cfg, _ := testServer(t, "local")
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/config", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/config", nil)
 	req.Header.Set("Authorization", "Bearer "+cfg.Auth.LocalKey)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
@@ -921,7 +921,7 @@ func TestConfigEndpointRedactsLocalKey(t *testing.T) {
 
 func TestDoctorEndpointReturnsChecks(t *testing.T) {
 	srv, cfg, _ := testServer(t, "local")
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/doctor", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/doctor", nil)
 	req.Header.Set("Authorization", "Bearer "+cfg.Auth.LocalKey)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
@@ -939,7 +939,7 @@ func TestDoctorEndpointReturnsChecks(t *testing.T) {
 
 func TestProfilesEndpointReturnsLoadedProfiles(t *testing.T) {
 	srv, cfg, _ := testServer(t, "local")
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/profiles", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/profiles", nil)
 	req.Header.Set("Authorization", "Bearer "+cfg.Auth.LocalKey)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)

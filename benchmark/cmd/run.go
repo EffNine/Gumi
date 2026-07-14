@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/novexa/novexa/benchmark/runner"
+	"github.com/EffNine/gumi/benchmark/runner"
 )
 
 func main() {
@@ -16,7 +16,7 @@ func main() {
 	mode := flag.String("mode", "auto", "Execution mode: auto | quick | thorough | frontier")
 	attempts := flag.Int("attempts", 3, "Attempts per condition")
 	provider := flag.String("provider", "", "Provider (auto-detect, or lmstudio/ollama/anthropic/openai)")
-	conditions := flag.String("conditions", "direct,novexa-stabilized", "Comma-separated conditions to test")
+	conditions := flag.String("conditions", "direct,gumi-stabilized", "Comma-separated conditions to test")
 	frontierKey := flag.String("frontier-key", "", "API key for frontier baseline run")
 	frontierModel := flag.String("frontier-model", "", "Frontier model name")
 	outputDir := flag.String("output", "benchmarks/reports/", "Output directory for reports")

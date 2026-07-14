@@ -6,12 +6,12 @@ set -euo pipefail
 #
 # Usage:
 #   DIRECT_BASE_URL=http://192.168.0.164:1234/v1 \
-#   NOVEXA_BASE_URL=http://127.0.0.1:8787/v1 \
+#   GUMI_BASE_URL=http://127.0.0.1:8787/v1 \
 #   ./scripts/benchmark-standard-scorecard.sh qwen/qwen3.5-9b
 #
 # Requirements:
 #   pip install "lm-eval[api]"
-#   The direct provider and Novexa must expose OpenAI-compatible chat APIs.
+#   The direct provider and Gumi must expose OpenAI-compatible chat APIs.
 
 MODEL="${1:-}"
 if [ -z "$MODEL" ]; then
@@ -21,29 +21,29 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-BENCHMARK_DIR="${BENCHMARK_DIR:-$HOME/.novexa/benchmarks/standard-scorecard}"
+BENCHMARK_DIR="${BENCHMARK_DIR:-$HOME/.gumi/benchmarks/standard-scorecard}"
 DIRECT_BASE_URL="${DIRECT_BASE_URL:-http://localhost:1234/v1}"
-NOVEXA_BASE_URL="${NOVEXA_BASE_URL:-http://localhost:8787/v1}"
+GUMI_BASE_URL="${GUMI_BASE_URL:-http://localhost:8787/v1}"
 DIRECT_API_KEY="${DIRECT_API_KEY:-local}"
-NOVEXA_API_KEY="${NOVEXA_API_KEY:-novexa-local}"
-NOVEXA_MODEL="${NOVEXA_MODEL:-lmstudio:$MODEL}"
+GUMI_API_KEY="${GUMI_API_KEY:-gumi-local}"
+GUMI_MODEL="${GUMI_MODEL:-lmstudio:$MODEL}"
 TASKS="${STANDARD_TASKS:-ifeval}"
 NUM_FEWSHOT="${NUM_FEWSHOT:-0}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
 NUM_CONCURRENT="${NUM_CONCURRENT:-1}"
 MAX_RETRIES="${MAX_RETRIES:-3}"
 GEN_KWARGS="${GEN_KWARGS:-temperature=0,do_sample=false,max_gen_toks=512,reasoning_effort=none}"
-NOVEXA_MODE="${NOVEXA_MODE:-stabilized}"
+GUMI_MODE="${GUMI_MODE:-stabilized}"
 LM_EVAL_BIN="${LM_EVAL_BIN:-lm_eval}"
 LIMIT="${LIMIT:-}"
 RUN_ID="${RUN_ID:-$(date -u '+%Y%m%dT%H%M%SZ')}"
 
 DIRECT_BASE_URL="${DIRECT_BASE_URL%/}"
-NOVEXA_BASE_URL="${NOVEXA_BASE_URL%/}"
+GUMI_BASE_URL="${GUMI_BASE_URL%/}"
 MODEL_SAFE="$(echo "$MODEL" | sed 's/[^a-zA-Z0-9_-]/-/g')"
 RUN_DIR="$BENCHMARK_DIR/${MODEL_SAFE}-${RUN_ID}"
 DIRECT_DIR="$RUN_DIR/direct"
-NOVEXA_DIR="$RUN_DIR/novexa-${NOVEXA_MODE}"
+GUMI_DIR="$RUN_DIR/gumi-${GUMI_MODE}"
 SCORECARD_JSON="$REPO_DIR/benchmarks/reports/${MODEL_SAFE}-ifeval-${RUN_ID}.json"
 SCORECARD_MD="$REPO_DIR/benchmarks/reports/${MODEL_SAFE}-ifeval-${RUN_ID}.md"
 
@@ -129,61 +129,61 @@ extract_scores() {
 }
 
 preflight "Direct provider" "$DIRECT_BASE_URL" "$DIRECT_API_KEY"
-preflight "Novexa" "$NOVEXA_BASE_URL" "$NOVEXA_API_KEY"
+preflight "Gumi" "$GUMI_BASE_URL" "$GUMI_API_KEY"
 mkdir -p "$RUN_DIR"
 
 run_eval direct "$DIRECT_BASE_URL" "$MODEL" "$DIRECT_DIR" "$DIRECT_API_KEY"
-run_eval novexa "$NOVEXA_BASE_URL" "$NOVEXA_MODEL" "$NOVEXA_DIR" "$NOVEXA_API_KEY"
+run_eval gumi "$GUMI_BASE_URL" "$GUMI_MODEL" "$GUMI_DIR" "$GUMI_API_KEY"
 
 DIRECT_RESULTS="$(find_results "$DIRECT_DIR")"
-NOVEXA_RESULTS="$(find_results "$NOVEXA_DIR")"
-if [ -z "$DIRECT_RESULTS" ] || [ -z "$NOVEXA_RESULTS" ]; then
+GUMI_RESULTS="$(find_results "$GUMI_DIR")"
+if [ -z "$DIRECT_RESULTS" ] || [ -z "$GUMI_RESULTS" ]; then
   echo "Error: lm-eval did not produce results.json for both runs." >&2
   exit 1
 fi
 
 DIRECT_SCORES="$(extract_scores "$DIRECT_RESULTS")"
-NOVEXA_SCORES="$(extract_scores "$NOVEXA_RESULTS")"
+GUMI_SCORES="$(extract_scores "$GUMI_RESULTS")"
 
 jq -n \
   --arg generated_at "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
   --arg model "$MODEL" \
-  --arg novexa_model "$NOVEXA_MODEL" \
+  --arg gumi_model "$GUMI_MODEL" \
   --arg direct_base_url "$DIRECT_BASE_URL" \
-  --arg novexa_base_url "$NOVEXA_BASE_URL" \
-  --arg novexa_mode "$NOVEXA_MODE" \
+  --arg gumi_base_url "$GUMI_BASE_URL" \
+  --arg gumi_mode "$GUMI_MODE" \
   --arg tasks "$TASKS" \
   --arg gen_kwargs "$GEN_KWARGS" \
   --arg direct_results "$DIRECT_RESULTS" \
-  --arg novexa_results "$NOVEXA_RESULTS" \
+  --arg gumi_results "$GUMI_RESULTS" \
   --argjson direct_scores "$DIRECT_SCORES" \
-  --argjson novexa_scores "$NOVEXA_SCORES" \
+  --argjson gumi_scores "$GUMI_SCORES" \
   '{
     schema_version: 1,
     benchmark: "lm-evaluation-harness",
     generated_at: $generated_at,
     configuration: {
       model: $model,
-      novexa_model: $novexa_model,
+      gumi_model: $gumi_model,
       direct_base_url: $direct_base_url,
-      novexa_base_url: $novexa_base_url,
-      novexa_mode: $novexa_mode,
+      gumi_base_url: $gumi_base_url,
+      gumi_mode: $gumi_mode,
       tasks: ($tasks | split(",")),
       generation: $gen_kwargs
     },
-    artifacts: {direct_results: $direct_results, novexa_results: $novexa_results},
+    artifacts: {direct_results: $direct_results, gumi_results: $gumi_results},
     comparisons: [
       $direct_scores[] as $direct
-      | $novexa_scores[]
+      | $gumi_scores[]
       | select(.task == $direct.task)
       | {
           task: $direct.task,
           primary_metric: ($direct.primary_metric // .primary_metric),
           direct: $direct.primary_score,
-          novexa: .primary_score,
+          gumi: .primary_score,
           delta: (if $direct.primary_score == null or .primary_score == null then null else (.primary_score - $direct.primary_score) end),
           direct_metrics: $direct.metrics,
-          novexa_metrics: .metrics
+          gumi_metrics: .metrics
         }
     ]
   }' > "$SCORECARD_JSON"
@@ -192,14 +192,14 @@ jq -n \
   echo "# Standard Before/After Scorecard"
   echo
   echo "- **Model:** $MODEL"
-  echo "- **Novexa mode:** $NOVEXA_MODE"
+  echo "- **Gumi mode:** $GUMI_MODE"
   echo "- **Tasks:** $TASKS"
   echo "- **Generation:** $GEN_KWARGS"
   echo "- **Generated:** $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   echo
-  echo "| Task | Primary metric | Direct | Novexa | Delta |"
+  echo "| Task | Primary metric | Direct | Gumi | Delta |"
   echo "|---|---|---:|---:|---:|"
-  jq -r '.comparisons[] | "| \(.task) | \(.primary_metric // "not selected") | \(.direct // "N/A") | \(.novexa // "N/A") | \(.delta // "N/A") |"' "$SCORECARD_JSON"
+  jq -r '.comparisons[] | "| \(.task) | \(.primary_metric // "not selected") | \(.direct // "N/A") | \(.gumi // "N/A") | \(.delta // "N/A") |"' "$SCORECARD_JSON"
   echo
   echo "Raw lm-eval output is retained under this directory. Compare only runs with the same model artifact, task version, generation settings, and few-shot count."
 } > "$SCORECARD_MD"

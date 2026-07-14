@@ -1,13 +1,13 @@
-// Package promptengine builds model-ready prompts for Novexa requests.
+// Package promptengine builds model-ready prompts for Gumi requests.
 package promptengine
 
 import (
 	"encoding/json"
 	"strings"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	contextengine "github.com/novexa/novexa/runtime/internal/context"
-	"github.com/novexa/novexa/runtime/internal/profiles"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	contextengine "github.com/EffNine/gumi/runtime/internal/context"
+	"github.com/EffNine/gumi/runtime/internal/profiles"
 )
 
 // Input is the Prompt Engine request.
@@ -112,7 +112,7 @@ func (e *Engine) Build(in Input) Output {
 
 func buildSystemPrompt(in Input) string {
 	lines := []string{
-		"You are responding through Novexa Runtime, a local-first AI runtime layer.",
+		"You are responding through Gumi Runtime, a local-first AI runtime layer.",
 		"Answer the user's current request directly and clearly.",
 		"Preserve the user's intent and do not invent facts.",
 		"If information is missing or uncertain, say so instead of guessing.",
@@ -167,7 +167,7 @@ func buildContextBlock(pkg contextengine.Package) string {
 	if len(lines) == 0 {
 		return ""
 	}
-	return "Novexa context package:\n" + strings.Join(lines, "\n")
+	return "Gumi context package:\n" + strings.Join(lines, "\n")
 }
 
 func buildFormatInstructions(format *api.ResponseFormat, profile *profiles.Profile) string {

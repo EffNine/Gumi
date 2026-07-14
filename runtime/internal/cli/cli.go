@@ -1,4 +1,4 @@
-// Package cli implements the Novexa command-line interface.
+// Package cli implements the Gumi command-line interface.
 //
 // Sprint 1 supports four commands:
 //
@@ -21,14 +21,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/dashboard"
-	"github.com/novexa/novexa/runtime/internal/gateway"
-	"github.com/novexa/novexa/runtime/internal/logger"
-	"github.com/novexa/novexa/runtime/internal/version"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/dashboard"
+	"github.com/EffNine/gumi/runtime/internal/gateway"
+	"github.com/EffNine/gumi/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/version"
 )
 
-// Version is the current Novexa runtime version.
+// Version is the current Gumi runtime version.
 //
 // The default comes from the version package and can be overridden at build time
 // with ldflags so release pipelines do not need to edit source files.
@@ -57,7 +57,7 @@ func Execute() {
 			runConfigShow(os.Args[3:])
 			return
 		}
-		fmt.Fprintln(os.Stderr, "usage: novexa config show [--json]")
+		fmt.Fprintln(os.Stderr, "usage: gumi config show [--json]")
 		os.Exit(1)
 	case "lmstudio":
 		runLMStudio(os.Args[2:])
@@ -73,22 +73,22 @@ func Execute() {
 }
 
 func printUsage() {
-	fmt.Println("Novexa Runtime")
+	fmt.Println("Gumi Runtime")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  novexa version [--verbose]")
-	fmt.Println("  novexa start [flags]")
-	fmt.Println("  novexa stop")
-	fmt.Println("  novexa restart [flags]")
-	fmt.Println("  novexa status [--json]")
-	fmt.Println("  novexa doctor [--json]")
-	fmt.Println("  novexa config show [--json]")
-	fmt.Println("  novexa providers [--json]")
-	fmt.Println("  novexa models [--json]")
-	fmt.Println("  novexa benchmark [--json]")
-	fmt.Println("  novexa logs [--tail int]")
-	fmt.Println("  novexa lmstudio [status|load|unload|models] [flags]")
-	fmt.Println("  novexa memory [status|facts|clear] [flags]")
+	fmt.Println("  gumi version [--verbose]")
+	fmt.Println("  gumi start [flags]")
+	fmt.Println("  gumi stop")
+	fmt.Println("  gumi restart [flags]")
+	fmt.Println("  gumi status [--json]")
+	fmt.Println("  gumi doctor [--json]")
+	fmt.Println("  gumi config show [--json]")
+	fmt.Println("  gumi providers [--json]")
+	fmt.Println("  gumi models [--json]")
+	fmt.Println("  gumi benchmark [--json]")
+	fmt.Println("  gumi logs [--tail int]")
+	fmt.Println("  gumi lmstudio [status|load|unload|models] [flags]")
+	fmt.Println("  gumi memory [status|facts|clear] [flags]")
 	fmt.Println()
 	fmt.Println("Flags for start and restart:")
 	fmt.Println("  --config string         Path to configuration file")
@@ -110,23 +110,23 @@ func runVersion(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Novexa Runtime %s\n", Version)
+	fmt.Printf("Gumi Runtime %s\n", Version)
 	if *verbose {
 		fmt.Printf("Commit: %s\n", version.Commit)
 		fmt.Printf("Build Date: %s\n", version.BuildDate)
 	}
 }
 
-// pidFilePath returns the canonical PID file path (~/.novexa/novexa.pid).
+// pidFilePath returns the canonical PID file path (~/.gumi/gumi.pid).
 func pidFilePath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = "."
 	}
-	return filepath.Join(home, ".novexa", "novexa.pid")
+	return filepath.Join(home, ".gumi", "gumi.pid")
 }
 
-// ensurePidDir creates the ~/.novexa directory if it does not exist.
+// ensurePidDir creates the ~/.gumi directory if it does not exist.
 func ensurePidDir() {
 	dir := filepath.Dir(pidFilePath())
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -162,7 +162,7 @@ func checkExistingPid() {
 		return
 	}
 	if isProcessRunning(pid) {
-		fmt.Fprintf(os.Stderr, "Novexa is already running (PID %d). Use 'novexa stop' to stop it first.\n", pid)
+		fmt.Fprintf(os.Stderr, "Gumi is already running (PID %d). Use 'gumi stop' to stop it first.\n", pid)
 		os.Exit(1)
 	}
 }
@@ -260,7 +260,7 @@ func startServers(cfg *config.Config, log *logger.Logger) {
 	defer removePidFile()
 
 	printStartupBanner(cfg)
-	log.Info("Novexa Runtime started",
+	log.Info("Gumi Runtime started",
 		"version", Version,
 		"mode", cfg.Runtime.Mode,
 		"host", cfg.Runtime.Host,
@@ -292,7 +292,7 @@ func startServers(cfg *config.Config, log *logger.Logger) {
 		}
 	}
 
-	log.Info("Novexa Runtime shutting down gracefully")
+	log.Info("Gumi Runtime shutting down gracefully")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
@@ -303,7 +303,7 @@ func startServers(cfg *config.Config, log *logger.Logger) {
 			log.Error("dashboard shutdown error", err)
 		}
 	}
-	log.Info("Novexa Runtime stopped")
+	log.Info("Gumi Runtime stopped")
 }
 
 // runStop sends SIGTERM to the running runtime process, waits up to 30 seconds
@@ -332,7 +332,7 @@ func printStartupBanner(cfg *config.Config) {
 		model = p.DefaultModel
 	}
 
-	fmt.Printf("Novexa Runtime %s\n\n", Version)
+	fmt.Printf("Gumi Runtime %s\n\n", Version)
 	fmt.Printf("API        http://%s:%d/v1\n", cfg.Runtime.Host, cfg.Runtime.Port)
 	fmt.Printf("Dashboard  http://%s:%d\n", cfg.Dashboard.Host, cfg.Dashboard.Port)
 	fmt.Printf("Mode       %s\n", cfg.Runtime.Mode)

@@ -20,11 +20,11 @@ func isProcessRunning(pid int) bool {
 	return true
 }
 
-// stopProcess is a stub for Windows. The `novexa stop` and `novexa restart`
+// stopProcess is a stub for Windows. The `gumi stop` and `gumi restart`
 // commands are primarily designed for Unix. On Windows, print a message
 // and return false.
 func stopProcess() bool {
-	fmt.Println("The 'novexa stop' command is not supported on Windows.")
-	fmt.Println("Use Task Manager or 'taskkill /F /IM novexa.exe' to stop the runtime.")
+	fmt.Println("The 'gumi stop' command is not supported on Windows.")
+	fmt.Println("Use Task Manager or 'taskkill /F /IM gumi.exe' to stop the runtime.")
 	return false
 }

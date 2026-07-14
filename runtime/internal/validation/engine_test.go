@@ -3,7 +3,7 @@ package validation
 import (
 	"testing"
 
-	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/api"
 )
 
 func TestValidateInvalidJSON(t *testing.T) {

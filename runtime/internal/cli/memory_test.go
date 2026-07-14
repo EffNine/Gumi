@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/memory"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/memory"
 )
 
 func TestMemoryConfig(t *testing.T) {
@@ -28,8 +28,8 @@ func TestResolveMemoryDBPath(t *testing.T) {
 	if path == "" {
 		t.Fatal("expected non-empty memory DB path")
 	}
-	if !strings.HasSuffix(path, "/.novexa/memory.db") {
-		t.Fatalf("expected path ending in '/.novexa/memory.db', got %q", path)
+	if !strings.HasSuffix(path, "/.gumi/memory.db") {
+		t.Fatalf("expected path ending in '/.gumi/memory.db', got %q", path)
 	}
 }
 

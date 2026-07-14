@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 // fakeStreamingAdapter implements ProviderAdapter with streaming support for tests.

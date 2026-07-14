@@ -3,8 +3,8 @@ package provider
 import (
 	"testing"
 
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 func TestDefaultRegistryHasBuiltinProviders(t *testing.T) {

@@ -91,4 +91,4 @@ notes:
   - 32K context budget with hybrid compression.
   - Thinking is disabled by default but enabled for complex debugging and multi-step tasks.
   - Tool-calling shim converts weak native tool calling into reliable prompt-based tool calls.
-  - Validated with LM Studio model ornith-1.0-9b@q4_k_m (21/21 Novexa passes, Good baseline, direct p50 182ms).
+  - Validated with LM Studio model ornith-1.0-9b@q4_k_m (21/21 Gumi passes, Good baseline, direct p50 182ms).

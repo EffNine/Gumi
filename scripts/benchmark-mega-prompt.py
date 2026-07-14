@@ -8,7 +8,7 @@ Usage:
 import json, urllib.request, time, re, sys, argparse
 
 API = "http://127.0.0.1:8787/v1"
-KEY = "novexa-local"
+KEY = "gumi-local"
 
 def chat(model, msgs, max_tokens=2048, timeout=120):
     p = {"model": model, "messages": msgs, "temperature": 0.3, "max_tokens": max_tokens}

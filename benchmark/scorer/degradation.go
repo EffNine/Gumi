@@ -4,10 +4,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
-// CorruptionRecord describes a single instance where Novexa changed correct output.
+// CorruptionRecord describes a single instance where Gumi changed correct output.
 type CorruptionRecord struct {
 	TestID   string
 	Original string
@@ -25,7 +25,7 @@ type DegradationReport struct {
 	LatencyOverhead map[string]float64
 }
 
-// DegradationDetector compares output before and after Novexa processing
+// DegradationDetector compares output before and after Gumi processing
 // to detect over-repair and semantic corruption.
 type DegradationDetector struct {
 	semanticPatterns []*regexp.Regexp
@@ -157,7 +157,7 @@ func truncate(s string, maxLen int) string {
 }
 
 // RunDegradationChecks runs the degradation detector on all tests in the
-// "degradation" category, comparing direct (original) vs novexa (repaired) outputs.
+// "degradation" category, comparing direct (original) vs gumi (repaired) outputs.
 func RunDegradationChecks(results []benchmark.TestResult, testCategories map[string]string) DegradationReport {
 	detector := NewDegradationDetector()
 
@@ -185,34 +185,34 @@ func RunDegradationChecks(results []benchmark.TestResult, testCategories map[str
 		}
 		totalTests++
 
-		// Find the best novexa result for comparison (prefer stabilized, fall back to any novexa-*)
-		var novexaResult benchmark.TestResult
-		var foundNovexa bool
-		for _, preferred := range []string{"novexa-stabilized", "novexa-lightweight", "novexa-structured", "novexa-direct"} {
+		// Find the best gumi result for comparison (prefer stabilized, fall back to any gumi-*)
+		var gumiResult benchmark.TestResult
+		var foundGumi bool
+		for _, preferred := range []string{"gumi-stabilized", "gumi-lightweight", "gumi-structured", "gumi-direct"} {
 			if r, ok := condResults[preferred]; ok {
-				novexaResult = r
-				foundNovexa = true
+				gumiResult = r
+				foundGumi = true
 				break
 			}
 		}
-		if !foundNovexa {
+		if !foundGumi {
 			continue
 		}
 
 		// Only flag as degradation if the DIRECT result was correct (passed).
-		// If the direct result was wrong and Novexa changed it, that's improvement, not corruption.
+		// If the direct result was wrong and Gumi changed it, that's improvement, not corruption.
 		if !directResult.Passed {
 			continue
 		}
 
 		// Compute latency overhead for this test
-		latencyOverhead[testID] = novexaResult.LatencyMs - directResult.LatencyMs
+		latencyOverhead[testID] = gumiResult.LatencyMs - directResult.LatencyMs
 		if latencyOverhead[testID] < 0 {
 			latencyOverhead[testID] = 0
 		}
 
 		// Compare outputs
-		rec := detector.Compare(directResult.Output, novexaResult.Output, benchmark.SuiteTest{ID: testID})
+		rec := detector.Compare(directResult.Output, gumiResult.Output, benchmark.SuiteTest{ID: testID})
 		if rec.Severity != "" {
 			corruptions = append(corruptions, rec)
 		}
@@ -236,9 +236,9 @@ func RunDegradationChecks(results []benchmark.TestResult, testCategories map[str
 // Condition identifiers (duplicated here to avoid import cycle with runner package).
 const (
 	ConditionDirect            = "direct"
-	ConditionNovexaDirect      = "novexa-direct"
-	ConditionNovexaLightweight = "novexa-lightweight"
-	ConditionNovexaStabilized  = "novexa-stabilized"
-	ConditionNovexaStructured  = "novexa-structured"
+	ConditionGumiDirect      = "gumi-direct"
+	ConditionGumiLightweight = "gumi-lightweight"
+	ConditionGumiStabilized  = "gumi-stabilized"
+	ConditionGumiStructured  = "gumi-structured"
 	ConditionFrontier          = "frontier"
 )

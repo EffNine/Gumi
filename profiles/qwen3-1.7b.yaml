@@ -68,4 +68,4 @@ notes:
   - Small 1.7B model. Best for quick general chat and simple tasks.
   - Thinking is disabled by default to avoid exhausting max_tokens on reasoning.
   - Requires strict instruction formatting for JSON output.
-  - Validated with LM Studio model qwen/qwen3-1.7b (21/21 Novexa passes, Good baseline, direct p50 94ms).
+  - Validated with LM Studio model qwen/qwen3-1.7b (21/21 Gumi passes, Good baseline, direct p50 94ms).

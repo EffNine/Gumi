@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
 // Scorer evaluates model responses against test constraints and produces scores.
@@ -67,13 +67,13 @@ func (s *Scorer) Score(test benchmark.SuiteTest, response string) benchmark.Test
 }
 
 // AggregateCapabilities groups test results by category (capability) and condition,
-// computes per-capability MetricSets for direct and novexa conditions, and calculates
+// computes per-capability MetricSets for direct and gumi conditions, and calculates
 // delta and effect size for each capability.
 func AggregateCapabilities(results []benchmark.TestResult, testCategories map[string]string) map[string]Capability {
 	// Group results by (category, condition-type)
 	type groupKey struct {
 		category  string
-		isNovexa  bool // true for novexa-* conditions, false for direct
+		isGumi  bool // true for gumi-* conditions, false for direct
 	}
 
 	groups := make(map[groupKey][]benchmark.TestResult)
@@ -82,8 +82,8 @@ func AggregateCapabilities(results []benchmark.TestResult, testCategories map[st
 		if cat == "" || cat == "degradation" {
 			continue // skip degradation tests in capability aggregation
 		}
-		isNovexa := strings.HasPrefix(r.Condition, "novexa-")
-		key := groupKey{category: cat, isNovexa: isNovexa}
+		isGumi := strings.HasPrefix(r.Condition, "gumi-")
+		key := groupKey{category: cat, isGumi: isGumi}
 		groups[key] = append(groups[key], r)
 	}
 
@@ -96,18 +96,18 @@ func AggregateCapabilities(results []benchmark.TestResult, testCategories map[st
 	}
 
 	for cat := range categories {
-		directResults := groups[groupKey{category: cat, isNovexa: false}]
-		novexaResults := groups[groupKey{category: cat, isNovexa: true}]
+		directResults := groups[groupKey{category: cat, isGumi: false}]
+		gumiResults := groups[groupKey{category: cat, isGumi: true}]
 
 		directMS := Aggregate(directResults, nil)
-		novexaMS := Aggregate(novexaResults, nil)
+		gumiMS := Aggregate(gumiResults, nil)
 
-		delta := novexaMS.Mean - directMS.Mean
-		effectSize := CohenD(directMS, novexaMS)
+		delta := gumiMS.Mean - directMS.Mean
+		effectSize := CohenD(directMS, gumiMS)
 
 		caps[cat] = Capability{
 			Direct:      directMS,
-			Novexa:      novexaMS,
+			Gumi:      gumiMS,
 			Delta:       delta,
 			EffectSize:  effectSize,
 		}

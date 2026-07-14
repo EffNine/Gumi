@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/api"
 )
 
 func TestPrepareNormalizesDeduplicatesAndTrims(t *testing.T) {
@@ -16,7 +16,7 @@ func TestPrepareNormalizesDeduplicatesAndTrims(t *testing.T) {
 		Strategy:       "hybrid",
 		MaxInputTokens: 20,
 		Messages: []api.Message{
-			{Role: "SYSTEM", Content: " Novexa must stay local-first. "},
+			{Role: "SYSTEM", Content: " Gumi must stay local-first. "},
 			{Role: "assistant", Content: long + long + long},
 			{Role: "assistant", Content: long + long + long},
 			{Role: "user", Content: "Proceed sprint 6"},

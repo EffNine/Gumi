@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 580" font-family="Inter, ui-sans-serif, system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .sidebar-bg { fill: #252a27; }
+      .sidebar-text { fill: #aeb5b1; font-size: 12px; }
+      .sidebar-active { fill: #e9ff65; }
+      .main-bg { fill: #f3f4f1; }
+      .paper { fill: #fbfcfa; }
+      .line { stroke: #d9ddd8; }
+      .muted { fill: #68706b; font-size: 10px; }
+      .green { fill: #18865a; }
+      .amber { fill: #b26a16; }
+      .red { fill: #c43f3f; }
+      .blue { fill: #2459d3; }
+      .ink { fill: #171a18; }
+      .brand-mark { fill: #e9ff65; }
+      .brand-mark-text { fill: #182019; font: 800 15px ui-monospace, monospace; }
+      .brand-text { fill: #f7f8f6; font-size: 15px; font-weight: 700; }
+      .brand-sub { fill: #aab1ad; font-size: 11px; }
+      .nav-text { fill: #aeb5b1; font-size: 12px; }
+      .nav-text-active { fill: #ffffff; font-size: 12px; }
+      .foot-text { fill: #858e88; font-size: 10px; font-family: ui-monospace, monospace; }
+      .eyebrow { fill: #68706b; font: 700 10px ui-monospace, monospace; }
+      .heading { fill: #171a18; font-size: 24px; font-weight: 700; }
+      .section-title { fill: #171a18; font-size: 17px; font-weight: 700; }
+      .check-name { fill: #171a18; font-size: 13px; font-weight: 600; }
+      .check-msg { fill: #68706b; font-size: 12px; }
+      .check-suggestion { fill: #b26a16; font-size: 12px; }
+      .code-text { fill: #171a18; font: 11px ui-monospace, monospace; }
+    </style>
+  </defs>
+
+  <!-- Sidebar -->
+  <rect class="sidebar-bg" x="0" y="0" width="224" height="580"/>
+
+  <!-- Brand -->
+  <rect class="brand-mark" x="22" y="22" width="31" height="31" rx="0"/>
+  <text class="brand-mark-text" x="37" y="43" text-anchor="middle">N</text>
+  <text class="brand-text" x="64" y="35">Novexa</text>
+  <text class="brand-sub" x="64" y="50">Runtime console</text>
+
+  <line x1="14" y1="68" x2="210" y2="68" stroke="#3a403c" stroke-width="1"/>
+
+  <!-- Nav items -->
+  <g transform="translate(0, 86)">
+    <!-- Overview -->
+    <rect x="0" y="0" width="224" height="39" fill="transparent"/>
+    <text x="36" y="24" class="nav-text">Overview</text>
+    <rect x="14" y="11" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Requests -->
+    <rect x="0" y="43" width="224" height="39" fill="transparent"/>
+    <text x="36" y="67" class="nav-text">Requests</text>
+    <rect x="14" y="54" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Providers -->
+    <rect x="0" y="86" width="224" height="39" fill="transparent"/>
+    <text x="36" y="110" class="nav-text">Providers</text>
+    <rect x="14" y="97" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Profiles -->
+    <rect x="0" y="129" width="224" height="39" fill="transparent"/>
+    <text x="36" y="153" class="nav-text">Profiles</text>
+    <rect x="14" y="140" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Config -->
+    <rect x="0" y="172" width="224" height="39" fill="transparent"/>
+    <text x="36" y="196" class="nav-text">Config</text>
+    <rect x="14" y="183" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Doctor - active -->
+    <rect x="0" y="215" width="224" height="39" fill="#303632"/>
+    <line x1="0" y1="215" x2="0" y2="254" stroke="#e9ff65" stroke-width="2"/>
+    <text x="36" y="239" class="nav-text-active">Doctor</text>
+    <rect x="14" y="226" width="17" height="17" rx="3" fill="none" stroke="#e9ff65" stroke-width="1.5" opacity="0.6"/>
+  </g>
+
+  <!-- Runtime footer -->
+  <line x1="14" y1="530" x2="210" y2="530" stroke="#3a403c" stroke-width="1"/>
+  <circle cx="22" cy="548" r="3.5" fill="#18865a"/>
+  <text x="32" y="552" fill="#aeb5b1" font-size="10px" font-weight="700" font-family="ui-monospace, monospace" text-transform="uppercase">ok</text>
+  <text x="60" y="552" class="foot-text">127.0.0.1:8787</text>
+
+  <!-- Main content area -->
+  <rect class="main-bg" x="224" y="0" width="676" height="580"/>
+
+  <!-- Top bar -->
+  <line x1="224" y1="93" x2="900" y2="93" stroke="#d9ddd8" stroke-width="1"/>
+  <text x="258" y="40" class="eyebrow">System diagnostics</text>
+  <text x="258" y="72" class="heading">Doctor</text>
+
+  <!-- Refresh button -->
+  <rect x="830" y="30" width="36" height="36" rx="0" fill="#fbfcfa" stroke="#d9ddd8" stroke-width="1"/>
+  <rect x="840" y="40" width="16" height="16" rx="2" fill="none" stroke="#171a18" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Doctor hero section -->
+  <g transform="translate(258, 121)">
+    <line x1="0" y1="125" x2="614" y2="125" stroke="#d9ddd8" stroke-width="1"/>
+
+    <!-- Large checkmark icon -->
+    <rect x="0" y="20" width="46" height="46" rx="0" fill="#dbeee4"/>
+    <text x="23" y="50" text-anchor="middle" fill="#18865a" font-size="28px" font-weight="bold">✓</text>
+
+    <text x="64" y="38" class="eyebrow">System diagnostics</text>
+    <text x="64" y="68" fill="#171a18" font-size="22px" font-weight="700">Runtime checks passed</text>
+  </g>
+
+  <!-- Check list -->
+  <g transform="translate(258, 270)">
+    <!-- Check 1: provider_reachable -->
+    <line x1="0" y1="0" x2="614" y2="0" stroke="#d9ddd8" stroke-width="1"/>
+    <line x1="0" y1="60" x2="614" y2="60" stroke="#d9ddd8" stroke-width="1"/>
+
+    <circle cx="20" cy="30" r="3.5" fill="#18865a"/>
+    <text x="30" y="34" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">ok</text>
+
+    <text x="148" y="24" class="check-name">provider reachable</text>
+    <text x="148" y="44" class="check-msg">All configured provider endpoints are reachable and responding.</text>
+
+    <!-- Check 2: model_loaded -->
+    <line x1="0" y1="60" x2="614" y2="60" stroke="#d9ddd8" stroke-width="1"/>
+    <line x1="0" y1="120" x2="614" y2="120" stroke="#d9ddd8" stroke-width="1"/>
+
+    <circle cx="20" cy="90" r="3.5" fill="#18865a"/>
+    <text x="30" y="94" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">ok</text>
+
+    <text x="148" y="84" class="check-name">model loaded</text>
+    <text x="148" y="104" class="check-msg">Default model qwen3.5-9b is loaded and ready on lmstudio.</text>
+
+    <!-- Check 3: json_validator -->
+    <line x1="0" y1="120" x2="614" y2="120" stroke="#d9ddd8" stroke-width="1"/>
+    <line x1="0" y1="180" x2="614" y2="180" stroke="#d9ddd8" stroke-width="1"/>
+
+    <circle cx="20" cy="150" r="3.5" fill="#18865a"/>
+    <text x="30" y="154" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">ok</text>
+
+    <text x="148" y="144" class="check-name">json validator</text>
+    <text x="148" y="164" class="check-msg">JSON repair engine active. 12 repairs applied in current session.</text>
+
+    <!-- Check 4: telemetry_writer -->
+    <line x1="0" y1="180" x2="614" y2="180" stroke="#d9ddd8" stroke-width="1"/>
+    <line x1="0" y1="240" x2="614" y2="240" stroke="#d9ddd8" stroke-width="1"/>
+
+    <circle cx="20" cy="210" r="3.5" fill="#18865a"/>
+    <text x="30" y="214" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">ok</text>
+
+    <text x="148" y="204" class="check-name">telemetry writer</text>
+    <text x="148" y="224" class="check-msg">Telemetry database is writable at /data/.novexa/novexa.db.</text>
+
+    <!-- Check 5: profile_store -->
+    <line x1="0" y1="240" x2="614" y2="240" stroke="#d9ddd8" stroke-width="1"/>
+    <line x1="0" y1="300" x2="614" y2="300" stroke="#d9ddd8" stroke-width="1"/>
+
+    <circle cx="20" cy="270" r="3.5" fill="#18865a"/>
+    <text x="30" y="274" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">ok</text>
+
+    <text x="148" y="264" class="check-name">profile store</text>
+    <text x="148" y="284" class="check-msg">8 model profiles loaded from profiles directory.</text>
+
+    <!-- Check 6: memory_engine -->
+    <line x1="0" y1="300" x2="614" y2="300" stroke="#d9ddd8" stroke-width="1"/>
+    <line x1="0" y1="360" x2="614" y2="360" stroke="#d9ddd8" stroke-width="1"/>
+
+    <circle cx="20" cy="330" r="3.5" fill="#b26a16"/>
+    <text x="30" y="334" fill="#b26a16" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">warning</text>
+
+    <text x="148" y="324" class="check-name">memory engine</text>
+    <text x="148" y="344" class="check-msg">Memory engine is running in ephemeral mode. No persistent store configured.</text>
+    <text x="148" y="362" class="check-suggestion">Set NOVEXA_MEMORY_STORE=sqlite to enable persistent memory across restarts.</text>
+
+    <!-- Check 7: anti_loop_guard -->
+    <line x1="0" y1="360" x2="614" y2="360" stroke="#d9ddd8" stroke-width="1"/>
+
+    <circle cx="20" cy="390" r="3.5" fill="#18865a"/>
+    <text x="30" y="394" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">ok</text>
+
+    <text x="148" y="384" class="check-name">anti loop guard</text>
+    <text x="148" y="404" class="check-msg">Repetition detection active. 0 false positives in current session.</text>
+  </g>
+</svg>

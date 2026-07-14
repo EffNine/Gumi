@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/benchmark/runner"
-	"github.com/novexa/novexa/runtime/internal/config"
+	"github.com/EffNine/gumi/benchmark/runner"
+	"github.com/EffNine/gumi/runtime/internal/config"
 )
 
 func runUtilityCommand(command string, args []string) {
@@ -38,8 +38,8 @@ func runUtilityCommand(command string, args []string) {
 		base = fmt.Sprintf("http://%s:%d", cfg.Runtime.Host, cfg.Runtime.Port)
 	}
 	path := map[string]string{
-		"status": "/v1/novexa/status", "doctor": "/v1/novexa/doctor",
-		"providers": "/v1/novexa/status", "models": "/v1/models",
+		"status": "/v1/gumi/status", "doctor": "/v1/gumi/doctor",
+		"providers": "/v1/gumi/status", "models": "/v1/models",
 	}[command]
 
 	if command == "logs" {
@@ -49,7 +49,7 @@ func runUtilityCommand(command string, args []string) {
 
 	body, err := apiGet(base+path, cfg.Auth.LocalKey)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Novexa %s failed: %v\nSuggestion: start the runtime with 'novexa start'.\n", command, err)
+		fmt.Fprintf(os.Stderr, "Gumi %s failed: %v\nSuggestion: start the runtime with 'gumi start'.\n", command, err)
 		os.Exit(1)
 	}
 	if *jsonOutput {
@@ -88,7 +88,7 @@ func printHuman(command string, body []byte) {
 		return
 	}
 	pretty, _ := json.MarshalIndent(value, "", "  ")
-	labels := map[string]string{"status": "Novexa Status", "doctor": "Novexa Doctor", "providers": "Novexa Providers", "models": "Novexa Models"}
+	labels := map[string]string{"status": "Gumi Status", "doctor": "Gumi Doctor", "providers": "Gumi Providers", "models": "Gumi Models"}
 	fmt.Println(labels[command])
 	fmt.Println(string(pretty))
 }
@@ -113,14 +113,14 @@ func runConfigShow(args []string) {
 	}
 	body, _ := json.MarshalIndent(redacted, "", "  ")
 	if !*jsonOutput {
-		fmt.Println("Resolved Novexa Config")
+		fmt.Println("Resolved Gumi Config")
 	}
 	fmt.Println(string(body))
 }
 
 func runLogs(tail int) {
 	home, _ := os.UserHomeDir()
-	path := filepath.Join(home, ".novexa", "logs", "novexa.log")
+	path := filepath.Join(home, ".gumi", "logs", "gumi.log")
 	body, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Printf("No local log file found at %s. Runtime logs currently remain in the terminal.\n", path)
@@ -138,7 +138,7 @@ func runBenchmark(base, key string, jsonOutput bool, args []string) {
 	model := fs.String("model", "", "Model name (e.g., \"ornith-1.0-9b@q4_k_m\")")
 	mode := fs.String("mode", "auto", "Execution mode: auto | quick | thorough | frontier")
 	attempts := fs.Int("attempts", 3, "Attempts per condition")
-	conditions := fs.String("conditions", "direct,novexa-stabilized", "Comma-separated conditions")
+	conditions := fs.String("conditions", "direct,gumi-stabilized", "Comma-separated conditions")
 	frontierKey := fs.String("frontier-key", "", "API key for frontier baseline")
 	frontierModel := fs.String("frontier-model", "", "Frontier model name")
 	outputDir := fs.String("output", "benchmarks/reports/", "Output directory")
@@ -167,7 +167,7 @@ func runBenchmark(base, key string, jsonOutput bool, args []string) {
 			os.Exit(1)
 		}
 	} else {
-		fmt.Printf("Novexa Benchmark\nRun: %s | Score: %.4f\n", rep.RunResult.RunID, rep.RunResult.Summary.OverallScore)
+		fmt.Printf("Gumi Benchmark\nRun: %s | Score: %.4f\n", rep.RunResult.RunID, rep.RunResult.Summary.OverallScore)
 	}
 }
 

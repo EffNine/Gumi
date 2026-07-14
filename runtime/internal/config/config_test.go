@@ -41,7 +41,7 @@ func TestLoadWithEmptyPath(t *testing.T) {
 }
 
 func TestLoadWithMissingFile(t *testing.T) {
-	cfg, err := Load("/this/path/does/not/exist/novexa.yaml")
+	cfg, err := Load("/this/path/does/not/exist/gumi.yaml")
 	if err != nil {
 		t.Fatalf("Load returned unexpected error for missing file: %v", err)
 	}
@@ -51,10 +51,10 @@ func TestLoadWithMissingFile(t *testing.T) {
 }
 
 func TestLoadAppliesProviderEnvOverrides(t *testing.T) {
-	t.Setenv("NOVEXA_PROVIDER_DEFAULT", "lmstudio")
-	t.Setenv("NOVEXA_LMSTUDIO_URL", "http://192.168.0.164:1234/v1")
-	t.Setenv("NOVEXA_DEFAULT_MODEL", "qwen/qwen3.5-9b")
-	t.Setenv("NOVEXA_PROVIDER_TIMEOUT_SECONDS", "120")
+	t.Setenv("GUMI_PROVIDER_DEFAULT", "lmstudio")
+	t.Setenv("GUMI_LMSTUDIO_URL", "http://192.168.0.164:1234/v1")
+	t.Setenv("GUMI_DEFAULT_MODEL", "qwen/qwen3.5-9b")
+	t.Setenv("GUMI_PROVIDER_TIMEOUT_SECONDS", "120")
 
 	cfg, err := Load("")
 	if err != nil {
@@ -94,7 +94,7 @@ providers:
     default_model: ornith-1.0-9b@q4_k_m
     timeout_seconds: 120
 `)
-	yamlPath := filepath.Join(t.TempDir(), "novexa.yaml")
+	yamlPath := filepath.Join(t.TempDir(), "gumi.yaml")
 	if err := os.WriteFile(yamlPath, yamlContent, 0644); err != nil {
 		t.Fatalf("failed to write temp yaml: %v", err)
 	}
@@ -132,9 +132,9 @@ func TestLoadYAMLWithHomeDirExpansion(t *testing.T) {
 	// The config should expand ~/ in database_path.
 	yamlContent := []byte(`
 storage:
-  database_path: ~/.novexa/novexa.db
+  database_path: ~/.gumi/gumi.db
 `)
-	yamlPath := filepath.Join(t.TempDir(), "novexa.yaml")
+	yamlPath := filepath.Join(t.TempDir(), "gumi.yaml")
 	if err := os.WriteFile(yamlPath, yamlContent, 0644); err != nil {
 		t.Fatalf("failed to write temp yaml: %v", err)
 	}
@@ -144,10 +144,10 @@ storage:
 		t.Fatalf("Load from yaml returned error: %v", err)
 	}
 
-	if cfg.Storage.DBPath == "~/.novexa/novexa.db" {
+	if cfg.Storage.DBPath == "~/.gumi/gumi.db" {
 		t.Error("expected database_path ~ to be expanded to home directory, but it was left as-is")
 	}
-	if !strings.Contains(cfg.Storage.DBPath, ".novexa/novexa.db") {
-		t.Errorf("expected database_path to contain '.novexa/novexa.db', got %q", cfg.Storage.DBPath)
+	if !strings.Contains(cfg.Storage.DBPath, ".gumi/gumi.db") {
+		t.Errorf("expected database_path to contain '.gumi/gumi.db', got %q", cfg.Storage.DBPath)
 	}
 }

@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 580" font-family="Inter, ui-sans-serif, system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .sidebar-bg { fill: #252a27; }
+      .sidebar-text { fill: #aeb5b1; font-size: 12px; }
+      .sidebar-active { fill: #e9ff65; }
+      .main-bg { fill: #f3f4f1; }
+      .paper { fill: #fbfcfa; }
+      .line { stroke: #d9ddd8; }
+      .muted { fill: #68706b; font-size: 10px; }
+      .green { fill: #18865a; }
+      .amber { fill: #b26a16; }
+      .red { fill: #c43f3f; }
+      .blue { fill: #2459d3; }
+      .ink { fill: #171a18; }
+      .brand-mark { fill: #e9ff65; }
+      .brand-mark-text { fill: #182019; font: 800 15px ui-monospace, monospace; }
+      .brand-text { fill: #f7f8f6; font-size: 15px; font-weight: 700; }
+      .brand-sub { fill: #aab1ad; font-size: 11px; }
+      .nav-text { fill: #aeb5b1; font-size: 12px; }
+      .nav-text-active { fill: #ffffff; font-size: 12px; }
+      .foot-text { fill: #858e88; font-size: 10px; font-family: ui-monospace, monospace; }
+      .eyebrow { fill: #68706b; font: 700 10px ui-monospace, monospace; }
+      .heading { fill: #171a18; font-size: 24px; font-weight: 700; }
+      .section-title { fill: #171a18; font-size: 17px; font-weight: 700; }
+      .card-title { fill: #171a18; font-size: 14px; font-weight: 700; }
+      .card-label { fill: #68706b; font-size: 11px; }
+      .card-value { fill: #171a18; font-size: 11px; }
+      .code-text { fill: #171a18; font: 11px ui-monospace, monospace; }
+    </style>
+  </defs>
+
+  <!-- Sidebar -->
+  <rect class="sidebar-bg" x="0" y="0" width="224" height="580"/>
+
+  <!-- Brand -->
+  <rect class="brand-mark" x="22" y="22" width="31" height="31" rx="0"/>
+  <text class="brand-mark-text" x="37" y="43" text-anchor="middle">N</text>
+  <text class="brand-text" x="64" y="35">Novexa</text>
+  <text class="brand-sub" x="64" y="50">Runtime console</text>
+
+  <line x1="14" y1="68" x2="210" y2="68" stroke="#3a403c" stroke-width="1"/>
+
+  <!-- Nav items -->
+  <g transform="translate(0, 86)">
+    <!-- Overview -->
+    <rect x="0" y="0" width="224" height="39" fill="transparent"/>
+    <text x="36" y="24" class="nav-text">Overview</text>
+    <rect x="14" y="11" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Requests -->
+    <rect x="0" y="43" width="224" height="39" fill="transparent"/>
+    <text x="36" y="67" class="nav-text">Requests</text>
+    <rect x="14" y="54" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Providers - active -->
+    <rect x="0" y="86" width="224" height="39" fill="#303632"/>
+    <line x1="0" y1="86" x2="0" y2="125" stroke="#e9ff65" stroke-width="2"/>
+    <text x="36" y="110" class="nav-text-active">Providers</text>
+    <rect x="14" y="97" width="17" height="17" rx="3" fill="none" stroke="#e9ff65" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Profiles -->
+    <rect x="0" y="129" width="224" height="39" fill="transparent"/>
+    <text x="36" y="153" class="nav-text">Profiles</text>
+    <rect x="14" y="140" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Config -->
+    <rect x="0" y="172" width="224" height="39" fill="transparent"/>
+    <text x="36" y="196" class="nav-text">Config</text>
+    <rect x="14" y="183" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Doctor -->
+    <rect x="0" y="215" width="224" height="39" fill="transparent"/>
+    <text x="36" y="239" class="nav-text">Doctor</text>
+    <rect x="14" y="226" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+  </g>
+
+  <!-- Runtime footer -->
+  <line x1="14" y1="530" x2="210" y2="530" stroke="#3a403c" stroke-width="1"/>
+  <circle cx="22" cy="548" r="3.5" fill="#18865a"/>
+  <text x="32" y="552" fill="#aeb5b1" font-size="10px" font-weight="700" font-family="ui-monospace, monospace" text-transform="uppercase">ok</text>
+  <text x="60" y="552" class="foot-text">127.0.0.1:8787</text>
+
+  <!-- Main content area -->
+  <rect class="main-bg" x="224" y="0" width="676" height="580"/>
+
+  <!-- Top bar -->
+  <line x1="224" y1="93" x2="900" y2="93" stroke="#d9ddd8" stroke-width="1"/>
+  <text x="258" y="40" class="eyebrow">Local inference</text>
+  <text x="258" y="72" class="heading">Provider adapters</text>
+
+  <!-- Refresh button -->
+  <rect x="830" y="30" width="36" height="36" rx="0" fill="#fbfcfa" stroke="#d9ddd8" stroke-width="1"/>
+  <rect x="840" y="40" width="16" height="16" rx="2" fill="none" stroke="#171a18" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Provider grid -->
+  <g transform="translate(258, 121)">
+
+    <!-- Card 1: lmstudio -->
+    <rect x="0" y="0" width="196" height="220" fill="#fbfcfa" stroke="#d9ddd8" stroke-width="1"/>
+
+    <!-- Card header -->
+    <line x1="0" y1="55" x2="196" y2="55" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="16" y="18" width="20" height="20" rx="4" fill="none" stroke="#18865a" stroke-width="1.5" opacity="0.7"/>
+    <text x="46" y="32" class="card-title">lmstudio</text>
+    <circle cx="160" cy="22" r="3.5" fill="#18865a"/>
+    <text x="168" y="26" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">ok</text>
+
+    <!-- Card body -->
+    <text x="16" y="82" class="card-label">Endpoint</text>
+    <text x="16" y="100" class="code-text">http://localhost:1234/v1</text>
+
+    <text x="16" y="130" class="card-label">Boundary</text>
+    <text x="16" y="148" class="card-value">Local network only</text>
+
+    <text x="16" y="178" class="card-label">Model</text>
+    <text x="16" y="196" class="card-value">qwen3.5-9b (loaded)</text>
+
+    <!-- Card 2: ollama -->
+    <rect x="208" y="0" width="196" height="220" fill="#fbfcfa" stroke="#d9ddd8" stroke-width="1"/>
+
+    <line x1="208" y1="55" x2="404" y2="55" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="224" y="18" width="20" height="20" rx="4" fill="none" stroke="#18865a" stroke-width="1.5" opacity="0.7"/>
+    <text x="254" y="32" class="card-title">ollama</text>
+    <circle cx="368" cy="22" r="3.5" fill="#18865a"/>
+    <text x="376" y="26" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">ok</text>
+
+    <text x="224" y="82" class="card-label">Endpoint</text>
+    <text x="224" y="100" class="code-text">http://localhost:11434/v1</text>
+
+    <text x="224" y="130" class="card-label">Boundary</text>
+    <text x="224" y="148" class="card-value">Local network only</text>
+
+    <text x="224" y="178" class="card-label">Model</text>
+    <text x="224" y="196" class="card-value">llama3.2-3b (loaded)</text>
+
+    <!-- Card 3: openai-compatible -->
+    <rect x="416" y="0" width="196" height="220" fill="#fbfcfa" stroke="#d9ddd8" stroke-width="1"/>
+
+    <line x1="416" y1="55" x2="612" y2="55" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="432" y="18" width="20" height="20" rx="4" fill="none" stroke="#b26a16" stroke-width="1.5" opacity="0.7"/>
+    <text x="462" y="32" class="card-title">openai-compatible</text>
+    <circle cx="576" cy="22" r="3.5" fill="#b26a16"/>
+    <text x="584" y="26" fill="#b26a16" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">degraded</text>
+
+    <text x="432" y="82" class="card-label">Endpoint</text>
+    <text x="432" y="100" class="code-text">http://192.168.1.50:8080/v1</text>
+
+    <text x="432" y="130" class="card-label">Boundary</text>
+    <text x="432" y="148" class="card-value">Local network only</text>
+
+    <text x="432" y="178" class="card-label">Model</text>
+    <text x="432" y="196" class="card-value">mistral-small (unreachable)</text>
+  </g>
+
+  <!-- Bottom info bar -->
+  <g transform="translate(258, 365)">
+    <rect x="0" y="0" width="612" height="44" fill="#fbfcfa" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="18" y="26" fill="#68706b" font-size="12px">3 provider adapters configured · 2 reachable, 1 degraded</text>
+  </g>
+</svg>

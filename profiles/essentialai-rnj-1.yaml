@@ -83,7 +83,7 @@ guard:
 notes:
   - Essential AI RNJ-1 reasoning model. Returns reasoning_content field (similar to DeepSeek R1).
   - Clean concise output for simple prompts ("4" for 2+2).
-  - Raw JSON output is poor — wraps JSON in Python code blocks. Novexa JSON repair should help significantly.
+  - Raw JSON output is poor — wraps JSON in Python code blocks. Gumi JSON repair should help significantly.
   - Conservative settings applied until capabilities are validated.
   - Thinking benchmark (Sprint 12): 24/27 pass, 0 reasoning leaks. Intermittent empty responses on long planning prompts (model limitation).
   - Disabling thinking does not reduce latency for RNJ-1 (unlike Qwen3 models) — reasoning is always inline.

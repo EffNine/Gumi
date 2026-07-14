@@ -60,6 +60,6 @@
 
 ## Conclusion
 
-Worth it — Novexa agentic modes match or exceed direct provider quality for most requests.
+Worth it — Gumi agentic modes match or exceed direct provider quality for most requests.
 
-Raw JSON: `/Users/afnanrudy/.novexa/benchmarks/agentic-coding/ornith-1.0-9b@q4_k_m-20260712T033742Z.json`
+Raw JSON: `/Users/afnanrudy/.gumi/benchmarks/agentic-coding/ornith-1.0-9b@q4_k_m-20260712T033742Z.json`

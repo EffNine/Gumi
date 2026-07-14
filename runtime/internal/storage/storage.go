@@ -1,4 +1,4 @@
-// Package storage provides local SQLite persistence for Novexa telemetry.
+// Package storage provides local SQLite persistence for Gumi telemetry.
 package storage
 
 import (
@@ -82,5 +82,5 @@ func DefaultPath() string {
 	if err != nil {
 		home = "."
 	}
-	return filepath.Join(home, ".novexa", "novexa.db")
+	return filepath.Join(home, ".gumi", "gumi.db")
 }

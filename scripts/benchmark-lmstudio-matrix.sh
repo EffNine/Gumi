@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Novexa LM Studio Benchmark Matrix Runner
+# Gumi LM Studio Benchmark Matrix Runner
 # Usage: ./scripts/benchmark-lmstudio-matrix.sh
 #
 # Runs benchmarks across multiple LM Studio models and produces a summary table.
@@ -14,7 +14,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-BENCHMARK_DIR="$HOME/.novexa/benchmarks/lmstudio-matrix"
+BENCHMARK_DIR="$HOME/.gumi/benchmarks/lmstudio-matrix"
 REPORT_DIR="$REPO_DIR/benchmarks/reports"
 MATRIX_SCRIPT="$SCRIPT_DIR/benchmark-lmstudio-matrix.sh"
 BENCHMARK_SCRIPT="$SCRIPT_DIR/benchmark-local-model.sh"
@@ -67,7 +67,7 @@ echo ""
 
 # ── Run matrix ──────────────────────────────────────────────────────
 matrix_timestamp=$(date -u '+%Y%m%dT%H%M%SZ')
-results_dir="$HOME/.novexa/benchmarks/local-model"
+results_dir="$HOME/.gumi/benchmarks/local-model"
 mkdir -p "$results_dir"
 
 declare -a summary_rows=()
@@ -138,9 +138,9 @@ for model in "${model_list[@]}"; do
   structured_pass=$(jq '[.results[] | select((.mode | startswith("E-")) and .passed == "true")] | length' "$json_report")
 
   direct_p50=$(jq -r '[.latency_by_mode | to_entries[] | select(.key | startswith("A-")) | .value.p50 // empty] | first // "N/A"' "$json_report")
-  lightweight_p50=$(jq -r '.latency_by_mode["C-NovexaLightweight"].p50 // "N/A"' "$json_report")
-  stabilized_p50=$(jq -r '.latency_by_mode["D-NovexaStabilized"].p50 // "N/A"' "$json_report")
-  structured_p50=$(jq -r '.latency_by_mode["E-NovexaStructured"].p50 // "N/A"' "$json_report")
+  lightweight_p50=$(jq -r '.latency_by_mode["C-GumiLightweight"].p50 // "N/A"' "$json_report")
+  stabilized_p50=$(jq -r '.latency_by_mode["D-GumiStabilized"].p50 // "N/A"' "$json_report")
+  structured_p50=$(jq -r '.latency_by_mode["E-GumiStructured"].p50 // "N/A"' "$json_report")
 
   summary_rows+=("$model|$json_report|$doctor_result|$direct_pass|$lightweight_pass|$stabilized_pass|$structured_pass|$direct_p50|$lightweight_p50|$stabilized_p50|$structured_p50")
 
@@ -178,9 +178,9 @@ summary_file="$REPORT_DIR/lmstudio-matrix-${matrix_timestamp}.md"
   echo "## Legend"
   echo ""
   echo "- **Direct Pass**: Number of passing requests in direct provider mode (A-*)"
-  echo "- **Lightweight Pass**: Number of passing requests in Novexa lightweight mode (C-NovexaLightweight)"
-  echo "- **Stabilized Pass**: Number of passing requests in Novexa stabilized mode (D-NovexaStabilized)"
-  echo "- **Structured Pass**: Number of passing requests in Novexa structured mode (E-NovexaStructured)"
+echo "- **Lightweight Pass**: Number of passing requests in Gumi lightweight mode (C-GumiLightweight)"
+echo "- **Stabilized Pass**: Number of passing requests in Gumi stabilized mode (D-GumiStabilized)"
+echo "- **Structured Pass**: Number of passing requests in Gumi structured mode (E-GumiStructured)"
   echo "- **p50 (ms)**: Median latency in milliseconds for each mode"
   echo "- **Doctor Result**: Profile Doctor assessment (Good baseline / Needs tuning / Insufficient data / Good baseline with lightweight caveat)"
 } > "$summary_file"

@@ -1,7 +1,7 @@
-// Package thinking manages model reasoning/thinking content for Novexa.
+// Package thinking manages model reasoning/thinking content for Gumi.
 //
 // Local models with reasoning support can emit internal reasoning traces.
-// Novexa's job is to detect those traces, strip them from the final response,
+// Gumi's job is to detect those traces, strip them from the final response,
 // and record only safe metadata (presence, length). Actual reasoning text is
 // never stored.
 package thinking

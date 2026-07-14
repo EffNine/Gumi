@@ -5,9 +5,9 @@ set -euo pipefail
 # Tests a model's ability to follow complex, realistic instructions.
 
 BASE_URL="${BASE_URL:-http://127.0.0.1:8787/v1}"
-API_KEY="${API_KEY:-novexa-local}"
+API_KEY="${API_KEY:-gumi-local}"
 MODEL="${MODEL:-lmstudio:qwen/qwen3.5-9b}"
-OUTPUT_DIR="${OUTPUT_DIR:-$HOME/.novexa/benchmarks/mega-prompt}"
+OUTPUT_DIR="${OUTPUT_DIR:-$HOME/.gumi/benchmarks/mega-prompt}"
 
 mkdir -p "$OUTPUT_DIR"
 

@@ -2,7 +2,7 @@ suite:
   id: degradation-frontier
   category: degradation
   tier: frontier
-  description: "Frontier degradation — comprehensive over-repair detection across all Novexa engines"
+  description: "Frontier degradation — comprehensive over-repair detection across all Gumi engines"
   target_direct_score: "0.95-1.00"
   model_profiles: [frontier]
   attempts_recommended: 5

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
-	"github.com/novexa/novexa/runtime/internal/provider"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/provider"
 )
 
 type fakeAdapter struct {
@@ -448,7 +448,7 @@ func TestRunChatCompletionRepairsFencedJSON(t *testing.T) {
 			Content: "Return JSON",
 		}},
 		ResponseFormat: &api.ResponseFormat{Type: "json_object"},
-		Novexa: &api.NovexaExtensions{
+		Gumi: &api.GumiExtensions{
 			Telemetry: &api.TelemetryExtension{IncludeMetadata: true},
 		},
 	})
@@ -463,8 +463,8 @@ func TestRunChatCompletionRepairsFencedJSON(t *testing.T) {
 	if !result.Context.RepairApplied {
 		t.Fatal("expected repair applied")
 	}
-	if result.Response.Novexa == nil || !result.Response.Novexa.RepairApplied {
-		t.Fatal("expected Novexa metadata repair_applied=true")
+	if result.Response.Gumi == nil || !result.Response.Gumi.RepairApplied {
+		t.Fatal("expected Gumi metadata repair_applied=true")
 	}
 	assertEvent(t, result.Context, "repair_completed")
 	assertEvent(t, result.Context, "validation_completed_after_repair")
@@ -581,7 +581,7 @@ func TestRunChatCompletionIncludesMetadataWhenRequested(t *testing.T) {
 			Role:    "user",
 			Content: "Hello",
 		}},
-		Novexa: &api.NovexaExtensions{
+		Gumi: &api.GumiExtensions{
 			Telemetry: &api.TelemetryExtension{IncludeMetadata: true},
 		},
 	})
@@ -589,14 +589,14 @@ func TestRunChatCompletionIncludesMetadataWhenRequested(t *testing.T) {
 	if result.Error.Code != "" {
 		t.Fatalf("unexpected pipeline error: %v", result.Error)
 	}
-	if result.Response.Novexa == nil {
-		t.Fatal("expected Novexa metadata")
+	if result.Response.Gumi == nil {
+		t.Fatal("expected Gumi metadata")
 	}
-	if result.Response.Novexa.RequestID != "req_meta" {
-		t.Fatalf("expected request ID req_meta, got %s", result.Response.Novexa.RequestID)
+	if result.Response.Gumi.RequestID != "req_meta" {
+		t.Fatalf("expected request ID req_meta, got %s", result.Response.Gumi.RequestID)
 	}
-	if result.Response.Novexa.Provider != "ollama" {
-		t.Fatalf("expected provider ollama, got %s", result.Response.Novexa.Provider)
+	if result.Response.Gumi.Provider != "ollama" {
+		t.Fatalf("expected provider ollama, got %s", result.Response.Gumi.Provider)
 	}
 }
 
@@ -689,10 +689,10 @@ func TestPipelineAppliesProfileThinkingDefault(t *testing.T) {
 		t.Fatalf("expected qwen3.5-2b profile, got %v", result.Context.ModelProfile)
 	}
 	// Profile defaults thinking to false; request should have it set.
-	if result.Context.NormalizedRequest.Novexa == nil || result.Context.NormalizedRequest.Novexa.Thinking == nil || result.Context.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+	if result.Context.NormalizedRequest.Gumi == nil || result.Context.NormalizedRequest.Gumi.Thinking == nil || result.Context.NormalizedRequest.Gumi.Thinking.Enabled == nil {
 		t.Fatal("expected thinking to be resolved from profile default")
 	}
-	if *result.Context.NormalizedRequest.Novexa.Thinking.Enabled {
+	if *result.Context.NormalizedRequest.Gumi.Thinking.Enabled {
 		t.Fatal("expected thinking to be false from profile default")
 	}
 	assertEvent(t, result.Context, "profile_defaults_applied")
@@ -713,7 +713,7 @@ func TestPipelineRequestThinkingOverridesProfileDefault(t *testing.T) {
 			Role:    "user",
 			Content: "Hello",
 		}},
-		Novexa: &api.NovexaExtensions{
+		Gumi: &api.GumiExtensions{
 			Thinking: &api.ThinkingConfig{Enabled: &trueVal},
 		},
 	})
@@ -721,10 +721,10 @@ func TestPipelineRequestThinkingOverridesProfileDefault(t *testing.T) {
 	if result.Error.Code != "" {
 		t.Fatalf("unexpected pipeline error: %v", result.Error)
 	}
-	if result.Context.NormalizedRequest.Novexa == nil || result.Context.NormalizedRequest.Novexa.Thinking == nil || result.Context.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+	if result.Context.NormalizedRequest.Gumi == nil || result.Context.NormalizedRequest.Gumi.Thinking == nil || result.Context.NormalizedRequest.Gumi.Thinking.Enabled == nil {
 		t.Fatal("expected thinking to be set")
 	}
-	if !*result.Context.NormalizedRequest.Novexa.Thinking.Enabled {
+	if !*result.Context.NormalizedRequest.Gumi.Thinking.Enabled {
 		t.Fatal("expected thinking to be true from request override")
 	}
 }
@@ -776,7 +776,7 @@ func TestPipelineNoThinkingDefaultForGenericProfile(t *testing.T) {
 		t.Fatalf("unexpected pipeline error: %v", result.Error)
 	}
 	// Generic profile has no thinking default; request should not have thinking set.
-	if result.Context.NormalizedRequest.Novexa != nil && result.Context.NormalizedRequest.Novexa.Thinking != nil && result.Context.NormalizedRequest.Novexa.Thinking.Enabled != nil {
+	if result.Context.NormalizedRequest.Gumi != nil && result.Context.NormalizedRequest.Gumi.Thinking != nil && result.Context.NormalizedRequest.Gumi.Thinking.Enabled != nil {
 		t.Fatal("expected no thinking default for generic profile")
 	}
 }
@@ -831,7 +831,7 @@ func TestRunChatCompletionLightweightAppliesProfileDefaults(t *testing.T) {
 			Role:    "user",
 			Content: "Hello",
 		}},
-		Novexa: &api.NovexaExtensions{Mode: string(ModeLightweight)},
+		Gumi: &api.GumiExtensions{Mode: string(ModeLightweight)},
 	})
 
 	if result.Error.Code != "" {
@@ -848,13 +848,13 @@ func TestRunChatCompletionLightweightAppliesProfileDefaults(t *testing.T) {
 	if adapter.seenReq.MaxTokens == nil || *adapter.seenReq.MaxTokens != 512 {
 		t.Fatalf("expected max_tokens 512, got %v", adapter.seenReq.MaxTokens)
 	}
-	if result.Context.NormalizedRequest.Novexa == nil || result.Context.NormalizedRequest.Novexa.Thinking == nil || result.Context.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+	if result.Context.NormalizedRequest.Gumi == nil || result.Context.NormalizedRequest.Gumi.Thinking == nil || result.Context.NormalizedRequest.Gumi.Thinking.Enabled == nil {
 		t.Fatal("expected thinking default resolved from profile")
 	}
 	if result.Context.ThinkingTelemetry == nil || result.Context.ThinkingTelemetry.ThinkingEnabled != "false" {
 		t.Fatalf("expected thinking telemetry to report false, got %v", result.Context.ThinkingTelemetry)
 	}
-	if *result.Context.NormalizedRequest.Novexa.Thinking.Enabled {
+	if *result.Context.NormalizedRequest.Gumi.Thinking.Enabled {
 		t.Fatal("expected thinking to be disabled from qwen3.5-2b profile")
 	}
 }
@@ -934,7 +934,7 @@ func TestRunChatCompletionLightweightJSONOnlyWithResponseFormat(t *testing.T) {
 			Content: "Return JSON",
 		}},
 		ResponseFormat: &api.ResponseFormat{Type: "json_object"},
-		Novexa: &api.NovexaExtensions{
+		Gumi: &api.GumiExtensions{
 			Mode:       string(ModeLightweight),
 			Validation: &api.ValidationConfig{Enabled: true, Repair: true},
 		},
@@ -1025,7 +1025,7 @@ func TestPipelineManagedThinkingRequestOverride(t *testing.T) {
 			Role:    "user",
 			Content: "Explain the trade-offs of using a mutex versus a channel in Go.",
 		}},
-		Novexa: &api.NovexaExtensions{
+		Gumi: &api.GumiExtensions{
 			Mode:     string(ModeStabilized),
 			Thinking: &api.ThinkingConfig{Enabled: &trueVal},
 		},
@@ -1034,10 +1034,10 @@ func TestPipelineManagedThinkingRequestOverride(t *testing.T) {
 	if result.Error.Code != "" {
 		t.Fatalf("unexpected pipeline error: %v", result.Error)
 	}
-	if result.Context.NormalizedRequest.Novexa == nil || result.Context.NormalizedRequest.Novexa.Thinking == nil || result.Context.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+	if result.Context.NormalizedRequest.Gumi == nil || result.Context.NormalizedRequest.Gumi.Thinking == nil || result.Context.NormalizedRequest.Gumi.Thinking.Enabled == nil {
 		t.Fatal("expected thinking enabled from request override")
 	}
-	if !*result.Context.NormalizedRequest.Novexa.Thinking.Enabled {
+	if !*result.Context.NormalizedRequest.Gumi.Thinking.Enabled {
 		t.Fatal("expected thinking enabled")
 	}
 	if result.Context.ThinkingMode != "full" {
@@ -1063,7 +1063,7 @@ func TestPipelineManagedThinkingDisabledForJSONFormat(t *testing.T) {
 			Content: "Return a JSON object.",
 		}},
 		ResponseFormat: &api.ResponseFormat{Type: "json_object"},
-		Novexa: &api.NovexaExtensions{
+		Gumi: &api.GumiExtensions{
 			Mode:     string(ModeStabilized),
 			Thinking: &api.ThinkingConfig{Enabled: &trueVal},
 		},
@@ -1072,10 +1072,10 @@ func TestPipelineManagedThinkingDisabledForJSONFormat(t *testing.T) {
 	if result.Error.Code != "" {
 		t.Fatalf("unexpected pipeline error: %v", result.Error)
 	}
-	if result.Context.NormalizedRequest.Novexa == nil || result.Context.NormalizedRequest.Novexa.Thinking == nil || result.Context.NormalizedRequest.Novexa.Thinking.Enabled == nil {
+	if result.Context.NormalizedRequest.Gumi == nil || result.Context.NormalizedRequest.Gumi.Thinking == nil || result.Context.NormalizedRequest.Gumi.Thinking.Enabled == nil {
 		t.Fatal("expected thinking decision in normalized request")
 	}
-	if *result.Context.NormalizedRequest.Novexa.Thinking.Enabled {
+	if *result.Context.NormalizedRequest.Gumi.Thinking.Enabled {
 		t.Fatal("expected thinking disabled for JSON format by policy")
 	}
 	if result.Context.ThinkingMode != "disabled" {
@@ -1145,7 +1145,7 @@ func TestRunChatCompletionToolShimForWeakModels(t *testing.T) {
 		Model:    "ollama:qwen3.5:2b",
 		Messages: []api.Message{{Role: "user", Content: "Read main.go"}},
 		Tools:    tools,
-		Novexa:   &api.NovexaExtensions{Mode: string(ModeLightweight)},
+		Gumi:   &api.GumiExtensions{Mode: string(ModeLightweight)},
 	})
 
 	if result.Error.Code != "" {

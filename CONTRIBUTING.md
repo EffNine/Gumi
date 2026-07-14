@@ -1,8 +1,8 @@
-# Contributing to Novexa
+# Contributing to Gumi
 
-Thank you for your interest in contributing to Novexa.
+Thank you for your interest in contributing to Gumi.
 
-Novexa is a local-first AI runtime designed to make local models more stable, observable, and production-ready.
+Gumi is a local-first AI runtime designed to make local models more stable, observable, and production-ready.
 
 ---
 
@@ -10,7 +10,7 @@ Novexa is a local-first AI runtime designed to make local models more stable, ob
 
 Before contributing, please understand these rules:
 
-1. Keep Novexa local-first.
+1. Keep Gumi local-first.
 2. Do not add cloud providers to V1.
 3. Do not add billing or hosted accounts to V1.
 4. Do not bypass the Pipeline Engine.

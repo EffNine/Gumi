@@ -3,7 +3,7 @@ package runner
 import (
 	"testing"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
 func TestConditionManager_BuildRequest_Direct(t *testing.T) {
@@ -13,8 +13,8 @@ func TestConditionManager_BuildRequest_Direct(t *testing.T) {
 	if req.Model != "my-model" {
 		t.Errorf("direct: Model=%q, want %q", req.Model, "my-model")
 	}
-	if req.Novexa != nil {
-		t.Errorf("direct: Novexa should be nil, got %+v", req.Novexa)
+	if req.Gumi != nil {
+		t.Errorf("direct: Gumi should be nil, got %+v", req.Gumi)
 	}
 	if len(req.Messages) != 1 {
 		t.Errorf("direct: expected 1 message, got %d", len(req.Messages))
@@ -27,60 +27,60 @@ func TestConditionManager_BuildRequest_Direct(t *testing.T) {
 	}
 }
 
-func TestConditionManager_BuildRequest_NovexaDirect(t *testing.T) {
+func TestConditionManager_BuildRequest_GumiDirect(t *testing.T) {
 	cm := NewConditionManager("my-model", "lmstudio", "", "")
-	req := cm.BuildRequest(ConditionNovexaDirect, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
+	req := cm.BuildRequest(ConditionGumiDirect, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
 
 	if req.Model != "lmstudio:my-model" {
-		t.Errorf("novexa-direct: Model=%q, want %q", req.Model, "lmstudio:my-model")
+		t.Errorf("gumi-direct: Model=%q, want %q", req.Model, "lmstudio:my-model")
 	}
-	if req.Novexa != nil {
-		t.Errorf("novexa-direct: Novexa should be nil, got %+v", req.Novexa)
+	if req.Gumi != nil {
+		t.Errorf("gumi-direct: Gumi should be nil, got %+v", req.Gumi)
 	}
 }
 
-func TestConditionManager_BuildRequest_NovexaLightweight(t *testing.T) {
+func TestConditionManager_BuildRequest_GumiLightweight(t *testing.T) {
 	cm := NewConditionManager("my-model", "ollama", "", "")
-	req := cm.BuildRequest(ConditionNovexaLightweight, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
+	req := cm.BuildRequest(ConditionGumiLightweight, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
 
 	if req.Model != "ollama:my-model" {
-		t.Errorf("novexa-lightweight: Model=%q, want %q", req.Model, "ollama:my-model")
+		t.Errorf("gumi-lightweight: Model=%q, want %q", req.Model, "ollama:my-model")
 	}
-	if req.Novexa == nil {
-		t.Fatal("novexa-lightweight: Novexa should not be nil")
+	if req.Gumi == nil {
+		t.Fatal("gumi-lightweight: Gumi should not be nil")
 	}
-	if req.Novexa.Mode != "lightweight" {
-		t.Errorf("novexa-lightweight: Novexa.Mode=%q, want %q", req.Novexa.Mode, "lightweight")
-	}
-}
-
-func TestConditionManager_BuildRequest_NovexaStabilized(t *testing.T) {
-	cm := NewConditionManager("my-model", "lmstudio", "", "")
-	req := cm.BuildRequest(ConditionNovexaStabilized, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
-
-	if req.Model != "lmstudio:my-model" {
-		t.Errorf("novexa-stabilized: Model=%q, want %q", req.Model, "lmstudio:my-model")
-	}
-	if req.Novexa == nil {
-		t.Fatal("novexa-stabilized: Novexa should not be nil")
-	}
-	if req.Novexa.Mode != "stabilized" {
-		t.Errorf("novexa-stabilized: Novexa.Mode=%q, want %q", req.Novexa.Mode, "stabilized")
+	if req.Gumi.Mode != "lightweight" {
+		t.Errorf("gumi-lightweight: Gumi.Mode=%q, want %q", req.Gumi.Mode, "lightweight")
 	}
 }
 
-func TestConditionManager_BuildRequest_NovexaStructured(t *testing.T) {
+func TestConditionManager_BuildRequest_GumiStabilized(t *testing.T) {
 	cm := NewConditionManager("my-model", "lmstudio", "", "")
-	req := cm.BuildRequest(ConditionNovexaStructured, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
+	req := cm.BuildRequest(ConditionGumiStabilized, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
 
 	if req.Model != "lmstudio:my-model" {
-		t.Errorf("novexa-structured: Model=%q, want %q", req.Model, "lmstudio:my-model")
+		t.Errorf("gumi-stabilized: Model=%q, want %q", req.Model, "lmstudio:my-model")
 	}
-	if req.Novexa == nil {
-		t.Fatal("novexa-structured: Novexa should not be nil")
+	if req.Gumi == nil {
+		t.Fatal("gumi-stabilized: Gumi should not be nil")
 	}
-	if req.Novexa.Mode != "structured" {
-		t.Errorf("novexa-structured: Novexa.Mode=%q, want %q", req.Novexa.Mode, "structured")
+	if req.Gumi.Mode != "stabilized" {
+		t.Errorf("gumi-stabilized: Gumi.Mode=%q, want %q", req.Gumi.Mode, "stabilized")
+	}
+}
+
+func TestConditionManager_BuildRequest_GumiStructured(t *testing.T) {
+	cm := NewConditionManager("my-model", "lmstudio", "", "")
+	req := cm.BuildRequest(ConditionGumiStructured, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
+
+	if req.Model != "lmstudio:my-model" {
+		t.Errorf("gumi-structured: Model=%q, want %q", req.Model, "lmstudio:my-model")
+	}
+	if req.Gumi == nil {
+		t.Fatal("gumi-structured: Gumi should not be nil")
+	}
+	if req.Gumi.Mode != "structured" {
+		t.Errorf("gumi-structured: Gumi.Mode=%q, want %q", req.Gumi.Mode, "structured")
 	}
 }
 
@@ -91,8 +91,8 @@ func TestConditionManager_BuildRequest_Frontier(t *testing.T) {
 	if req.Model != "claude-4-sonnet" {
 		t.Errorf("frontier: Model=%q, want %q", req.Model, "claude-4-sonnet")
 	}
-	if req.Novexa != nil {
-		t.Errorf("frontier: Novexa should be nil, got %+v", req.Novexa)
+	if req.Gumi != nil {
+		t.Errorf("frontier: Gumi should be nil, got %+v", req.Gumi)
 	}
 }
 
@@ -119,7 +119,7 @@ func TestConditionManager_BuildRequest_ProviderPrefixes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cm := NewConditionManager("mymodel", tt.provider, "", "")
-			req := cm.BuildRequest(ConditionNovexaDirect, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
+			req := cm.BuildRequest(ConditionGumiDirect, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
 			expectedModel := tt.want + "mymodel"
 			if req.Model != expectedModel {
 				t.Errorf("provider=%q: Model=%q, want %q", tt.provider, req.Model, expectedModel)
@@ -135,7 +135,7 @@ func TestParseConditions(t *testing.T) {
 		want  []Condition
 	}{
 		{"direct only", []string{"direct"}, []Condition{ConditionDirect}},
-		{"multiple", []string{"direct", "novexa-stabilized", "frontier"}, []Condition{ConditionDirect, ConditionNovexaStabilized, ConditionFrontier}},
+		{"multiple", []string{"direct", "gumi-stabilized", "frontier"}, []Condition{ConditionDirect, ConditionGumiStabilized, ConditionFrontier}},
 		{"empty", nil, nil},
 		{"unknown preserved", []string{"custom-mode"}, []Condition{Condition("custom-mode")}},
 	}
@@ -162,8 +162,8 @@ func TestConditionManager_DefaultTemperature(t *testing.T) {
 		t.Errorf("default Temperature=%v, want 0.3", req.Temperature)
 	}
 
-	req2 := cm.BuildRequest(ConditionNovexaStabilized, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
+	req2 := cm.BuildRequest(ConditionGumiStabilized, benchmark.SuiteTest{Prompt: "test", MaxTokens: 50})
 	if req2.Temperature != 0.3 {
-		t.Errorf("novexa temperature=%v, want 0.3", req2.Temperature)
+		t.Errorf("gumi temperature=%v, want 0.3", req2.Temperature)
 	}
 }

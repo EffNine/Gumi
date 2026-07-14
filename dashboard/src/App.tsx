@@ -55,11 +55,11 @@ function App() {
     setRefreshing(true)
     try {
       const [s, r, d, p, c] = await Promise.all([
-        getJSON<Status>('/v1/novexa/status'),
-        getJSON<{ data: RequestRow[] }>('/v1/novexa/telemetry/recent'),
-        getJSON<Doctor>('/v1/novexa/doctor'),
-        getJSON<{ data: Profile[] }>('/v1/novexa/profiles'),
-        getJSON<object>('/v1/novexa/config'),
+        getJSON<Status>('/v1/gumi/status'),
+        getJSON<{ data: RequestRow[] }>('/v1/gumi/telemetry/recent'),
+        getJSON<Doctor>('/v1/gumi/doctor'),
+        getJSON<{ data: Profile[] }>('/v1/gumi/profiles'),
+        getJSON<object>('/v1/gumi/config'),
       ])
       setStatus(s); setRequests(r.data ?? []); setDoctor(d); setProfiles(p.data ?? []); setConfig(c); setError('')
     } catch (e) { setError(e instanceof Error ? e.message : 'Runtime unavailable') }
@@ -76,7 +76,7 @@ function App() {
 
   return <div className="app-shell">
     <aside className="sidebar">
-      <div className="brand"><span className="brand-mark">N</span><div><strong>Novexa</strong><small>Runtime console</small></div></div>
+      <div className="brand"><span className="brand-mark">G</span><div><strong>Gumi</strong><small>Runtime console</small></div></div>
       <nav>{nav.map(({ id, label, icon: Icon }) => <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)} title={label}><Icon size={17}/><span>{label}</span></button>)}</nav>
       <div className="runtime-foot"><StatusMark status={status?.runtime.status ?? 'offline'} /><small>{status?.runtime.api_url ?? '127.0.0.1:8787'}</small></div>
     </aside>
@@ -87,7 +87,7 @@ function App() {
         <button className="icon-button" onClick={() => void load()} title="Refresh runtime data" disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''}/></button>
       </header>
 
-      {error && <div className="error-band"><CircleAlert size={18}/><div><strong>Runtime data unavailable</strong><span>{error}. Start Novexa and refresh this page.</span></div></div>}
+      {error && <div className="error-band"><CircleAlert size={18}/><div><strong>Runtime data unavailable</strong><span>{error}. Start Gumi and refresh this page.</span></div></div>}
 
       {page === 'overview' && <Overview status={status} requests={requests} metrics={metrics}/>}
       {page === 'requests' && <Requests requests={requests}/>}

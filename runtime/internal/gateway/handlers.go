@@ -8,12 +8,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/guard"
-	"github.com/novexa/novexa/runtime/internal/pipeline"
-	"github.com/novexa/novexa/runtime/internal/provider"
-	"github.com/novexa/novexa/runtime/internal/telemetry"
-	"github.com/novexa/novexa/runtime/internal/version"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/guard"
+	"github.com/EffNine/gumi/runtime/internal/pipeline"
+	"github.com/EffNine/gumi/runtime/internal/provider"
+	"github.com/EffNine/gumi/runtime/internal/telemetry"
+	"github.com/EffNine/gumi/runtime/internal/version"
 )
 
 // Version is the runtime version exposed by the gateway. It mirrors
@@ -36,7 +36,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(healthResponse{
 		Status:    "ok",
-		Runtime:   "novexa",
+		Runtime:   "gumi",
 		Version:   Version,
 		Mode:      s.cfg.Runtime.Environment,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
@@ -100,13 +100,13 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if result.ProviderName != "" {
-		w.Header().Set("X-Novexa-Provider", result.ProviderName)
+		w.Header().Set("X-Gumi-Provider", result.ProviderName)
 	}
 	if result.Response != nil {
-		w.Header().Set("X-Novexa-Model", result.Response.Model)
+		w.Header().Set("X-Gumi-Model", result.Response.Model)
 	}
 	if result.Context != nil {
-		w.Header().Set("X-Novexa-Runtime-Mode", string(result.Context.RuntimeMode))
+		w.Header().Set("X-Gumi-Runtime-Mode", string(result.Context.RuntimeMode))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result.Response)
@@ -339,7 +339,7 @@ func (s *Server) writeProviderError(w http.ResponseWriter, perr provider.Provide
 	s.writeError(w, status, errResp)
 }
 
-// telemetryRecentResponse is the payload for GET /v1/novexa/telemetry/recent.
+// telemetryRecentResponse is the payload for GET /v1/gumi/telemetry/recent.
 type telemetryRecentResponse struct {
 	Object string                    `json:"object"`
 	Data   []telemetry.RecentRequest `json:"data"`
@@ -360,7 +360,7 @@ func (s *Server) handleTelemetryRecent(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(telemetryRecentResponse{
-		Object: "novexa.telemetry.recent",
+		Object: "gumi.telemetry.recent",
 		Data:   recent,
 	})
 }
@@ -372,7 +372,7 @@ type statusProvider struct {
 	URL    string `json:"url"`
 }
 
-// statusResponse is the payload for GET /v1/novexa/status.
+// statusResponse is the payload for GET /v1/gumi/status.
 type statusResponse struct {
 	Runtime struct {
 		Status  string `json:"status"`
@@ -475,7 +475,7 @@ func (s *Server) handleDoctor(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			check.Status = "warning"
 			check.Message = fmt.Sprintf("Provider %s is not reachable.", name)
-			check.Suggestion = fmt.Sprintf("Start %s or update its local URL in novexa.yaml.", name)
+			check.Suggestion = fmt.Sprintf("Start %s or update its local URL in gumi.yaml.", name)
 			overall = "warning"
 		}
 		checks = append(checks, check)
@@ -505,5 +505,5 @@ func (s *Server) handleProfiles(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Slice(data, func(i, j int) bool { return data[i].ID < data[j].ID })
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{"object": "novexa.profiles", "data": data})
+	_ = json.NewEncoder(w).Encode(map[string]any{"object": "gumi.profiles", "data": data})
 }

@@ -3,7 +3,7 @@ package scorer
 import (
 	"testing"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
 func TestScore_AllPass(t *testing.T) {
@@ -142,7 +142,7 @@ func TestAggregateCapabilities_GroupsCorrectly(t *testing.T) {
 	results := []benchmark.TestResult{
 		{TestID: "json-1", Condition: "direct", Subscores: map[string]float64{"valid": 1.0}},
 		{TestID: "json-2", Condition: "direct", Subscores: map[string]float64{"valid": 0.5}},
-		{TestID: "json-1", Condition: "novexa-stabilized", Subscores: map[string]float64{"valid": 1.0}},
+		{TestID: "json-1", Condition: "gumi-stabilized", Subscores: map[string]float64{"valid": 1.0}},
 		{TestID: "instruction-1", Condition: "direct", Subscores: map[string]float64{"follow": 0.8}},
 	}
 	categories := map[string]string{
@@ -162,10 +162,10 @@ func TestAggregateCapabilities_GroupsCorrectly(t *testing.T) {
 	if jsonCap.Direct.N != 2 {
 		t.Errorf("json direct N=%d, want 2", jsonCap.Direct.N)
 	}
-	if jsonCap.Novexa.N != 1 {
-		t.Errorf("json novexa N=%d, want 1", jsonCap.Novexa.N)
+	if jsonCap.Gumi.N != 1 {
+		t.Errorf("json gumi N=%d, want 1", jsonCap.Gumi.N)
 	}
-	// Delta should be positive (novexa mean = 1.0, direct mean = 0.75)
+	// Delta should be positive (gumi mean = 1.0, direct mean = 0.75)
 	if jsonCap.Delta <= 0 {
 		t.Errorf("json delta=%v, want > 0", jsonCap.Delta)
 	}
@@ -174,7 +174,7 @@ func TestAggregateCapabilities_GroupsCorrectly(t *testing.T) {
 func TestAggregateCapabilities_SkipsDegradation(t *testing.T) {
 	results := []benchmark.TestResult{
 		{TestID: "deg-1", Condition: "direct", Subscores: map[string]float64{"a": 1.0}},
-		{TestID: "deg-1", Condition: "novexa-stabilized", Subscores: map[string]float64{"a": 1.0}},
+		{TestID: "deg-1", Condition: "gumi-stabilized", Subscores: map[string]float64{"a": 1.0}},
 	}
 	categories := map[string]string{
 		"deg-1": "degradation",
@@ -192,7 +192,7 @@ func TestAggregateCapabilities_EmptyResults(t *testing.T) {
 	}
 }
 
-func TestAggregateCapabilities_FrontierIsNovexa(t *testing.T) {
+func TestAggregateCapabilities_FrontierIsGumi(t *testing.T) {
 	results := []benchmark.TestResult{
 		{TestID: "json-1", Condition: "direct", Subscores: map[string]float64{"a": 0.5}},
 		{TestID: "json-1", Condition: "frontier", Subscores: map[string]float64{"a": 1.0}},
@@ -205,14 +205,14 @@ func TestAggregateCapabilities_FrontierIsNovexa(t *testing.T) {
 	if !ok {
 		t.Fatal("AggregateCapabilities: missing 'json' capability")
 	}
-	if jsonCap.Novexa.N != 0 {
-		t.Errorf("json novexa N=%d, want 0 (frontier no longer grouped as novexa)", jsonCap.Novexa.N)
+	if jsonCap.Gumi.N != 0 {
+		t.Errorf("json gumi N=%d, want 0 (frontier no longer grouped as gumi)", jsonCap.Gumi.N)
 	}
 }
 
 func TestAggregateCapabilities_NoDirectResults(t *testing.T) {
 	results := []benchmark.TestResult{
-		{TestID: "json-1", Condition: "novexa-stabilized", Subscores: map[string]float64{"a": 1.0}},
+		{TestID: "json-1", Condition: "gumi-stabilized", Subscores: map[string]float64{"a": 1.0}},
 	}
 	categories := map[string]string{
 		"json-1": "json",

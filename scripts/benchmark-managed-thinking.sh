@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Novexa Managed Thinking Benchmark
+# Gumi Managed Thinking Benchmark
 # Usage: ./scripts/benchmark-managed-thinking.sh <model_name>
 #
 # Compares three configurations:
 #   A. Direct LM Studio with thinking enabled
-#   B. Novexa with managed thinking (thinking enabled via request override)
-#   C. Novexa with thinking disabled (default)
+#   B. Gumi with managed thinking (thinking enabled via request override)
+#   C. Gumi with thinking disabled (default)
 #
 # Requirements:
 #   - LM Studio running on http://localhost:1234/v1
-#   - Novexa running on http://localhost:8787/v1
+#   - Gumi running on http://localhost:8787/v1
 #   - jq installed
 
 MODEL="${1:-}"
@@ -23,12 +23,12 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LMSTUDIO_URL="${LMSTUDIO_URL:-http://localhost:1234/v1}"
-NOVEXA_URL="${NOVEXA_URL:-http://127.0.0.1:8787/v1}"
-NOVEXA_HEALTH_URL="${NOVEXA_HEALTH_URL:-${NOVEXA_URL%/v1}/health}"
+GUMI_URL="${GUMI_URL:-http://127.0.0.1:8787/v1}"
+GUMI_HEALTH_URL="${GUMI_HEALTH_URL:-${GUMI_URL%/v1}/health}"
 ATTEMPTS="${ATTEMPTS:-1}"
 BENCHMARK_TIMEOUT_SECONDS="${BENCHMARK_TIMEOUT_SECONDS:-180}"
 
-NOVEXA_MODEL="lmstudio:$MODEL"
+GUMI_MODEL="lmstudio:$MODEL"
 results_json='[]'
 pass=0
 fail=0
@@ -43,8 +43,8 @@ preflight_checks() {
     echo "Error: LM Studio not reachable at $LMSTUDIO_URL." >&2
     exit 1
   fi
-  if ! curl --max-time 5 -fsS "$NOVEXA_HEALTH_URL" > /dev/null 2>&1; then
-    echo "Error: Novexa not reachable at $NOVEXA_HEALTH_URL." >&2
+  if ! curl --max-time 5 -fsS "$GUMI_HEALTH_URL" > /dev/null 2>&1; then
+    echo "Error: Gumi not reachable at $GUMI_HEALTH_URL." >&2
     exit 1
   fi
 }
@@ -58,13 +58,13 @@ make_payload() {
   if [ "$base_url" = "$LMSTUDIO_URL" ]; then
     model="$MODEL"
   else
-    model="$NOVEXA_MODEL"
+    model="$GUMI_MODEL"
   fi
 
   local thinking_block=""
-  if [ "$base_url" = "$NOVEXA_URL" ]; then
+  if [ "$base_url" = "$GUMI_URL" ]; then
     thinking_block=$(cat <<EOF
-,"novexa":{"thinking":{"enabled":$thinking}}
+,"gumi":{"thinking":{"enabled":$thinking}}
 EOF
 )
   fi
@@ -83,10 +83,10 @@ EOF
 call_api() {
   local url="$1"
   local payload="$2"
-  if [ "$url" = "$NOVEXA_URL" ]; then
+  if [ "$url" = "$GUMI_URL" ]; then
     curl -sS --max-time "$BENCHMARK_TIMEOUT_SECONDS" -X POST "$url/chat/completions" \
       -H "Content-Type: application/json" \
-      -H "Authorization: Bearer novexa-local" \
+      -H "Authorization: Bearer gumi-local" \
       -d "$payload"
   else
     curl -sS --max-time "$BENCHMARK_TIMEOUT_SECONDS" -X POST "$url/chat/completions" \
@@ -224,7 +224,7 @@ run_benchmark() {
 write_report() {
   local timestamp
   timestamp=$(date -u +"%Y%m%dT%H%M%SZ")
-  local raw_dir="$HOME/.novexa/benchmarks/managed-thinking"
+  local raw_dir="$HOME/.gumi/benchmarks/managed-thinking"
   local report_dir="$REPO_DIR/benchmarks/reports"
   mkdir -p "$raw_dir" "$report_dir"
   local base="$raw_dir/${MODEL//\//_}-${timestamp}"
@@ -264,7 +264,7 @@ EOF
 
 $(if [ "$pass" -ge "$(( total * 2 / 3 ))" ]; then echo "Managed thinking infrastructure is working: responses are non-empty and no explicit reasoning markers (\\<thinking\\>, \\<reasoning\\>, fenced blocks) leak to the client."; else echo "Mixed results — some responses are empty or contain explicit reasoning markers. Tune the profile or increase max_tokens."; fi)
 
-**Important:** This benchmark only detects explicit reasoning/thinking markers. Local models may still emit reasoning prose inside the main content. Novexa strips reasoning when the provider returns it in a separate field (reasoning_content) or when the model wraps it in explicit markers. Models that emit reasoning as plain prose inside content are not fully stripped yet.
+**Important:** This benchmark only detects explicit reasoning/thinking markers. Local models may still emit reasoning prose inside the main content. Gumi strips reasoning when the provider returns it in a separate field (reasoning_content) or when the model wraps it in explicit markers. Models that emit reasoning as plain prose inside content are not fully stripped yet.
 
 Raw JSON: \`$base.json\`
 EOF
@@ -275,8 +275,8 @@ EOF
 main() {
   preflight_checks
   run_benchmark "A-LMStudioDirect-ThinkingOn" "$LMSTUDIO_URL" "true"
-  run_benchmark "B-Novexa-ThinkingOn" "$NOVEXA_URL" "true"
-  run_benchmark "C-Novexa-ThinkingOff" "$NOVEXA_URL" "false"
+  run_benchmark "B-Gumi-ThinkingOn" "$GUMI_URL" "true"
+  run_benchmark "C-Gumi-ThinkingOff" "$GUMI_URL" "false"
   write_report
 }
 

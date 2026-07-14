@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 const lmStudioDefaultURL = "http://localhost:1234/v1"
@@ -176,8 +176,8 @@ func newLMStudioChatRequest(req api.ChatCompletionRequest) lmStudioChatRequest {
 		Metadata:         req.Metadata,
 	}
 
-	if req.Novexa != nil && req.Novexa.Thinking != nil && req.Novexa.Thinking.Enabled != nil {
-		if *req.Novexa.Thinking.Enabled {
+	if req.Gumi != nil && req.Gumi.Thinking != nil && req.Gumi.Thinking.Enabled != nil {
+		if *req.Gumi.Thinking.Enabled {
 			payload.ReasoningEffort = "medium"
 		} else {
 			payload.ReasoningEffort = "none"

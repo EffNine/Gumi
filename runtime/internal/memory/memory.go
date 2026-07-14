@@ -19,8 +19,8 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -1082,7 +1082,7 @@ func (m *MemoryEngine) ClearAll() error {
 
 // ClearSession removes all episodes and the session row for the given session
 // ID, but keeps facts (which are cross-session). This is used for per-request
-// session reset via novexa.memory.reset_session.
+// session reset via gumi.memory.reset_session.
 func (m *MemoryEngine) ClearSession(sessionID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

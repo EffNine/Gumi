@@ -1,4 +1,4 @@
-// Package benchmark defines the core data types for the Novexa Benchmark subsystem.
+// Package benchmark defines the core data types for the Gumi Benchmark subsystem.
 package benchmark
 
 // RunResult is the top-level output of a benchmark run. It contains the full
@@ -35,10 +35,10 @@ type Summary struct {
 	WorthIt              bool    `json:"worth_it"`
 }
 
-// Capability holds per-capability benchmark results comparing direct and Novexa runs.
+// Capability holds per-capability benchmark results comparing direct and Gumi runs.
 type Capability struct {
 	Direct          MetricSet `json:"direct"`
-	Novexa          MetricSet `json:"novexa"`
+	Gumi          MetricSet `json:"gumi"`
 	Delta           float64   `json:"delta"`
 	EffectSize      float64   `json:"effect_size"`
 	FrontierCeiling float64   `json:"frontier_ceiling,omitempty"`
@@ -97,7 +97,7 @@ type Suite struct {
 	Tests               []SuiteTest  `yaml:"tests"`
 }
 
-// DegradationReport records cases where Novexa over-repaired or altered correct output.
+// DegradationReport records cases where Gumi over-repaired or altered correct output.
 type DegradationReport struct {
 	OverRepairCount int                `json:"over_repair_count"`
 	TotalTests      int                `json:"total_tests"`
@@ -106,7 +106,7 @@ type DegradationReport struct {
 	LatencyOverhead map[string]float64 `json:"latency_overhead_by_mode"`
 }
 
-// CorruptionRecord describes a single instance where Novexa changed correct output.
+// CorruptionRecord describes a single instance where Gumi changed correct output.
 type CorruptionRecord struct {
 	TestID   string `json:"test_id"`
 	Original string `json:"original"`
@@ -126,7 +126,7 @@ type ChatCompletionRequest struct {
 	Messages []ChatMessage       `json:"messages"`
 	MaxTokens int                `json:"max_tokens,omitempty"`
 	Temperature float64          `json:"temperature,omitempty"`
-	Novexa    *NovexaConfig      `json:"novexa,omitempty"`
+	Gumi    *GumiConfig      `json:"gumi,omitempty"`
 }
 
 // ChatMessage represents a single message in a chat completion conversation.
@@ -157,7 +157,7 @@ type Usage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
-// NovexaConfig holds Novexa-specific parameters for a request.
-type NovexaConfig struct {
+// GumiConfig holds Gumi-specific parameters for a request.
+type GumiConfig struct {
 	Mode string `json:"mode"`
 }

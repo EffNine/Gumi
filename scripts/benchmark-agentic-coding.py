@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Agentic Coding Benchmark — 3 fast tests: JSON, Go, Python. Novexa vs Direct."""
+"""Agentic Coding Benchmark — 3 fast tests: JSON, Go, Python. Gumi vs Direct."""
 import json, urllib.request, time, re, os, sys
 
-NOVEXA_API = "http://127.0.0.1:8787/v1"
-NOVEXA_KEY = "novexa-local"
+GUMI_API = "http://127.0.0.1:8787/v1"
+GUMI_KEY = "gumi-local"
 DIRECT_API = "http://192.168.0.164:1234/v1"
 DIRECT_KEY = "local"
-OUT = os.path.expanduser("~/.novexa/benchmarks/agentic-coding")
+OUT = os.path.expanduser("~/.gumi/benchmarks/agentic-coding")
 os.makedirs(OUT, exist_ok=True)
 
 def call(api, key, model, msg, label, timeout=90):
@@ -153,7 +153,7 @@ if __name__ == "__main__":
              ("Python Pipeline", P3, chk_py)]
     results = []
 
-    for api, key, route in [(NOVEXA_API, NOVEXA_KEY, "Novexa"),
+    for api, key, route in [(GUMI_API, GUMI_KEY, "Gumi"),
                               (DIRECT_API, DIRECT_KEY, "Direct")]:
         for ms in models:
             for name, prompt, chk in tests:
@@ -164,13 +164,13 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("SUMMARY")
     print("="*60)
-    print(f"{'Model':20s} {'Test':20s} {'Nov':>4s} {'Dir':>4s} {'Δ':>4s}")
+    print(f"{'Model':20s} {'Test':20s} {'Gum':>4s} {'Dir':>4s} {'Δ':>4s}")
     print("-"*55)
     for ms in models:
         for name, _, _ in tests:
             n = next((r["score"] for r in results
                       if r["model"]==ms and r["test"]==name
-                      and r["route"]=="Novexa"), 0)
+                      and r["route"]=="Gumi"), 0)
             d = next((r["score"] for r in results
                       if r["model"]==ms and r["test"]==name
                       and r["route"]=="Direct"), 0)

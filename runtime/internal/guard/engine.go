@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	contextengine "github.com/novexa/novexa/runtime/internal/context"
-	"github.com/novexa/novexa/runtime/internal/profiles"
-	"github.com/novexa/novexa/runtime/internal/provider"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	contextengine "github.com/EffNine/gumi/runtime/internal/context"
+	"github.com/EffNine/gumi/runtime/internal/profiles"
+	"github.com/EffNine/gumi/runtime/internal/provider"
 )
 
 // GuardErrorCode is a stable code for guard-specific failures.

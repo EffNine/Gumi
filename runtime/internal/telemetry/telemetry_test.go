@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
-	"github.com/novexa/novexa/runtime/internal/provider"
-	"github.com/novexa/novexa/runtime/internal/storage"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/provider"
+	"github.com/EffNine/gumi/runtime/internal/storage"
 )
 
 func newTestWriter(t *testing.T) (*Writer, *storage.Storage) {

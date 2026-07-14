@@ -1,6 +1,6 @@
 # Reddit — r/LocalLLaMA
 
-**Title:** I built Novexa – a local AI runtime that fixes broken JSON, repeated output, and weak instruction-following from local models
+**Title:** I built Gumi – a local AI runtime that fixes broken JSON, repeated output, and weak instruction-following from local models
 
 **Body:**
 
@@ -15,11 +15,11 @@ Like a lot of you, I run local models for privacy and cost reasons. But every ti
 
 I'd get a model working, then switch tasks and it'd fall apart. The model wasn't bad — the layer around it was.
 
-So I built **Novexa**. It's a runtime that sits between your app (OpenCode, Continue, Cline, anything OpenAI-compatible) and your local server (Ollama, LM Studio, etc.). It validates and repairs JSON, enforces instruction constraints, detects loops, and manages model profiles — all before the response gets back to your app.
+So I built **Gumi**. It's a runtime that sits between your app (OpenCode, Continue, Cline, anything OpenAI-compatible) and your local server (Ollama, LM Studio, etc.). It validates and repairs JSON, enforces instruction constraints, detects loops, and manages model profiles — all before the response gets back to your app.
 
 Concrete numbers from benchmarks with Ornith 9B:
 
-| Metric | Direct | With Novexa |
+| Metric | Direct | With Gumi |
 |---|---|---|
 | JSON validity | 0% | 100% |
 | JSON latency (p50) | 2,949ms | 352ms (8.4× faster) |
@@ -42,14 +42,14 @@ What's in it:
 Quick start:
 
 ```
-git clone https://github.com/EffNine/Novexa.git
-cd Novexa && make build
-./novexa start
+git clone https://github.com/EffNine/Gumi.git
+cd Gumi && make build
+./gumi start
 ```
 
-Point your app at `http://127.0.0.1:8787/v1`, API key `novexa-local`.
+Point your app at `http://127.0.0.1:8787/v1`, API key `gumi-local`.
 
-Repo: https://github.com/EffNine/Novexa
+Repo: https://github.com/EffNine/Gumi
 First release: v0.2.0-alpha
 
 I'd really appreciate feedback — especially from anyone running agentic workloads or multi-model setups. What breaks for you that I haven't covered? What models should I profile next?

@@ -18,13 +18,13 @@ type ChatCompletionRequest struct {
 	ToolChoice       interface{}       `json:"tool_choice,omitempty"`
 	Metadata         map[string]string `json:"metadata,omitempty"`
 
-	// Novexa extensions. OpenAI-compatible clients that do not send this
+	// Gumi extensions. OpenAI-compatible clients that do not send this
 	// field will ignore it safely.
-	Novexa *NovexaExtensions `json:"novexa,omitempty"`
+	Gumi *GumiExtensions `json:"gumi,omitempty"`
 }
 
-// NovexaExtensions holds Novexa-specific request overrides.
-type NovexaExtensions struct {
+// GumiExtensions holds Gumi-specific request overrides.
+type GumiExtensions struct {
 	Mode       string              `json:"mode,omitempty"`
 	Guard      *GuardConfig        `json:"guard,omitempty"`
 	Context    *ContextConfig      `json:"context,omitempty"`
@@ -61,7 +61,7 @@ type ThinkingConfig struct {
 
 // GetThinkingEnabled returns the explicit request thinking value, or nil if
 // the request does not specify one.
-func (n *NovexaExtensions) GetThinkingEnabled() *bool {
+func (n *GumiExtensions) GetThinkingEnabled() *bool {
 	if n == nil || n.Thinking == nil {
 		return nil
 	}
@@ -155,8 +155,8 @@ type ChatCompletionResponse struct {
 	Choices []Choice `json:"choices"`
 	Usage   Usage    `json:"usage"`
 
-	// Novexa metadata is only included when explicitly requested.
-	Novexa *NovexaMetadata `json:"novexa,omitempty"`
+	// Gumi metadata is only included when explicitly requested.
+	Gumi *GumiMetadata `json:"gumi,omitempty"`
 }
 
 // Choice represents a single completion choice.
@@ -174,8 +174,8 @@ type Usage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
-// NovexaMetadata reports runtime metadata when requested.
-type NovexaMetadata struct {
+// GumiMetadata reports runtime metadata when requested.
+type GumiMetadata struct {
 	RequestID         string `json:"request_id"`
 	Provider          string `json:"provider"`
 	RuntimeMode       string `json:"runtime_mode"`

@@ -1,4 +1,4 @@
-// Package dashboard serves the local Novexa control surface and proxies its
+// Package dashboard serves the local Gumi control surface and proxies its
 // API calls to the authenticated runtime gateway.
 package dashboard
 
@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 type Server struct {
@@ -40,7 +40,7 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 		mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte("<!doctype html><title>Novexa Dashboard</title><style>body{font:16px system-ui;padding:48px;max-width:720px}code{background:#eee;padding:2px 6px}</style><h1>Dashboard build not found</h1><p>Run <code>npm install && npm run build</code> in the dashboard directory, then restart Novexa.</p>"))
+			_, _ = w.Write([]byte("<!doctype html><title>Gumi Dashboard</title><style>body{font:16px system-ui;padding:48px;max-width:720px}code{background:#eee;padding:2px 6px}</style><h1>Dashboard build not found</h1><p>Run <code>npm install && npm run build</code> in the dashboard directory, then restart Gumi.</p>"))
 		})
 	} else {
 		files := http.FileServer(http.Dir(dist))

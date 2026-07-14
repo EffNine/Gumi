@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/config"
 )
 
 // ---------------------------------------------------------------------------

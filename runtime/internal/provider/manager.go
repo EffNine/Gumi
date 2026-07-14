@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 // healthTTL is how long a cached health status is considered fresh.
@@ -147,7 +147,7 @@ type ModelResolution struct {
 	Adapter     ProviderAdapter
 }
 
-// ResolveModel picks a provider and model name for a Novexa model ID.
+// ResolveModel picks a provider and model name for a Gumi model ID.
 // - "local:auto" selects the first online provider/model.
 // - "ollama:llama3" selects the ollama adapter and model "llama3".
 func (m *Manager) ResolveModel(ctx context.Context, modelID string) (*ModelResolution, ProviderError) {
@@ -177,7 +177,7 @@ func (m *Manager) ResolveModel(ctx context.Context, modelID string) (*ModelResol
 		return nil, ProviderError{
 			Code:       ProviderUnavailable,
 			Message:    fmt.Sprintf("provider %q is not configured", key),
-			Suggestion: fmt.Sprintf("Enable %s in the Novexa configuration or use 'local:auto'.", modelIDPrefix(key)),
+			Suggestion: fmt.Sprintf("Enable %s in the Gumi configuration or use 'local:auto'.", modelIDPrefix(key)),
 		}
 	}
 

@@ -1,14 +1,14 @@
 # Changelog
 
-All notable changes to Novexa are documented in this file.
+All notable changes to Gumi are documented in this file.
 
 ## 0.1.0-alpha — Spec Review Fix Sprint (WP7)
 
 ### Fixed
 
 - **`docs/specs/04-api-specification.md`** §6 — Added memory engine routes
-  (`GET/POST /v1/novexa/memory/facts`, `GET /v1/novexa/memory/model-fit`,
-  `POST /v1/novexa/memory/clear`, `GET /v1/novexa/memory/status`) and LM Studio
+  (`GET/POST /v1/gumi/memory/facts`, `GET /v1/gumi/memory/model-fit`,
+  `POST /v1/gumi/memory/clear`, `GET /v1/gumi/memory/status`) and LM Studio
   model management routes to the V1 endpoint listing. §11.1 — Removed "reserved
   for future use" for agent mode; documented agent mode as shipped with router
   + memory + LM Studio model management integration.
@@ -22,15 +22,15 @@ All notable changes to Novexa are documented in this file.
   Model Management documenting the `ModelManager` interface, `/api/v1/models/load`,
   `/api/v1/models/unload`, `/api/v1/models` endpoints, per-model config
   resolution, and pipeline integration. Renumbered subsequent sections (§23-27).
-- **`docs/specs/12-cli-and-dashboard-specification.md`** §5 — Added `novexa
-  lmstudio` (status, load, unload, models) and `novexa memory` (status, facts,
+- **`docs/specs/12-cli-and-dashboard-specification.md`** §5 — Added `gumi
+  lmstudio` (status, load, unload, models) and `gumi memory` (status, facts,
   clear) to the V1 command set.
 - **`docs/specs/19-agentic-coding-router-specification.md`** — Marked Phase 2
   (agent-state awareness) as shipped (Sprint 13). Documented `repetitions`
   escalation — detects repeating tool-call patterns (same function name +
   arguments) via `applyEscalation` in `classifier.go`.
 - **`docs/specs/20-memory-engine-specification.md`** — Marked Phase 1 + CLI as
-  shipped (Sprint 12). Added `POST /v1/novexa/memory/facts` to §6.3 (agent-driven
+  shipped (Sprint 12). Added `POST /v1/gumi/memory/facts` to §6.3 (agent-driven
   fact storage, Open Question #2 resolved). Updated implementation plan file
   paths to match shipped code (`memory.go`, `schema.go`, `gateway/memory.go`,
   `cli/memory.go`).
@@ -64,14 +64,14 @@ All notable changes to Novexa are documented in this file.
   model fit + stores episode. Wired into `runStabilized`, `runAgent`,
   `runStreamAgent`.
 - **API endpoints** (`gateway/memory.go`):
-  - `GET /v1/novexa/memory/facts` — list/search stored facts
-  - `GET /v1/novexa/memory/model-fit` — model performance data
-  - `POST /v1/novexa/memory/clear` — clear all memory
-  - `GET /v1/novexa/memory/status` — memory engine status
+  - `GET /v1/gumi/memory/facts` — list/search stored facts
+  - `GET /v1/gumi/memory/model-fit` — model performance data
+  - `POST /v1/gumi/memory/clear` — clear all memory
+  - `GET /v1/gumi/memory/status` — memory engine status
 - **CLI commands** (`cli/memory.go`):
-  - `novexa memory status` — show database path, fact count, model fit entries
-  - `novexa memory facts [search]` — list or search facts
-  - `novexa memory clear --force` — reset all memory
+  - `gumi memory status` — show database path, fact count, model fit entries
+  - `gumi memory facts [search]` — list or search facts
+  - `gumi memory clear --force` — reset all memory
   - All commands support `--json` for machine-readable output
 - **Per-request override** (`api/chat.go`): `MemoryExtension` with
   `enable_injection`, `max_injected_facts`, `reset_session`
@@ -108,10 +108,10 @@ All notable changes to Novexa are documented in this file.
   Telemetry events: `model_load_started`, `model_load_succeeded`,
   `model_load_failed`. Falls through silently if management is not configured.
 - **CLI commands** (`cli/lmstudio.go`):
-  - `novexa lmstudio status [--url <base>]` — shows available models on disk
-  - `novexa lmstudio load <model> [--context-length N] [--flash-attention] [--offload-kv-cache]` — loads a model
-  - `novexa lmstudio unload <instance-id>` — unloads a model
-  - `novexa lmstudio models [--url <base>]` — lists all models on disk
+  - `gumi lmstudio status [--url <base>]` — shows available models on disk
+  - `gumi lmstudio load <model> [--context-length N] [--flash-attention] [--offload-kv-cache]` — loads a model
+  - `gumi lmstudio unload <instance-id>` — unloads a model
+  - `gumi lmstudio models [--url <base>]` — lists all models on disk
   - All commands support `--json` for machine-readable output
   - URL resolution: flag → config file → `http://localhost:1234/v1`
 
@@ -238,12 +238,12 @@ All notable changes to Novexa are documented in this file.
   Essential AI RNJ-1 reasoning model with `reasoning_content` field support.
   Conservative settings until capabilities are validated.
 - **Managed thinking benchmark** (`scripts/benchmark-managed-thinking.sh`):
-  Tests 3 configurations (direct with thinking on, Novexa with thinking on,
-  Novexa with thinking off) across debugging, planning, and JSON prompts.
+  Tests 3 configurations (direct with thinking on, Gumi with thinking on,
+  Gumi with thinking off) across debugging, planning, and JSON prompts.
   Detects reasoning leaks and measures latency impact of thinking on/off.
 - **Terminal-Bench comparison**: Full agent harness evaluation using
   terminus-2 agent on 5 pinned terminal-bench-core tasks. Compares direct
-  LM Studio vs Novexa stabilized mode. Measures task resolution, episode
+  LM Studio vs Gumi stabilized mode. Measures task resolution, episode
   counts, parser warnings, and per-task timing.
 
 ### Benchmark Results (Post-Sprint-12, all fixes applied)
@@ -284,7 +284,7 @@ All notable changes to Novexa are documented in this file.
   - 26 unit tests covering extraction, validation, and retry hints.
 - `instruction_assist` profile field (`prompt.instruction_assist`) — enabled for
   Ornith 9B and Qwen 3.5 9B profiles.
-- **Benchmark suite restructure**: raw data goes to `~/.novexa/benchmarks/`,
+- **Benchmark suite restructure**: raw data goes to `~/.gumi/benchmarks/`,
   summary reports stay in `benchmarks/reports/`.
 - **Comprehensive benchmark report** (`benchmarks/reports/SUMMARY-20260712.md`):
   Agentic Coding + Local Model benchmarks for Ornith 9B and Qwen 3.5 9B.
@@ -292,7 +292,7 @@ All notable changes to Novexa are documented in this file.
 
 ### Benchmark Results (Ornith 9B)
 
-| Metric | Direct | Novexa | Improvement |
+| Metric | Direct | Gumi | Improvement |
 |---|---|---|---|
 | JSON Validity (Agentic) | 0% | **100%** | +100% |
 | JSON Validity (Local) | 0% | **100%** | +100% |
@@ -302,7 +302,7 @@ All notable changes to Novexa are documented in this file.
 
 ### Changed
 
-- All benchmark scripts now output raw data to `~/.novexa/benchmarks/` (outside
+- All benchmark scripts now output raw data to `~/.gumi/benchmarks/` (outside
   repo) and summary reports to `benchmarks/reports/`.
 - Archived 60+ historical benchmark files to `benchmarks/archive/`.
 
@@ -324,14 +324,14 @@ All notable changes to Novexa are documented in this file.
   on `v*` tags, building all supported targets, packaging archives, generating
   SHA256 checksums, and uploading draft pre-release artifacts.
 - Release archive layout including binary, `dashboard/dist`, starter profiles,
-  `novexa.example.yaml`, `README.md`, `LICENSE`, and `CHANGELOG.md`.
-- `novexa.example.yaml` documenting the planned local-first configuration
+  `gumi.example.yaml`, `README.md`, `LICENSE`, and `CHANGELOG.md`.
+- `gumi.example.yaml` documenting the planned local-first configuration
   format for the alpha. YAML config parsing is not implemented yet.
 - Installation guide (`docs/installation.md`) covering source builds, release
   archives, Docker, macOS, Linux, Windows, starting, dashboard, client setup,
   and uninstalling.
 - Quickstart guide (`docs/quickstart.md`) with Ollama setup, model pull,
-  startup, dashboard, chat completions, and `novexa doctor`.
+  startup, dashboard, chat completions, and `gumi doctor`.
 - Troubleshooting guide (`docs/troubleshooting.md`) for common issues such as
   port conflicts, Ollama availability, missing models, dashboard build errors,
   SQLite permissions, invalid API keys, provider timeouts, missing profiles,
@@ -339,7 +339,7 @@ All notable changes to Novexa are documented in this file.
 - Release checklist (`docs/release-checklist.md`) for verifying builds,
   archives, Docker, and security before publishing.
 - Build-time version metadata package (`runtime/internal/version`) with
-  `Version`, `Commit`, and `BuildDate` injected via ldflags. `novexa version`
+  `Version`, `Commit`, and `BuildDate` injected via ldflags. `gumi version`
   shows metadata in release builds while preserving the one-line default output
   for development builds.
 

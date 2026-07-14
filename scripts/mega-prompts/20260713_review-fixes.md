@@ -10,7 +10,7 @@
 
 ## Context
 
-You are working in the **Novexa** repo (`/Users/afnanrudy/Github-Projects/Novexa`),
+You are working in the **Gumi** repo (`/Users/afnanrudy/Github-Projects/Gumi`),
 a Go runtime (`runtime/` module, `go.mod` at `runtime/go.mod`) that proxies LLM
 providers with a pipeline, router, memory engine, guard, and gateway. A review
 of today's commits found 9 Standards violations and 15 Spec gaps. The full plan
@@ -18,7 +18,7 @@ with acceptance criteria is in `docs/specs/21-review-fix-plan.md` — read it
 first, then execute the work packages below.
 
 **Ground rules**:
-- Go 1.25 module path `github.com/novexa/novexa/runtime`.
+- Go 1.25 module path `github.com/gumi/gumi/runtime`.
 - Follow the existing code style: `internal/` packages, lowercase exports,
   `fmt.Errorf("...: %w", err)` wrapping, context-first signatures.
 - Do NOT introduce new dependencies. Use only what's in `go.mod`.
@@ -114,11 +114,11 @@ File: `runtime/internal/pipeline/engine.go`, function `prepareMemory` (~line
 1217).
 
 At the top of `prepareMemory`, after the nil guard, read
-`pc.IncomingRequest.Novexa.Memory`:
+`pc.IncomingRequest.Gumi.Memory`:
 ```go
 var memExt *api.MemoryExtension
-if pc.IncomingRequest.Novexa != nil {
-	memExt = pc.IncomingRequest.Novexa.Memory
+if pc.IncomingRequest.Gumi != nil {
+	memExt = pc.IncomingRequest.Gumi.Memory
 }
 if memExt != nil && memExt.EnableInjection != nil && !*memExt.EnableInjection {
 	return // injection disabled per-request
@@ -147,7 +147,7 @@ File: `runtime/internal/router/engine.go`
 
 ### 1.5 Example config
 
-File: `novexa.example.yaml` — add commented blocks:
+File: `gumi.example.yaml` — add commented blocks:
 ```yaml
 # routing:
 #   enabled: false
@@ -161,7 +161,7 @@ File: `novexa.example.yaml` — add commented blocks:
 # memory:
 #   enabled: false
 #   engine: sqlite
-#   db_path: ~/.novexa/memory.db
+#   db_path: ~/.gumi/memory.db
 #   max_facts: 10000
 #   max_episodes_per_session: 50
 #   model_fit_retention_days: 30
@@ -333,7 +333,7 @@ if errors.As(err, &gErr) {
 	return
 }
 ```
-Import `github.com/novexa/novexa/runtime/internal/guard` and `errors`.
+Import `github.com/gumi/gumi/runtime/internal/guard` and `errors`.
 
 ### 3.4 Update guard tests
 
@@ -466,15 +466,15 @@ with:
 s.writeError(w, http.StatusInternalServerError, api.NewRuntimeError("MEMORY_ERROR", "failed to list facts: "+err.Error(), requestIDFromContext(r.Context())))
 ```
 Use `api.NewRuntimeError` (same as `handlers.go`). Import
-`github.com/novexa/novexa/runtime/internal/api`. Use distinct codes:
+`github.com/gumi/gumi/runtime/internal/api`. Use distinct codes:
 `MEMORY_LIST_ERROR`, `MEMORY_CLEAR_ERROR`, `MEMORY_FACT_CREATE_ERROR`,
 `MEMORY_MODEL_FIT_ERROR`, `MEMORY_STATUS_ERROR`.
 
-### 5.2 `POST /v1/novexa/memory/facts`
+### 5.2 `POST /v1/gumi/memory/facts`
 
 File: `runtime/internal/gateway/routes.go` — add:
 ```go
-mux.HandleFunc("POST /v1/novexa/memory/facts", s.withAuthMiddleware(s.handleMemoryCreateFact))
+mux.HandleFunc("POST /v1/gumi/memory/facts", s.withAuthMiddleware(s.handleMemoryCreateFact))
 ```
 
 File: `runtime/internal/gateway/memory.go` — add handler:
@@ -573,12 +573,12 @@ Update every spec that's now out of sync. Use precise section anchors.
 
 1. `docs/specs/04-api-specification.md`
    - §11.1 — replace "Agent mode is reserved for future use." with a description
-     of agent mode + the `Novexa` extension object (`routing`, `memory`,
+     of agent mode + the `Gumi` extension object (`routing`, `memory`,
      `context`, `validation`, `telemetry`).
    - §6 — add to the endpoint catalogue:
-     `GET /v1/novexa/memory/facts`, `POST /v1/novexa/memory/facts`,
-     `GET /v1/novexa/memory/model-fit`, `POST /v1/novexa/memory/clear`,
-     `GET /v1/novexa/memory/status`.
+     `GET /v1/gumi/memory/facts`, `POST /v1/gumi/memory/facts`,
+     `GET /v1/gumi/memory/model-fit`, `POST /v1/gumi/memory/clear`,
+     `GET /v1/gumi/memory/status`.
    - §15.2 — add `guard_error` to the error `type` enum; note
      `AGENT_*` codes now come from the guard engine.
 
@@ -600,8 +600,8 @@ Update every spec that's now out of sync. Use precise section anchors.
      `eval_batch_size`, `num_experts`), `auto_unload` behaviour.
 
 4. `docs/specs/12-cli-and-dashboard-specification.md`
-   - §5 — add `novexa lmstudio` subcommand (`list`, `load`, `unload`, `info`)
-     and `novexa memory` subcommand (`facts`, `search`, `clear`, `status`,
+   - §5 — add `gumi lmstudio` subcommand (`list`, `load`, `unload`, `info`)
+     and `gumi memory` subcommand (`facts`, `search`, `clear`, `status`,
      `model-fit`) to the V1 command set.
 
 5. `docs/specs/19-agentic-coding-router-specification.md`
@@ -612,7 +612,7 @@ Update every spec that's now out of sync. Use precise section anchors.
    - §8.2 — note per-request `routing` overrides are now honoured.
 
 6. `docs/specs/20-memory-engine-specification.md`
-   - Mark Phase 1 as **Shipped**; move `novexa memory` CLI to Phase 1.
+   - Mark Phase 1 as **Shipped**; move `gumi memory` CLI to Phase 1.
    - §5.2 — confirm injection order is Model Fit → episodes → facts.
    - §5.3 — confirm recency formula is wired.
    - §7.3 — confirm `:alt` alternative behaviour is wired.
@@ -620,7 +620,7 @@ Update every spec that's now out of sync. Use precise section anchors.
      implemented.
    - §9 — document `memory_eviction` event as implemented.
    - §10 — document Model Fit → Router feedback loop as implemented.
-   - §14 Open Question 2 — mark resolved: `POST /v1/novexa/memory/facts` added.
+   - §14 Open Question 2 — mark resolved: `POST /v1/gumi/memory/facts` added.
 
 7. `CHANGELOG.md` — add a new "Fixed (Review 2026-07-13)" section listing:
    - Memory injection priority order corrected.
@@ -628,14 +628,14 @@ Update every spec that's now out of sync. Use precise section anchors.
    - Recency scoring added to fact selection.
    - Guard errors reclassified to `guard_error` type.
    - Memory gateway errors now use structured error format.
-   - Per-request `novexa.memory` and `novexa.routing` overrides honoured.
+   - Per-request `gumi.memory` and `gumi.routing` overrides honoured.
    - Router config (`classifier`, `coding_rules`) now wired.
    - Model Fit → Router feedback loop connected.
    - `alternatives` and structured `routing_telemetry` now emitted.
    - `repetitions` escalation implemented.
    - `memory_eviction` telemetry event emitted.
    - `MinObservationCount` and `ModelFitRetentionDays` honoured.
-   - `POST /v1/novexa/memory/facts` endpoint added.
+   - `POST /v1/gumi/memory/facts` endpoint added.
    - Tests added for `router`, `memory`, `provider/lmstudio_mgmt`,
      `gateway/memory`, `cli/{lmstudio,memory}`.
    - Specs 04/05/06/12/19/20 updated to reflect shipped behaviour.
@@ -654,7 +654,7 @@ agent mode or memory. Every shipped behaviour has a spec entry.
 - [ ] No spec says "reserved" for a shipped feature
 - [ ] No `writeJSONError` with bare-string errors remains
 - [ ] No `provider.AGENT_*` constants remain
-- [ ] `novexa.example.yaml` shows all new config fields
+- [ ] `gumi.example.yaml` shows all new config fields
 - [ ] CHANGELOG updated
 - [ ] Commit per WP: `fix(review): WP1 config wiring`, `fix(review): WP2 memory
       correctness`, etc.

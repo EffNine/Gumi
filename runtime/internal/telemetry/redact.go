@@ -1,5 +1,5 @@
 // Package telemetry provides local observability recording and privacy-safe
-// redaction for the Novexa runtime.
+// redaction for the Gumi runtime.
 package telemetry
 
 import (

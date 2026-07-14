@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a reproducible problem with Novexa
+about: Report a reproducible problem with Gumi
 title: "[bug] "
 labels: bug
 assignees: ""
@@ -26,7 +26,7 @@ assignees: ""
 
 ## Environment
 
-- Novexa version: <!-- `novexa version` -->
+- Gumi version: <!-- `gumi version` -->
 - OS: <!-- e.g. macOS 15.2 arm64, Ubuntu 24.04 -->
 - Go version: <!-- if building from source -->
 - Provider: <!-- Ollama / LM Studio / other -->
@@ -35,7 +35,7 @@ assignees: ""
 
 ## Configuration
 
-<!-- Paste your `novexa.yaml` or env vars with secrets redacted. -->
+<!-- Paste your `gumi.yaml` or env vars with secrets redacted. -->
 
 ```yaml
 # redacted config
@@ -51,9 +51,9 @@ assignees: ""
 <paste here>
 ```
 
-## `novexa doctor` output
+## `gumi doctor` output
 
-<!-- Run `novexa doctor` and paste the output. -->
+<!-- Run `gumi doctor` and paste the output. -->
 
 ```
 <paste here>

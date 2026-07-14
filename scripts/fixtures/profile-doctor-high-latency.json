@@ -5,13 +5,13 @@
   "attempts_per_prompt": 1,
   "latency_by_mode": {
     "A-OllamaDirect": { "count": 3, "p50": 400 },
-    "B-NovexaDirect": { "count": 3, "p50": 1200 }
+    "B-GumiDirect": { "count": 3, "p50": 1200 }
   },
   "results": [
     { "mode": "A-OllamaDirect", "prompt": "concise", "status": "200", "latency": "400", "passed": "true", "exact_match": "true", "json_valid": "false", "json_keys": "false", "no_fence": "true", "note": "ok" },
     { "mode": "A-OllamaDirect", "prompt": "factual", "status": "200", "latency": "390", "passed": "true", "exact_match": "true", "json_valid": "false", "json_keys": "false", "no_fence": "true", "note": "ok" },
-    { "mode": "B-NovexaDirect", "prompt": "concise", "status": "200", "latency": "1200", "passed": "true", "exact_match": "true", "json_valid": "false", "json_keys": "false", "no_fence": "true", "note": "ok" },
-    { "mode": "B-NovexaDirect", "prompt": "factual", "status": "200", "latency": "1180", "passed": "true", "exact_match": "true", "json_valid": "false", "json_keys": "false", "no_fence": "true", "note": "ok" },
-    { "mode": "B-NovexaDirect", "prompt": "json", "status": "200", "latency": "1400", "passed": "true", "exact_match": "false", "json_valid": "true", "json_keys": "true", "no_fence": "true", "note": "ok" }
+    { "mode": "B-GumiDirect", "prompt": "concise", "status": "200", "latency": "1200", "passed": "true", "exact_match": "true", "json_valid": "false", "json_keys": "false", "no_fence": "true", "note": "ok" },
+    { "mode": "B-GumiDirect", "prompt": "factual", "status": "200", "latency": "1180", "passed": "true", "exact_match": "true", "json_valid": "false", "json_keys": "false", "no_fence": "true", "note": "ok" },
+    { "mode": "B-GumiDirect", "prompt": "json", "status": "200", "latency": "1400", "passed": "true", "exact_match": "false", "json_valid": "true", "json_keys": "true", "no_fence": "true", "note": "ok" }
   ]
 }

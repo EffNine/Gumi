@@ -1,0 +1,265 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 580" font-family="Inter, ui-sans-serif, system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .sidebar-bg { fill: #252a27; }
+      .sidebar-text { fill: #aeb5b1; font-size: 12px; }
+      .sidebar-active { fill: #e9ff65; }
+      .main-bg { fill: #f3f4f1; }
+      .paper { fill: #fbfcfa; }
+      .line { stroke: #d9ddd8; }
+      .muted { fill: #68706b; font-size: 10px; }
+      .green { fill: #18865a; }
+      .amber { fill: #b26a16; }
+      .red { fill: #c43f3f; }
+      .blue { fill: #2459d3; }
+      .ink { fill: #171a18; }
+      .brand-mark { fill: #e9ff65; }
+      .brand-mark-text { fill: #182019; font: 800 15px ui-monospace, monospace; }
+      .brand-text { fill: #f7f8f6; font-size: 15px; font-weight: 700; }
+      .brand-sub { fill: #aab1ad; font-size: 11px; }
+      .nav-text { fill: #aeb5b1; font-size: 12px; }
+      .nav-text-active { fill: #ffffff; font-size: 12px; }
+      .foot-text { fill: #858e88; font-size: 10px; font-family: ui-monospace, monospace; }
+      .eyebrow { fill: #68706b; font: 700 10px ui-monospace, monospace; }
+      .heading { fill: #171a18; font-size: 24px; font-weight: 700; }
+      .section-title { fill: #171a18; font-size: 17px; font-weight: 700; }
+      .metric-value { fill: #171a18; font-size: 23px; font-weight: 670; }
+      .metric-label { fill: #68706b; font-size: 11px; }
+      .pipeline-bg { fill: #e5e8e3; }
+      .pipeline-node-bg { fill: #fbfcfa; }
+      .pipeline-num { fill: #98a09b; font: 10px ui-monospace, monospace; }
+      .pipeline-label { fill: #171a18; font-size: 12px; font-weight: 600; }
+      .table-header { fill: #e9ebe7; }
+      .table-header-text { fill: #68706b; font: 700 10px ui-monospace, monospace; }
+      .table-cell { fill: #171a18; font-size: 12px; }
+      .table-cell-muted { fill: #68706b; font-size: 11px; }
+      .code-text { fill: #171a18; font: 11px ui-monospace, monospace; }
+      .activity-time { fill: #68706b; font: 10px ui-monospace, monospace; }
+      .activity-icon-bg { fill: #e7ece8; }
+      .activity-icon-color { fill: #18865a; }
+    </style>
+  </defs>
+
+  <!-- Sidebar -->
+  <rect class="sidebar-bg" x="0" y="0" width="224" height="580"/>
+
+  <!-- Brand -->
+  <rect class="brand-mark" x="22" y="22" width="31" height="31" rx="0"/>
+  <text class="brand-mark-text" x="37" y="43" text-anchor="middle">N</text>
+  <text class="brand-text" x="64" y="35">Novexa</text>
+  <text class="brand-sub" x="64" y="50">Runtime console</text>
+
+  <!-- Divider -->
+  <line x1="14" y1="68" x2="210" y2="68" stroke="#3a403c" stroke-width="1"/>
+
+  <!-- Nav items -->
+  <g transform="translate(0, 86)">
+    <!-- Overview - active -->
+    <rect x="0" y="0" width="224" height="39" fill="#303632"/>
+    <line x1="0" y1="0" x2="0" y2="39" stroke="#e9ff65" stroke-width="2"/>
+    <text x="36" y="24" class="nav-text-active">Overview</text>
+    <!-- icon placeholder -->
+    <rect x="14" y="11" width="17" height="17" rx="3" fill="none" stroke="#e9ff65" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Requests -->
+    <rect x="0" y="43" width="224" height="39" fill="transparent"/>
+    <text x="36" y="67" class="nav-text">Requests</text>
+    <rect x="14" y="54" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Providers -->
+    <rect x="0" y="86" width="224" height="39" fill="transparent"/>
+    <text x="36" y="110" class="nav-text">Providers</text>
+    <rect x="14" y="97" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Profiles -->
+    <rect x="0" y="129" width="224" height="39" fill="transparent"/>
+    <text x="36" y="153" class="nav-text">Profiles</text>
+    <rect x="14" y="140" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Config -->
+    <rect x="0" y="172" width="224" height="39" fill="transparent"/>
+    <text x="36" y="196" class="nav-text">Config</text>
+    <rect x="14" y="183" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Doctor -->
+    <rect x="0" y="215" width="224" height="39" fill="transparent"/>
+    <text x="36" y="239" class="nav-text">Doctor</text>
+    <rect x="14" y="226" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+  </g>
+
+  <!-- Runtime footer -->
+  <line x1="14" y1="530" x2="210" y2="530" stroke="#3a403c" stroke-width="1"/>
+  <circle cx="22" cy="548" r="3.5" fill="#18865a"/>
+  <text x="32" y="552" fill="#aeb5b1" font-size="10px" font-weight="700" font-family="ui-monospace, monospace" text-transform="uppercase">ok</text>
+  <text x="60" y="552" class="foot-text">127.0.0.1:8787</text>
+
+  <!-- Main content area -->
+  <rect class="main-bg" x="224" y="0" width="676" height="580"/>
+
+  <!-- Top bar -->
+  <line x1="224" y1="93" x2="900" y2="93" stroke="#d9ddd8" stroke-width="1"/>
+  <text x="258" y="40" class="eyebrow">Local control plane</text>
+  <text x="258" y="72" class="heading">Overview</text>
+
+  <!-- Refresh button -->
+  <rect x="830" y="30" width="36" height="36" rx="0" fill="#fbfcfa" stroke="#d9ddd8" stroke-width="1"/>
+  <rect x="840" y="40" width="16" height="16" rx="2" fill="none" stroke="#171a18" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Metric strip -->
+  <g transform="translate(258, 121)">
+    <rect x="0" y="0" width="604" height="118" fill="#fbfcfa" stroke="#d9ddd8" stroke-width="1"/>
+
+    <!-- Runtime -->
+    <line x1="151" y1="0" x2="151" y2="118" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="20" y="24" class="metric-label">Runtime</text>
+    <text x="20" y="62" class="metric-value">stabilized</text>
+    <circle cx="20" cy="88" r="3.5" fill="#18865a"/>
+    <text x="30" y="92" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace" text-transform="uppercase">ok</text>
+
+    <!-- Success rate -->
+    <line x1="302" y1="0" x2="302" y2="118" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="171" y="24" class="metric-label">Success rate</text>
+    <text x="171" y="62" class="metric-value">100%</text>
+    <text x="171" y="88" class="metric-label">last 24 requests</text>
+
+    <!-- Average latency -->
+    <line x1="453" y1="0" x2="453" y2="118" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="322" y="24" class="metric-label">Average latency</text>
+    <text x="322" y="62" class="metric-value">352 ms</text>
+    <text x="322" y="88" class="metric-label">gateway to response</text>
+
+    <!-- Repairs -->
+    <text x="473" y="24" class="metric-label">Repairs</text>
+    <text x="473" y="62" class="metric-value">12</text>
+    <text x="473" y="88" class="metric-label">local corrections</text>
+  </g>
+
+  <!-- Pipeline section -->
+  <g transform="translate(258, 273)">
+    <line x1="0" y1="0" x2="604" y2="0" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="0" y="16" class="eyebrow">Adaptive runtime</text>
+    <text x="0" y="38" class="section-title">Intelligence pipeline</text>
+    <circle cx="540" cy="22" r="3" fill="#18865a"/>
+    <text x="548" y="26" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">LIVE</text>
+
+    <!-- Pipeline rail -->
+    <rect x="0" y="52" width="604" height="92" fill="#e5e8e3" stroke="#e5e8e3" stroke-width="1"/>
+
+    <!-- Stage 1: Gateway -->
+    <rect x="1" y="53" width="100" height="90" fill="#fbfcfa"/>
+    <text x="17" y="72" class="pipeline-num">01</text>
+    <text x="17" y="120" class="pipeline-label">Gateway</text>
+    <path d="M 101 98 L 108 98" stroke="#2459d3" stroke-width="1.5" fill="none"/>
+    <polygon points="108,93 116,98 108,103" fill="#2459d3"/>
+
+    <!-- Stage 2: Context -->
+    <rect x="101" y="53" width="100" height="90" fill="#fbfcfa"/>
+    <text x="117" y="72" class="pipeline-num">02</text>
+    <text x="117" y="120" class="pipeline-label">Context</text>
+    <path d="M 201 98 L 208 98" stroke="#2459d3" stroke-width="1.5" fill="none"/>
+    <polygon points="208,93 216,98 208,103" fill="#2459d3"/>
+
+    <!-- Stage 3: Prompt -->
+    <rect x="201" y="53" width="100" height="90" fill="#fbfcfa"/>
+    <text x="217" y="72" class="pipeline-num">03</text>
+    <text x="217" y="120" class="pipeline-label">Prompt</text>
+    <path d="M 301 98 L 308 98" stroke="#2459d3" stroke-width="1.5" fill="none"/>
+    <polygon points="308,93 316,98 308,103" fill="#2459d3"/>
+
+    <!-- Stage 4: Provider -->
+    <rect x="301" y="53" width="100" height="90" fill="#fbfcfa"/>
+    <text x="317" y="72" class="pipeline-num">04</text>
+    <text x="317" y="120" class="pipeline-label">Provider</text>
+    <path d="M 401 98 L 408 98" stroke="#2459d3" stroke-width="1.5" fill="none"/>
+    <polygon points="408,93 416,98 408,103" fill="#2459d3"/>
+
+    <!-- Stage 5: Validate -->
+    <rect x="401" y="53" width="100" height="90" fill="#fbfcfa"/>
+    <text x="417" y="72" class="pipeline-num">05</text>
+    <text x="417" y="120" class="pipeline-label">Validate</text>
+    <path d="M 501 98 L 508 98" stroke="#2459d3" stroke-width="1.5" fill="none"/>
+    <polygon points="508,93 516,98 508,103" fill="#2459d3"/>
+
+    <!-- Stage 6: Repair -->
+    <rect x="501" y="53" width="102" height="90" fill="#fbfcfa"/>
+    <text x="517" y="72" class="pipeline-num">06</text>
+    <text x="517" y="120" class="pipeline-label">Repair</text>
+  </g>
+
+  <!-- Split section: Provider health + Recent activity -->
+  <g transform="translate(258, 405)">
+    <!-- Provider health -->
+    <text x="0" y="16" class="section-title">Provider health</text>
+    <line x1="0" y1="28" x2="280" y2="28" stroke="#d9ddd8" stroke-width="1"/>
+
+    <!-- Provider row: lmstudio -->
+    <line x1="0" y1="89" x2="280" y2="89" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="0" y="29" width="280" height="60" fill="transparent"/>
+    <rect x="12" y="44" width="18" height="18" rx="3" fill="none" stroke="#18865a" stroke-width="1.5" opacity="0.7"/>
+    <text x="40" y="55" fill="#171a18" font-size="13px" font-weight="600">lmstudio</text>
+    <text x="40" y="70" fill="#68706b" font-size="11px">http://localhost:1234/v1</text>
+    <circle cx="250" cy="52" r="3.5" fill="#18865a"/>
+    <text x="258" y="56" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">ok</text>
+
+    <!-- Provider row: ollama -->
+    <line x1="0" y1="149" x2="280" y2="149" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="12" y="104" width="18" height="18" rx="3" fill="none" stroke="#18865a" stroke-width="1.5" opacity="0.7"/>
+    <text x="40" y="115" fill="#171a18" font-size="13px" font-weight="600">ollama</text>
+    <text x="40" y="130" fill="#68706b" font-size="11px">http://localhost:11434/v1</text>
+    <circle cx="250" cy="112" r="3.5" fill="#18865a"/>
+    <text x="258" y="116" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">ok</text>
+
+    <!-- Provider row: openai-compatible -->
+    <line x1="0" y1="209" x2="280" y2="209" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="12" y="164" width="18" height="18" rx="3" fill="none" stroke="#b26a16" stroke-width="1.5" opacity="0.7"/>
+    <text x="40" y="175" fill="#171a18" font-size="13px" font-weight="600">openai-compatible</text>
+    <text x="40" y="190" fill="#68706b" font-size="11px">http://192.168.1.50:8080/v1</text>
+    <circle cx="250" cy="172" r="3.5" fill="#b26a16"/>
+    <text x="258" y="176" fill="#b26a16" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">degraded</text>
+
+    <!-- Recent activity -->
+    <text x="320" y="16" class="section-title">Recent activity</text>
+    <line x1="320" y1="28" x2="604" y2="28" stroke="#d9ddd8" stroke-width="1"/>
+
+    <!-- Activity row 1 -->
+    <line x1="320" y1="89" x2="604" y2="89" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="320" y="29" width="284" height="60" fill="transparent"/>
+    <rect x="330" y="44" width="28" height="28" rx="0" fill="#e7ece8"/>
+    <rect x="336" y="50" width="16" height="16" rx="2" fill="none" stroke="#18865a" stroke-width="1.5"/>
+    <text x="368" y="55" fill="#171a18" font-size="13px" font-weight="600">qwen3.5-9b</text>
+    <text x="368" y="70" fill="#68706b" font-size="11px">lmstudio · 342 ms</text>
+    <text x="560" y="55" class="activity-time">14:32</text>
+
+    <!-- Activity row 2 -->
+    <line x1="320" y1="149" x2="604" y2="149" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="330" y="104" width="28" height="28" rx="0" fill="#e7ece8"/>
+    <rect x="336" y="110" width="16" height="16" rx="2" fill="none" stroke="#18865a" stroke-width="1.5"/>
+    <text x="368" y="115" fill="#171a18" font-size="13px" font-weight="600">qwen3.5-9b</text>
+    <text x="368" y="130" fill="#68706b" font-size="11px">lmstudio · 891 ms</text>
+    <text x="560" y="115" class="activity-time">14:28</text>
+
+    <!-- Activity row 3 -->
+    <line x1="320" y1="209" x2="604" y2="209" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="330" y="164" width="28" height="28" rx="0" fill="#e7ece8"/>
+    <rect x="336" y="170" width="16" height="16" rx="2" fill="none" stroke="#18865a" stroke-width="1.5"/>
+    <text x="368" y="175" fill="#171a18" font-size="13px" font-weight="600">qwen2.5-coder-7b</text>
+    <text x="368" y="190" fill="#68706b" font-size="11px">lmstudio · 1,204 ms</text>
+    <text x="560" y="175" class="activity-time">14:22</text>
+
+    <!-- Activity row 4 -->
+    <line x1="320" y1="269" x2="604" y2="269" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="330" y="224" width="28" height="28" rx="0" fill="#fbe6e4"/>
+    <rect x="336" y="230" width="16" height="16" rx="2" fill="none" stroke="#c43f3f" stroke-width="1.5"/>
+    <text x="368" y="235" fill="#171a18" font-size="13px" font-weight="600">qwen3.5-9b</text>
+    <text x="368" y="250" fill="#68706b" font-size="11px">lmstudio · 5,120 ms</text>
+    <text x="560" y="235" class="activity-time">14:15</text>
+
+    <!-- Activity row 5 -->
+    <line x1="320" y1="329" x2="604" y2="329" stroke="#d9ddd8" stroke-width="1"/>
+    <rect x="330" y="284" width="28" height="28" rx="0" fill="#e7ece8"/>
+    <rect x="336" y="290" width="16" height="16" rx="2" fill="none" stroke="#18865a" stroke-width="1.5"/>
+    <text x="368" y="295" fill="#171a18" font-size="13px" font-weight="600">qwen3.5-9b</text>
+    <text x="368" y="310" fill="#68706b" font-size="11px">ollama · 467 ms</text>
+    <text x="560" y="295" class="activity-time">14:08</text>
+  </g>
+</svg>

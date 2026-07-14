@@ -1,4 +1,4 @@
-// Package api provides OpenAI-compatible and Novexa-specific request and
+// Package api provides OpenAI-compatible and Gumi-specific request and
 // response types used across the runtime.
 package api
 
@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-// ErrorResponse is the standard Novexa error envelope.
+// ErrorResponse is the standard Gumi error envelope.
 type ErrorResponse struct {
 	Error APIError `json:"error"`
 }

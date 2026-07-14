@@ -20,7 +20,7 @@ func NewModelsList() *ModelsList {
 	return &ModelsList{
 		Object: "list",
 		Data: []Model{
-			{ID: "local:auto", Object: "model", Created: 0, OwnedBy: "novexa"},
+			{ID: "local:auto", Object: "model", Created: 0, OwnedBy: "gumi"},
 		},
 	}
 }

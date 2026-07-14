@@ -10,22 +10,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	contextengine "github.com/novexa/novexa/runtime/internal/context"
-	guardengine "github.com/novexa/novexa/runtime/internal/guard"
-	instructionengine "github.com/novexa/novexa/runtime/internal/instruction"
-	"github.com/novexa/novexa/runtime/internal/logger"
-	"github.com/novexa/novexa/runtime/internal/memory"
-	"github.com/novexa/novexa/runtime/internal/profiles"
-	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
-	"github.com/novexa/novexa/runtime/internal/provider"
-	repairengine "github.com/novexa/novexa/runtime/internal/repair"
-	"github.com/novexa/novexa/runtime/internal/router"
-	"github.com/novexa/novexa/runtime/internal/telemetry"
-	thinkingengine "github.com/novexa/novexa/runtime/internal/thinking"
-	toolengine "github.com/novexa/novexa/runtime/internal/tool"
-	validationengine "github.com/novexa/novexa/runtime/internal/validation"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	contextengine "github.com/EffNine/gumi/runtime/internal/context"
+	guardengine "github.com/EffNine/gumi/runtime/internal/guard"
+	instructionengine "github.com/EffNine/gumi/runtime/internal/instruction"
+	"github.com/EffNine/gumi/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/memory"
+	"github.com/EffNine/gumi/runtime/internal/profiles"
+	promptengine "github.com/EffNine/gumi/runtime/internal/prompt"
+	"github.com/EffNine/gumi/runtime/internal/provider"
+	repairengine "github.com/EffNine/gumi/runtime/internal/repair"
+	"github.com/EffNine/gumi/runtime/internal/router"
+	"github.com/EffNine/gumi/runtime/internal/telemetry"
+	thinkingengine "github.com/EffNine/gumi/runtime/internal/thinking"
+	toolengine "github.com/EffNine/gumi/runtime/internal/tool"
+	validationengine "github.com/EffNine/gumi/runtime/internal/validation"
 )
 
 const (
@@ -97,7 +97,7 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 		if dbPath == "" {
 			home, err := os.UserHomeDir()
 			if err == nil {
-				dbPath = filepath.Join(home, ".novexa", "memory.db")
+				dbPath = filepath.Join(home, ".gumi", "memory.db")
 			}
 		}
 		var err error
@@ -333,7 +333,7 @@ func (e *Engine) callProviderGenerateStream(ctx context.Context, pc *Context, ou
 		return e.failStream(pc, provider.ProviderError{
 			Code:       provider.ProviderMisconfigured,
 			Message:    fmt.Sprintf("provider %q is no longer available", pc.SelectedProvider),
-			Suggestion: "Restart Novexa or check provider configuration.",
+			Suggestion: "Restart Gumi or check provider configuration.",
 		}, "provider adapter missing after selection")
 	}
 
@@ -541,16 +541,16 @@ func (e *Engine) failStream(pc *Context, perr provider.ProviderError, message st
 
 func (e *Engine) newContext(requestID string, req api.ChatCompletionRequest) *Context {
 	mode := RuntimeMode(e.cfg.Runtime.Mode)
-	if req.Novexa != nil && req.Novexa.Mode != "" {
-		mode = RuntimeMode(req.Novexa.Mode)
+	if req.Gumi != nil && req.Gumi.Mode != "" {
+		mode = RuntimeMode(req.Gumi.Mode)
 	}
 	if mode != ModeLightweight && mode != ModeDirect && req.ResponseFormat != nil && (req.ResponseFormat.Type == "json_object" || req.ResponseFormat.Type == "json_schema") {
 		mode = ModeStructured
 	}
 
 	sessionID := ""
-	if req.Novexa != nil && req.Novexa.Session != nil {
-		sessionID = req.Novexa.Session.ID
+	if req.Gumi != nil && req.Gumi.Session != nil {
+		sessionID = req.Gumi.Session.ID
 	}
 	if sessionID == "" {
 		sessionID = "ephemeral:" + requestID
@@ -1037,8 +1037,8 @@ func (e *Engine) resolveProviderAndProfile(ctx context.Context, pc *Context) Res
 	if e.cfg.Routing.Enabled && pc.RuntimeMode == ModeAgent && e.codingRouter != nil {
 		// Use request hints if provided.
 		var routingHints *api.RoutingExtensions
-		if pc.IncomingRequest.Novexa != nil {
-			routingHints = pc.IncomingRequest.Novexa.Routing
+		if pc.IncomingRequest.Gumi != nil {
+			routingHints = pc.IncomingRequest.Gumi.Routing
 		}
 
 		// Classify the coding task.
@@ -1261,8 +1261,8 @@ func (e *Engine) prepareMemory(pc *Context) {
 
 	// Honour per-request memory overrides.
 	var memExt *api.MemoryExtension
-	if pc.IncomingRequest.Novexa != nil {
-		memExt = pc.IncomingRequest.Novexa.Memory
+	if pc.IncomingRequest.Gumi != nil {
+		memExt = pc.IncomingRequest.Gumi.Memory
 	}
 	if memExt != nil && memExt.EnableInjection != nil && !*memExt.EnableInjection {
 		pc.AddEvent("memory", "memory_injection_disabled", SeverityInfo, "memory injection disabled per-request", nil)
@@ -1689,10 +1689,10 @@ func (e *Engine) prepareContext(pc *Context) {
 	strategy := ""
 	maxInputTokens := 0
 	preserveRecent := 0
-	if pc.IncomingRequest.Novexa != nil && pc.IncomingRequest.Novexa.Context != nil {
-		strategy = pc.IncomingRequest.Novexa.Context.Strategy
-		maxInputTokens = pc.IncomingRequest.Novexa.Context.MaxInputTokens
-		preserveRecent = pc.IncomingRequest.Novexa.Context.PreserveRecentMessages
+	if pc.IncomingRequest.Gumi != nil && pc.IncomingRequest.Gumi.Context != nil {
+		strategy = pc.IncomingRequest.Gumi.Context.Strategy
+		maxInputTokens = pc.IncomingRequest.Gumi.Context.MaxInputTokens
+		preserveRecent = pc.IncomingRequest.Gumi.Context.PreserveRecentMessages
 	}
 
 	out := e.contextEngine.Prepare(contextengine.Input{
@@ -1954,13 +1954,13 @@ func copyThinkingToRequest(req *api.ChatCompletionRequest, enabled *bool) {
 	if req == nil || enabled == nil {
 		return
 	}
-	if req.Novexa == nil {
-		req.Novexa = &api.NovexaExtensions{}
+	if req.Gumi == nil {
+		req.Gumi = &api.GumiExtensions{}
 	}
-	if req.Novexa.Thinking == nil {
-		req.Novexa.Thinking = &api.ThinkingConfig{}
+	if req.Gumi.Thinking == nil {
+		req.Gumi.Thinking = &api.ThinkingConfig{}
 	}
-	req.Novexa.Thinking.Enabled = enabled
+	req.Gumi.Thinking.Enabled = enabled
 }
 
 func (e *Engine) callProviderGenerate(ctx context.Context, pc *Context) Result {
@@ -1988,7 +1988,7 @@ func (e *Engine) callProviderGenerate(ctx context.Context, pc *Context) Result {
 		return e.fail(pc, provider.ProviderError{
 			Code:       provider.ProviderMisconfigured,
 			Message:    fmt.Sprintf("provider %q is no longer available", pc.SelectedProvider),
-			Suggestion: "Restart Novexa or check provider configuration.",
+			Suggestion: "Restart Gumi or check provider configuration.",
 		}, "provider adapter missing after selection")
 	}
 
@@ -2089,7 +2089,7 @@ func (e *Engine) callProviderGenerate(ctx context.Context, pc *Context) Result {
 	} else {
 		pc.ValidationPassed = true
 		pc.AddEvent("validation", "validation_skipped", SeverityInfo, "validation skipped in lightweight mode", map[string]string{
-			"reason": "response_format not present and novexa.validation not enabled",
+			"reason": "response_format not present and gumi.validation not enabled",
 		})
 		pc.AddEvent("repair", "repair_skipped", SeverityInfo, "repair skipped in lightweight mode", map[string]string{
 			"reason": "validation disabled by default in lightweight mode",
@@ -2101,8 +2101,8 @@ func (e *Engine) callProviderGenerate(ctx context.Context, pc *Context) Result {
 
 	e.recordTelemetry(ctx, pc)
 
-	if resp != nil && resp.Novexa == nil && pc.IncomingRequest.Novexa != nil && pc.IncomingRequest.Novexa.Telemetry != nil && pc.IncomingRequest.Novexa.Telemetry.IncludeMetadata {
-		resp.Novexa = &api.NovexaMetadata{
+	if resp != nil && resp.Gumi == nil && pc.IncomingRequest.Gumi != nil && pc.IncomingRequest.Gumi.Telemetry != nil && pc.IncomingRequest.Gumi.Telemetry.IncludeMetadata {
+		resp.Gumi = &api.GumiMetadata{
 			RequestID:         pc.RequestID,
 			Provider:          pc.SelectedProvider,
 			RuntimeMode:       string(pc.RuntimeMode),
@@ -2123,7 +2123,7 @@ func (e *Engine) callProviderGenerate(ctx context.Context, pc *Context) Result {
 
 // shouldValidate returns true when validation/repair should run. In
 // lightweight mode this happens only when response_format is present or when
-// explicitly enabled via novexa.validation.enabled.
+// explicitly enabled via gumi.validation.enabled.
 func (e *Engine) shouldValidate(pc *Context) bool {
 	if pc.RuntimeMode != ModeLightweight {
 		return true
@@ -2136,7 +2136,7 @@ func (e *Engine) shouldValidate(pc *Context) bool {
 	if pc.NormalizedRequest.ResponseFormat != nil && pc.NormalizedRequest.ResponseFormat.Type != "" {
 		return true
 	}
-	if pc.IncomingRequest.Novexa != nil && pc.IncomingRequest.Novexa.Validation != nil && pc.IncomingRequest.Novexa.Validation.Enabled {
+	if pc.IncomingRequest.Gumi != nil && pc.IncomingRequest.Gumi.Validation != nil && pc.IncomingRequest.Gumi.Validation.Enabled {
 		return true
 	}
 	return false
@@ -2166,7 +2166,7 @@ func (e *Engine) applyProfileDefaults(pc *Context, req *api.ChatCompletionReques
 //
 // It scans both the last user message and the system prompt for JSON format
 // requirements, so that agent frameworks that put JSON instructions in the
-// system prompt (e.g. Terminus-2) also benefit from Novexa's JSON enforcement.
+// system prompt (e.g. Terminus-2) also benefit from Gumi's JSON enforcement.
 func (e *Engine) applyInstructionAssist(pc *Context) {
 	// Activate when profile explicitly enables it, or when in structured mode.
 	if pc.ModelProfile != nil && !pc.ModelProfile.Prompt.InstructionAssist && pc.RuntimeMode != ModeStructured {
@@ -2312,7 +2312,7 @@ func (e *Engine) applyThinkingPolicy(pc *Context) {
 func (e *Engine) resolveThinkingMode(pc *Context) (string, string, bool) {
 	req := pc.NormalizedRequest
 	policy := pc.ModelProfile.ThinkingPolicy
-	requestThinking := req.Novexa.GetThinkingEnabled()
+	requestThinking := req.Gumi.GetThinkingEnabled()
 
 	// Request explicit disable always wins.
 	if requestThinking != nil && !*requestThinking {
@@ -2326,7 +2326,7 @@ func (e *Engine) resolveThinkingMode(pc *Context) (string, string, bool) {
 	}
 
 	// Workflow guards from policy.disable_when apply even to request overrides.
-	// Novexa refuses to let thinking corrupt JSON or tool workflows.
+	// Gumi refuses to let thinking corrupt JSON or tool workflows.
 	hasTools := len(req.Tools) > 0 || len(pc.OriginalTools) > 0
 	hasJSONFormat := req.ResponseFormat != nil && (req.ResponseFormat.Type == "json_object" || req.ResponseFormat.Type == "json_schema")
 	isOneWord := isOneWordRequest(req.Messages)
@@ -2499,8 +2499,8 @@ func resolveThinkingTelemetry(pc *Context) *ThinkingTelemetry {
 		OutputTokenBudget:       pc.ThinkingOutputBudget,
 		ReasoningTokenBudget:    pc.ThinkingReasoningBudget,
 	}
-	if pc.NormalizedRequest.Novexa != nil && pc.NormalizedRequest.Novexa.Thinking != nil && pc.NormalizedRequest.Novexa.Thinking.Enabled != nil {
-		if *pc.NormalizedRequest.Novexa.Thinking.Enabled {
+	if pc.NormalizedRequest.Gumi != nil && pc.NormalizedRequest.Gumi.Thinking != nil && pc.NormalizedRequest.Gumi.Thinking.Enabled != nil {
+		if *pc.NormalizedRequest.Gumi.Thinking.Enabled {
 			t.ThinkingEnabled = "true"
 		} else {
 			t.ThinkingEnabled = "false"

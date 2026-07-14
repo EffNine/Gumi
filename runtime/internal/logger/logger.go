@@ -1,4 +1,4 @@
-// Package logger provides a simple, readable leveled logger for the Novexa runtime.
+// Package logger provides a simple, readable leveled logger for the Gumi runtime.
 //
 // It is intentionally small in Sprint 1: it supports Info, Error, and Debug
 // levels and writes human-readable lines to stdout/stderr. Structured logging

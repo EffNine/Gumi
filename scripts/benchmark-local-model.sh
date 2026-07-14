@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Novexa Local Model Benchmark
+# Gumi Local Model Benchmark
 # Usage: ./scripts/benchmark-local-model.sh <model_name>
 #
 # Runs sequential requests against a local model in five modes:
 #   A. Ollama direct with think:false
-#   B. Novexa direct mode with model profile
-#   C. Novexa lightweight mode with model profile
-#   D. Novexa stabilized mode with model profile
-#   E. Novexa structured JSON mode with model profile
+#   B. Gumi direct mode with model profile
+#   C. Gumi lightweight mode with model profile
+#   D. Gumi stabilized mode with model profile
+#   E. Gumi structured JSON mode with model profile
 #
 # Requirements:
 #   - ollama must be running on http://localhost:11434
-#   - novexa must be running on http://localhost:8787
+#   - gumi must be running on http://localhost:8787
 #   - The requested model must be pulled in ollama
 #   - jq must be installed
 
@@ -29,8 +29,8 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 LMSTUDIO_URL="${LMSTUDIO_URL:-http://localhost:1234/v1}"
-NOVEXA_URL="${NOVEXA_URL:-http://localhost:8787/v1}"
-NOVEXA_HEALTH_URL="${NOVEXA_HEALTH_URL:-${NOVEXA_URL%/v1}/health}"
+GUMI_URL="${GUMI_URL:-http://localhost:8787/v1}"
+GUMI_HEALTH_URL="${GUMI_HEALTH_URL:-${GUMI_URL%/v1}/health}"
 
 # Override with environment variable
 ATTEMPTS="${ATTEMPTS:-3}"
@@ -41,11 +41,11 @@ BENCHMARK_DISABLE_THINKING="${BENCHMARK_DISABLE_THINKING:-true}"
 case "$BENCHMARK_PROVIDER" in
   ollama)
     DIRECT_MODE_LABEL="A-OllamaDirect"
-    NOVEXA_MODEL="ollama:$MODEL"
+    GUMI_MODEL="ollama:$MODEL"
     ;;
   lmstudio)
     DIRECT_MODE_LABEL="A-LMStudioDirect"
-    NOVEXA_MODEL="lmstudio:$MODEL"
+    GUMI_MODEL="lmstudio:$MODEL"
     LMSTUDIO_URL="${LMSTUDIO_URL%/}"
     ;;
   *)
@@ -90,9 +90,9 @@ preflight_checks() {
       fi
       ;;
   esac
-  if ! curl --max-time 5 -fsS "$NOVEXA_HEALTH_URL" > /dev/null 2>&1; then
-    echo "Error: Novexa is not reachable at $NOVEXA_HEALTH_URL." >&2
-    echo "Suggestion: start Novexa with: cd runtime && go run ./cmd/novexa start" >&2
+  if ! curl --max-time 5 -fsS "$GUMI_HEALTH_URL" > /dev/null 2>&1; then
+    echo "Error: Gumi is not reachable at $GUMI_HEALTH_URL." >&2
+    echo "Suggestion: start Gumi with: cd runtime && go run ./cmd/gumi start" >&2
     exit 1
   fi
 }
@@ -207,19 +207,19 @@ warm_up_lmstudio() {
   sleep 1
 }
 
-warm_up_novexa() {
+warm_up_gumi() {
   echo ""
-  echo "=== Warming up Novexa ==="
+  echo "=== Warming up Gumi ==="
   local payload
   payload=$(jq -n \
-    --arg model "$NOVEXA_MODEL" \
+    --arg model "$GUMI_MODEL" \
     '{model: $model, messages: [{role: "user", content: "warm up"}], max_tokens: 10}')
   if [ "$BENCHMARK_DISABLE_THINKING" = "true" ]; then
-    payload=$(echo "$payload" | jq '.novexa.thinking.enabled = false')
+    payload=$(echo "$payload" | jq '.gumi.thinking.enabled = false')
   fi
-  curl --max-time "$BENCHMARK_TIMEOUT_SECONDS" -s -X POST "$NOVEXA_URL/chat/completions" \
+  curl --max-time "$BENCHMARK_TIMEOUT_SECONDS" -s -X POST "$GUMI_URL/chat/completions" \
     -H "Content-Type: application/json" \
-    -H "Authorization: Bearer novexa-local" \
+    -H "Authorization: Bearer gumi-local" \
     -d "$payload" > /dev/null 2>&1 || true
   sleep 1
 }
@@ -372,7 +372,7 @@ run_direct_provider() {
   esac
 }
 
-run_novexa_mode() {
+run_gumi_mode() {
   local mode="$1"
   local prompt="$2"
   local prompt_label="$3"
@@ -382,32 +382,32 @@ run_novexa_mode() {
   local payload
   if [ "$mode" = "structured" ]; then
     payload=$(jq -n \
-      --arg model "$NOVEXA_MODEL" \
+      --arg model "$GUMI_MODEL" \
       --arg content "$prompt" \
       '{model: $model, messages: [{role: "user", content: $content}], response_format: {type: "json_object"}, max_tokens: 512}')
   else
     payload=$(jq -n \
-      --arg model "$NOVEXA_MODEL" \
+      --arg model "$GUMI_MODEL" \
       --arg content "$prompt" \
       '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 512}')
   fi
 
   if [ "$mode" = "direct" ]; then
-    payload=$(echo "$payload" | jq '.novexa.mode = "direct"')
+    payload=$(echo "$payload" | jq '.gumi.mode = "direct"')
   elif [ "$mode" = "lightweight" ]; then
-    payload=$(echo "$payload" | jq '.novexa.mode = "lightweight"')
+    payload=$(echo "$payload" | jq '.gumi.mode = "lightweight"')
   fi
 
   if [ "$BENCHMARK_DISABLE_THINKING" = "true" ]; then
-    payload=$(echo "$payload" | jq '.novexa.thinking.enabled = false')
+    payload=$(echo "$payload" | jq '.gumi.thinking.enabled = false')
   fi
 
   local start end latency_ms status response_content response_len
 
   start=$(date +%s%N)
-  response=$(curl --max-time "$BENCHMARK_TIMEOUT_SECONDS" -s -w "\n%{http_code}" -X POST "$NOVEXA_URL/chat/completions" \
+  response=$(curl --max-time "$BENCHMARK_TIMEOUT_SECONDS" -s -w "\n%{http_code}" -X POST "$GUMI_URL/chat/completions" \
     -H "Content-Type: application/json" \
-    -H "Authorization: Bearer novexa-local" \
+    -H "Authorization: Bearer gumi-local" \
     -d "$payload" 2>/dev/null) || {
     record_result "$mode_label" "$prompt_label" "$attempt" "error" "0" "false" "false" "false" "false" "false" "curl failed or timed out after ${BENCHMARK_TIMEOUT_SECONDS}s"
     return
@@ -475,7 +475,7 @@ compute_stats() {
 }
 
 echo "============================================"
-echo "  Novexa Local Model Benchmark"
+echo "  Gumi Local Model Benchmark"
 echo "  Model: $MODEL"
 echo "  Provider: $BENCHMARK_PROVIDER"
 echo "  Attempts per prompt: $ATTEMPTS"
@@ -492,7 +492,7 @@ case "$BENCHMARK_PROVIDER" in
     warm_up_lmstudio
     ;;
 esac
-warm_up_novexa
+warm_up_gumi
 
 # Mode A: direct provider
 echo ""
@@ -503,38 +503,38 @@ for i in $(seq 1 "$ATTEMPTS"); do
   run_direct_provider "$PROMPT_JSON" "json" "$i"
 done
 
-# Mode B: Novexa direct mode
+# Mode B: Gumi direct mode
 echo ""
-echo "=== Mode B: Novexa Direct Mode ==="
+echo "=== Mode B: Gumi Direct Mode ==="
 for i in $(seq 1 "$ATTEMPTS"); do
-  run_novexa_mode "direct" "$PROMPT_CONCISE" "concise" "$i" "B-NovexaDirect"
-  run_novexa_mode "direct" "$PROMPT_FACTUAL" "factual" "$i" "B-NovexaDirect"
-  run_novexa_mode "direct" "$PROMPT_JSON" "json" "$i" "B-NovexaDirect"
+  run_gumi_mode "direct" "$PROMPT_CONCISE" "concise" "$i" "B-GumiDirect"
+  run_gumi_mode "direct" "$PROMPT_FACTUAL" "factual" "$i" "B-GumiDirect"
+  run_gumi_mode "direct" "$PROMPT_JSON" "json" "$i" "B-GumiDirect"
 done
 
-# Mode C: Novexa lightweight mode
+# Mode C: Gumi lightweight mode
 echo ""
-echo "=== Mode C: Novexa Lightweight Mode ==="
+echo "=== Mode C: Gumi Lightweight Mode ==="
 for i in $(seq 1 "$ATTEMPTS"); do
-  run_novexa_mode "lightweight" "$PROMPT_CONCISE" "concise" "$i" "C-NovexaLightweight"
-  run_novexa_mode "lightweight" "$PROMPT_FACTUAL" "factual" "$i" "C-NovexaLightweight"
-  run_novexa_mode "lightweight" "$PROMPT_JSON" "json" "$i" "C-NovexaLightweight"
+  run_gumi_mode "lightweight" "$PROMPT_CONCISE" "concise" "$i" "C-GumiLightweight"
+  run_gumi_mode "lightweight" "$PROMPT_FACTUAL" "factual" "$i" "C-GumiLightweight"
+  run_gumi_mode "lightweight" "$PROMPT_JSON" "json" "$i" "C-GumiLightweight"
 done
 
-# Mode D: Novexa stabilized mode
+# Mode D: Gumi stabilized mode
 echo ""
-echo "=== Mode D: Novexa Stabilized Mode ==="
+echo "=== Mode D: Gumi Stabilized Mode ==="
 for i in $(seq 1 "$ATTEMPTS"); do
-  run_novexa_mode "stabilized" "$PROMPT_CONCISE" "concise" "$i" "D-NovexaStabilized"
-  run_novexa_mode "stabilized" "$PROMPT_FACTUAL" "factual" "$i" "D-NovexaStabilized"
-  run_novexa_mode "stabilized" "$PROMPT_JSON" "json" "$i" "D-NovexaStabilized"
+  run_gumi_mode "stabilized" "$PROMPT_CONCISE" "concise" "$i" "D-GumiStabilized"
+  run_gumi_mode "stabilized" "$PROMPT_FACTUAL" "factual" "$i" "D-GumiStabilized"
+  run_gumi_mode "stabilized" "$PROMPT_JSON" "json" "$i" "D-GumiStabilized"
 done
 
-# Mode E: Novexa structured JSON mode
+# Mode E: Gumi structured JSON mode
 echo ""
-echo "=== Mode E: Novexa Structured JSON Mode ==="
+echo "=== Mode E: Gumi Structured JSON Mode ==="
 for i in $(seq 1 "$ATTEMPTS"); do
-  run_novexa_mode "structured" "$PROMPT_JSON" "json" "$i" "E-NovexaStructured"
+  run_gumi_mode "structured" "$PROMPT_JSON" "json" "$i" "E-GumiStructured"
 done
 
 # Print per-request table
@@ -591,7 +591,7 @@ echo "**Per-Mode Latency (p50 / p95):**"
 echo ""
 echo "| Mode | p50 (ms) | p95 (ms) | Count |"
 echo "|------|----------|----------|-------|"
-for mode_label in "$DIRECT_MODE_LABEL" "B-NovexaDirect" "C-NovexaLightweight" "D-NovexaStabilized" "E-NovexaStructured"; do
+for mode_label in "$DIRECT_MODE_LABEL" "B-GumiDirect" "C-GumiLightweight" "D-GumiStabilized" "E-GumiStructured"; do
   mode_stats=$(echo "$results_json" | jq -r "[.[] | select(.mode == \"$mode_label\" and .status == \"200\") | .latency | tonumber] | sort")
   count=$(echo "$mode_stats" | jq 'length')
   if [ "$count" -gt 0 ]; then
@@ -603,13 +603,13 @@ for mode_label in "$DIRECT_MODE_LABEL" "B-NovexaDirect" "C-NovexaLightweight" "D
   fi
 done
 
-# Repair/retry summary (Novexa modes only)
+# Repair/retry summary (Gumi modes only)
 echo ""
-echo "**Novexa Repair & Retry Summary:**"
+echo "**Gumi Repair & Retry Summary:**"
 echo ""
 echo "| Mode | Repairs | Retries |"
 echo "|------|---------|---------|"
-for mode_label in "B-NovexaDirect" "C-NovexaLightweight" "D-NovexaStabilized" "E-NovexaStructured"; do
+for mode_label in "B-GumiDirect" "C-GumiLightweight" "D-GumiStabilized" "E-GumiStructured"; do
   repairs=$(echo "$results_json" | jq -r "[.[] | select(.mode == \"$mode_label\") | .note | select(contains(\"repair\") or contains(\"retry\"))] | length")
   echo "| $mode_label | $repairs | - |"
 done
@@ -638,7 +638,7 @@ fi
 model_safe_name=$(echo "$MODEL" | sed 's/[^a-zA-Z0-9_-]/-/g')
 timestamp=$(date -u '+%Y%m%dT%H%M%SZ')
 completed_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-raw_dir="$HOME/.novexa/benchmarks/local-model"
+raw_dir="$HOME/.gumi/benchmarks/local-model"
 report_dir="$REPO_DIR/benchmarks/reports"
 report_file="${report_dir}/${model_safe_name}-local-${timestamp}.md"
 report_json_file="${raw_dir}/${model_safe_name}-${timestamp}.json"
@@ -647,22 +647,22 @@ mkdir -p "$raw_dir" "$report_dir"
 
 direct_pass_rate=$(echo "$results_json" | jq --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode and .passed == "true")] | length')
 direct_total=$(echo "$results_json" | jq --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode)] | length')
-novexa_pass=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-") or startswith("E-")) and .passed == "true")] | length')
-novexa_total=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-") or startswith("E-")))] | length')
+gumi_pass=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-") or startswith("E-")) and .passed == "true")] | length')
+gumi_total=$(echo "$results_json" | jq '[.[] | select((.mode | startswith("B-") or startswith("C-") or startswith("D-") or startswith("E-")))] | length')
 
 direct_p50=$(echo "$results_json" | jq -r --arg mode "$DIRECT_MODE_LABEL" '[.[] | select(.mode == $mode and .status == "200") | .latency | tonumber] | sort | .[(length * 0.50) | floor] // "N/A"')
-novexa_direct_p50=$(echo "$results_json" | jq -r '[.[] | select(.mode == "B-NovexaDirect" and .status == "200") | .latency | tonumber] | sort | .[(length * 0.50) | floor] // "N/A"')
+gumi_direct_p50=$(echo "$results_json" | jq -r '[.[] | select(.mode == "B-GumiDirect" and .status == "200") | .latency | tonumber] | sort | .[(length * 0.50) | floor] // "N/A"')
 
 conclusion=""
-if [ "$novexa_total" -gt 0 ] && [ "$direct_total" -gt 0 ]; then
-  if [ "$novexa_pass" -ge "$direct_pass_rate" ] 2>/dev/null; then
-    if [ "$novexa_direct_p50" != "N/A" ] && [ "$direct_p50" != "N/A" ] && [ "$novexa_direct_p50" -le $((direct_p50 * 2)) ] 2>/dev/null; then
-      conclusion="Worth it — Novexa modes match or exceed direct provider quality with acceptable latency overhead."
+if [ "$gumi_total" -gt 0 ] && [ "$direct_total" -gt 0 ]; then
+  if [ "$gumi_pass" -ge "$direct_pass_rate" ] 2>/dev/null; then
+    if [ "$gumi_direct_p50" != "N/A" ] && [ "$direct_p50" != "N/A" ] && [ "$gumi_direct_p50" -le $((direct_p50 * 2)) ] 2>/dev/null; then
+      conclusion="Worth it — Gumi modes match or exceed direct provider quality with acceptable latency overhead."
     else
-      conclusion="Needs tuning — Novexa quality is acceptable but latency overhead is high."
+      conclusion="Needs tuning — Gumi quality is acceptable but latency overhead is high."
     fi
   else
-    conclusion="Needs tuning — Novexa modes underperform direct provider on quality. Review profile settings and prompt instructions."
+    conclusion="Needs tuning — Gumi modes underperform direct provider on quality. Review profile settings and prompt instructions."
   fi
 else
   conclusion="Insufficient data — one or more modes produced no results."
@@ -675,10 +675,10 @@ latency_by_mode=$(echo "$results_json" | jq --arg direct_mode "$DIRECT_MODE_LABE
     end;
   {
     ($direct_mode): ([.[] | select(.mode == $direct_mode and .status == "200") | .latency | tonumber] | stats),
-    "B-NovexaDirect": ([.[] | select(.mode == "B-NovexaDirect" and .status == "200") | .latency | tonumber] | stats),
-    "C-NovexaLightweight": ([.[] | select(.mode == "C-NovexaLightweight" and .status == "200") | .latency | tonumber] | stats),
-    "D-NovexaStabilized": ([.[] | select(.mode == "D-NovexaStabilized" and .status == "200") | .latency | tonumber] | stats),
-    "E-NovexaStructured": ([.[] | select(.mode == "E-NovexaStructured" and .status == "200") | .latency | tonumber] | stats)
+    "B-GumiDirect": ([.[] | select(.mode == "B-GumiDirect" and .status == "200") | .latency | tonumber] | stats),
+    "C-GumiLightweight": ([.[] | select(.mode == "C-GumiLightweight" and .status == "200") | .latency | tonumber] | stats),
+    "D-GumiStabilized": ([.[] | select(.mode == "D-GumiStabilized" and .status == "200") | .latency | tonumber] | stats),
+    "E-GumiStructured": ([.[] | select(.mode == "E-GumiStructured" and .status == "200") | .latency | tonumber] | stats)
   }')
 
 jq -n \
@@ -707,7 +707,7 @@ jq -n \
     provider: $provider,
     generated_at: $generated_at,
     attempts_per_prompt: $attempts,
-    modes_tested: [$direct_mode, "B-NovexaDirect", "C-NovexaLightweight", "D-NovexaStabilized", "E-NovexaStructured"],
+    modes_tested: [$direct_mode, "B-GumiDirect", "C-GumiLightweight", "D-GumiStabilized", "E-GumiStructured"],
     quality: {
       total_requests: $total_requests,
       passed: $passed_requests,
@@ -731,7 +731,7 @@ cat > "$report_file" << REPORTEOF
 **Provider:** $BENCHMARK_PROVIDER
 **Date:** $completed_at
 **Attempts per prompt:** $ATTEMPTS
-**Modes tested:** $DIRECT_MODE_LABEL, B-NovexaDirect, C-NovexaLightweight, D-NovexaStabilized, E-NovexaStructured
+**Modes tested:** $DIRECT_MODE_LABEL, B-GumiDirect, C-GumiLightweight, D-GumiStabilized, E-GumiStructured
 
 ## Quality Metrics
 
@@ -753,7 +753,7 @@ cat > "$report_file" << REPORTEOF
 |------|----------|----------|-------|
 REPORTEOF
 
-for mode_label in "$DIRECT_MODE_LABEL" "B-NovexaDirect" "C-NovexaLightweight" "D-NovexaStabilized" "E-NovexaStructured"; do
+for mode_label in "$DIRECT_MODE_LABEL" "B-GumiDirect" "C-GumiLightweight" "D-GumiStabilized" "E-GumiStructured"; do
   mode_stats=$(echo "$results_json" | jq -r "[.[] | select(.mode == \"$mode_label\" and .status == \"200\") | .latency | tonumber] | sort")
   count=$(echo "$mode_stats" | jq 'length')
   if [ "$count" -gt 0 ]; then

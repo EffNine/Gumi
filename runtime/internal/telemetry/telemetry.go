@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
-	"github.com/novexa/novexa/runtime/internal/provider"
-	"github.com/novexa/novexa/runtime/internal/storage"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/provider"
+	"github.com/EffNine/gumi/runtime/internal/storage"
 )
 
 // schemaVersion is stored in runtime_info for future migration tracking.
@@ -30,7 +30,7 @@ type Writer struct {
 }
 
 // Open opens the configured SQLite database and returns a telemetry Writer.
-// If dbPath is empty, the default ~/.novexa/novexa.db path is used.
+// If dbPath is empty, the default ~/.gumi/gumi.db path is used.
 func Open(cfg *config.Config, log *logger.Logger) (*Writer, error) {
 	path := cfg.Storage.DBPath
 	if path == "" {

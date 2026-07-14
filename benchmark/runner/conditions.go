@@ -1,16 +1,16 @@
 package runner
 
 import (
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
 // Condition identifiers for the different request modes.
 const (
 	ConditionDirect            Condition = "direct"
-	ConditionNovexaDirect      Condition = "novexa-direct"
-	ConditionNovexaLightweight Condition = "novexa-lightweight"
-	ConditionNovexaStabilized  Condition = "novexa-stabilized"
-	ConditionNovexaStructured  Condition = "novexa-structured"
+	ConditionGumiDirect      Condition = "gumi-direct"
+	ConditionGumiLightweight Condition = "gumi-lightweight"
+	ConditionGumiStabilized  Condition = "gumi-stabilized"
+	ConditionGumiStructured  Condition = "gumi-structured"
 	ConditionFrontier          Condition = "frontier"
 )
 
@@ -46,11 +46,11 @@ func NewConditionManager(modelName, provider, frontierModel, frontierKey string)
 }
 
 // BuildRequest constructs a ChatCompletionRequest for the given condition and test.
-//   - direct: raw model name, no novexa params
-//   - novexa-direct: model prefixed with "lmstudio:" or "ollama:", no novexa params
-//   - novexa-lightweight: model prefixed, novexa: {mode: lightweight}
-//   - novexa-stabilized: model prefixed, novexa: {mode: stabilized}
-//   - novexa-structured: model prefixed, novexa: {mode: structured}
+//   - direct: raw model name, no gumi params
+//   - gumi-direct: model prefixed with "lmstudio:" or "ollama:", no gumi params
+//   - gumi-lightweight: model prefixed, gumi: {mode: lightweight}
+//   - gumi-stabilized: model prefixed, gumi: {mode: stabilized}
+//   - gumi-structured: model prefixed, gumi: {mode: structured}
 //   - frontier: uses frontierModel from config
 func (cm *ConditionManager) BuildRequest(cond Condition, test benchmark.SuiteTest) benchmark.ChatCompletionRequest {
 	base := benchmark.ChatCompletionRequest{
@@ -64,20 +64,20 @@ func (cm *ConditionManager) BuildRequest(cond Condition, test benchmark.SuiteTes
 	case ConditionDirect:
 		// Use raw model name as-is
 
-	case ConditionNovexaDirect:
+	case ConditionGumiDirect:
 		base.Model = cm.providerPrefix() + cm.modelName
 
-	case ConditionNovexaLightweight:
+	case ConditionGumiLightweight:
 		base.Model = cm.providerPrefix() + cm.modelName
-		base.Novexa = &benchmark.NovexaConfig{Mode: "lightweight"}
+		base.Gumi = &benchmark.GumiConfig{Mode: "lightweight"}
 
-	case ConditionNovexaStabilized:
+	case ConditionGumiStabilized:
 		base.Model = cm.providerPrefix() + cm.modelName
-		base.Novexa = &benchmark.NovexaConfig{Mode: "stabilized"}
+		base.Gumi = &benchmark.GumiConfig{Mode: "stabilized"}
 
-	case ConditionNovexaStructured:
+	case ConditionGumiStructured:
 		base.Model = cm.providerPrefix() + cm.modelName
-		base.Novexa = &benchmark.NovexaConfig{Mode: "structured"}
+		base.Gumi = &benchmark.GumiConfig{Mode: "structured"}
 
 	case ConditionFrontier:
 		if cm.frontierModel != "" {
@@ -89,7 +89,7 @@ func (cm *ConditionManager) BuildRequest(cond Condition, test benchmark.SuiteTes
 }
 
 // providerPrefix returns the provider-specific prefix for the model name
-// when routing through the Novexa runtime.
+// when routing through the Gumi runtime.
 func (cm *ConditionManager) providerPrefix() string {
 	switch cm.provider {
 	case "lmstudio":

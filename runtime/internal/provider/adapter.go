@@ -1,4 +1,4 @@
-// Package provider implements thin adapters that connect the Novexa gateway
+// Package provider implements thin adapters that connect the Gumi gateway
 // to local inference providers. Adapters only translate requests and responses;
 // they do not implement prompt optimization, validation, repair, or retry logic.
 package provider
@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/api"
 )
 
 // ProviderStatus represents the current health state of a provider.

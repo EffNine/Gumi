@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/provider"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/provider"
 )
 
 func TestCheckBlocksEmptyPrompt(t *testing.T) {

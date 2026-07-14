@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/memory"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/memory"
 )
 
 // testServerWithMemory creates a Server with memory engine enabled for testing.
@@ -23,10 +23,10 @@ func testServerWithMemory(t *testing.T) (*Server, *config.Config) {
 	cfg.Runtime.Port = 0
 	cfg.Memory.Enabled = true
 	// Use a temp directory path so each test gets a fresh database.
-	// pipeline.New() overrides empty DBPath with ~/.novexa/memory.db, so we
+	// pipeline.New() overrides empty DBPath with ~/.gumi/memory.db, so we
 	// must provide a unique path to avoid sharing state across tests.
 	cfg.Memory.DBPath = t.TempDir() + "/memory.db"
-	cfg.Storage.DBPath = t.TempDir() + "/novexa.db"
+	cfg.Storage.DBPath = t.TempDir() + "/gumi.db"
 
 	// Point providers at an unreachable port so tests are deterministic.
 	for key := range cfg.Providers {
@@ -42,7 +42,7 @@ func testServerWithMemory(t *testing.T) (*Server, *config.Config) {
 func TestMemoryFactsEndpoint(t *testing.T) {
 	srv, _ := testServerWithMemory(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/memory/facts", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/memory/facts", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -85,7 +85,7 @@ func TestMemoryFactsEndpointWithData(t *testing.T) {
 		t.Fatalf("StoreFact failed: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/memory/facts", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/memory/facts", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -119,7 +119,7 @@ func TestMemoryFactsEndpointSearch(t *testing.T) {
 		t.Fatalf("StoreFact failed: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/memory/facts?search=language", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/memory/facts?search=language", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -140,7 +140,7 @@ func TestMemoryFactsEndpointSearch(t *testing.T) {
 func TestMemoryModelFitEndpoint(t *testing.T) {
 	srv, _ := testServerWithMemory(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/memory/model-fit", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/memory/model-fit", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -174,7 +174,7 @@ func TestMemoryModelFitEndpointWithData(t *testing.T) {
 		t.Fatalf("RecordOutcome failed: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/memory/model-fit", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/memory/model-fit", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -209,7 +209,7 @@ func TestMemoryClearEndpoint(t *testing.T) {
 	}
 
 	// Clear memory.
-	req := httptest.NewRequest(http.MethodPost, "/v1/novexa/memory/clear", nil)
+	req := httptest.NewRequest(http.MethodPost, "/v1/gumi/memory/clear", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -238,7 +238,7 @@ func TestMemoryClearEndpoint(t *testing.T) {
 func TestMemoryStatusEndpoint(t *testing.T) {
 	srv, _ := testServerWithMemory(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/memory/status", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/memory/status", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -269,7 +269,7 @@ func TestMemoryCreateFactEndpoint(t *testing.T) {
 	srv, _ := testServerWithMemory(t)
 
 	payload := `{"key":"test:created","value":"created value","source":"test","confidence":0.85}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/novexa/memory/facts", strings.NewReader(payload))
+	req := httptest.NewRequest(http.MethodPost, "/v1/gumi/memory/facts", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
@@ -305,7 +305,7 @@ func TestMemoryCreateFactEndpointMissingFields(t *testing.T) {
 
 	// Missing value.
 	payload := `{"key":"test:missing"}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/novexa/memory/facts", strings.NewReader(payload))
+	req := httptest.NewRequest(http.MethodPost, "/v1/gumi/memory/facts", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
@@ -326,7 +326,7 @@ func TestMemoryCreateFactEndpointMissingFields(t *testing.T) {
 func TestMemoryCreateFactEndpointInvalidJSON(t *testing.T) {
 	srv, _ := testServerWithMemory(t)
 
-	req := httptest.NewRequest(http.MethodPost, "/v1/novexa/memory/facts", strings.NewReader("not json"))
+	req := httptest.NewRequest(http.MethodPost, "/v1/gumi/memory/facts", strings.NewReader("not json"))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
@@ -349,7 +349,7 @@ func TestMemoryCreateFactEndpointDefaultConfidence(t *testing.T) {
 
 	// No confidence specified — should default to 0.7.
 	payload := `{"key":"test:default-conf","value":"some value"}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/novexa/memory/facts", strings.NewReader(payload))
+	req := httptest.NewRequest(http.MethodPost, "/v1/gumi/memory/facts", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
@@ -379,7 +379,7 @@ func TestMemoryEndpointsRequireAuth(t *testing.T) {
 	cfg.Runtime.Port = 0
 	cfg.Memory.Enabled = true
 	cfg.Memory.DBPath = ""
-	cfg.Storage.DBPath = t.TempDir() + "/novexa.db"
+	cfg.Storage.DBPath = t.TempDir() + "/gumi.db"
 	for key := range cfg.Providers {
 		settings := cfg.Providers[key]
 		settings.URL = "http://127.0.0.1:1"
@@ -389,11 +389,11 @@ func TestMemoryEndpointsRequireAuth(t *testing.T) {
 	srv := testServerWithConfig(t, cfg)
 
 	endpoints := []string{
-		"GET /v1/novexa/memory/facts",
-		"POST /v1/novexa/memory/facts",
-		"GET /v1/novexa/memory/model-fit",
-		"POST /v1/novexa/memory/clear",
-		"GET /v1/novexa/memory/status",
+		"GET /v1/gumi/memory/facts",
+		"POST /v1/gumi/memory/facts",
+		"GET /v1/gumi/memory/model-fit",
+		"POST /v1/gumi/memory/clear",
+		"GET /v1/gumi/memory/status",
 	}
 
 	for _, ep := range endpoints {
@@ -427,7 +427,7 @@ func TestMemoryFactsEndpointMemoryDisabled(t *testing.T) {
 	cfg.Runtime.Host = "127.0.0.1"
 	cfg.Runtime.Port = 0
 	cfg.Memory.Enabled = false
-	cfg.Storage.DBPath = t.TempDir() + "/novexa.db"
+	cfg.Storage.DBPath = t.TempDir() + "/gumi.db"
 	for key := range cfg.Providers {
 		settings := cfg.Providers[key]
 		settings.URL = "http://127.0.0.1:1"
@@ -436,7 +436,7 @@ func TestMemoryFactsEndpointMemoryDisabled(t *testing.T) {
 
 	srv := testServerWithConfig(t, cfg)
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/memory/facts", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/memory/facts", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 
@@ -459,7 +459,7 @@ func TestMemoryCreateFactEndpointMemoryDisabled(t *testing.T) {
 	cfg.Runtime.Host = "127.0.0.1"
 	cfg.Runtime.Port = 0
 	cfg.Memory.Enabled = false
-	cfg.Storage.DBPath = t.TempDir() + "/novexa.db"
+	cfg.Storage.DBPath = t.TempDir() + "/gumi.db"
 	for key := range cfg.Providers {
 		settings := cfg.Providers[key]
 		settings.URL = "http://127.0.0.1:1"
@@ -469,7 +469,7 @@ func TestMemoryCreateFactEndpointMemoryDisabled(t *testing.T) {
 	srv := testServerWithConfig(t, cfg)
 
 	payload := `{"key":"test:fact","value":"value"}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/novexa/memory/facts", strings.NewReader(payload))
+	req := httptest.NewRequest(http.MethodPost, "/v1/gumi/memory/facts", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
@@ -493,7 +493,7 @@ func TestMemoryStatusEndpointMemoryDisabled(t *testing.T) {
 	cfg.Runtime.Host = "127.0.0.1"
 	cfg.Runtime.Port = 0
 	cfg.Memory.Enabled = false
-	cfg.Storage.DBPath = t.TempDir() + "/novexa.db"
+	cfg.Storage.DBPath = t.TempDir() + "/gumi.db"
 	for key := range cfg.Providers {
 		settings := cfg.Providers[key]
 		settings.URL = "http://127.0.0.1:1"
@@ -502,7 +502,7 @@ func TestMemoryStatusEndpointMemoryDisabled(t *testing.T) {
 
 	srv := testServerWithConfig(t, cfg)
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/novexa/memory/status", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/gumi/memory/status", nil)
 	rr := httptest.NewRecorder()
 	srv.server.Handler.ServeHTTP(rr, req)
 

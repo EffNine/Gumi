@@ -1,4 +1,4 @@
-// Package gateway exposes the Novexa HTTP API.
+// Package gateway exposes the Gumi HTTP API.
 //
 // The gateway stays intentionally thin: it handles routing, middleware, and
 // request serialization, then forwards inference requests to Pipeline Engine.
@@ -13,15 +13,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
-	"github.com/novexa/novexa/runtime/internal/pipeline"
-	"github.com/novexa/novexa/runtime/internal/profiles"
-	"github.com/novexa/novexa/runtime/internal/provider"
-	"github.com/novexa/novexa/runtime/internal/telemetry"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/pipeline"
+	"github.com/EffNine/gumi/runtime/internal/profiles"
+	"github.com/EffNine/gumi/runtime/internal/provider"
+	"github.com/EffNine/gumi/runtime/internal/telemetry"
 )
 
-// Server wraps the Novexa HTTP gateway.
+// Server wraps the Gumi HTTP gateway.
 type Server struct {
 	cfg       *config.Config
 	log       *logger.Logger
@@ -61,7 +61,7 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 	pipe.SetTelemetry(tw)
 
 	serverTimeout := 300 * time.Second
-	if v := os.Getenv("NOVEXA_SERVER_TIMEOUT_SECONDS"); v != "" {
+	if v := os.Getenv("GUMI_SERVER_TIMEOUT_SECONDS"); v != "" {
 		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
 			serverTimeout = time.Duration(seconds) * time.Second
 		}

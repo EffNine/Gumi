@@ -3,8 +3,8 @@ package repair
 import (
 	"testing"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/validation"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/validation"
 )
 
 func TestRepairJSONExtractsFencedObject(t *testing.T) {

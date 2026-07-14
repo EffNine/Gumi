@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/api"
 )
 
 // ValidationIssue describes a problem with a tool call.

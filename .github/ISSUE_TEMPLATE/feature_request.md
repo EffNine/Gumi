@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest a feature or improvement for Novexa
+about: Suggest a feature or improvement for Gumi
 title: "[feature] "
 labels: enhancement
 assignees: ""
@@ -23,11 +23,11 @@ assignees: ""
 
 <!-- Other approaches you considered and why they fall short. -->
 
-## Alignment with Novexa principles
+## Alignment with Gumi principles
 
-Novexa is local-first and runtime-only. Does this feature:
+Gumi is local-first and runtime-only. Does this feature:
 
-- [ ] Keep Novexa local-first (no cloud providers)?
+- [ ] Keep Gumi local-first (no cloud providers)?
 - [ ] Work through the Pipeline Engine (no bypass)?
 - [ ] Keep provider adapters thin?
 - [ ] Avoid storing prompts/responses by default?

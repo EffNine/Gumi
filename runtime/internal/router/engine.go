@@ -3,8 +3,8 @@ package router
 import (
 	"fmt"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
 )
 
 // ---------------------------------------------------------------------------

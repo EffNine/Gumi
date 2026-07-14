@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
 // CheckFunc evaluates a model response against a single constraint.

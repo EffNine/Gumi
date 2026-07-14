@@ -7,7 +7,7 @@
 
 ---
 
-Novexa is an intelligence runtime that makes local AI models more stable,
+Gumi is an intelligence runtime that makes local AI models more stable,
 reliable, and production-ready. It sits between your app (OpenCode, Continue,
 Cline) and your local inference engine (Ollama, LM Studio), hardening every
 turn so local models behave like cloud-grade ones.
@@ -22,7 +22,7 @@ a single runtime that turns rough local models into reliable coding agents.
 Tested on Ornith 9B and Qwen 3.5 9B via LM Studio. Full report:
 [`benchmarks/reports/SUMMARY-20260712.md`](../benchmarks/reports/SUMMARY-20260712.md).
 
-| Metric | Before (direct) | After (Novexa) | Change |
+| Metric | Before (direct) | After (Gumi) | Change |
 |---|---|---|---|
 | JSON validity (agentic) | 0% | **100%** | +100% |
 | JSON + required keys | 0% | **100%** | +100% |
@@ -35,7 +35,7 @@ Tested on Ornith 9B and Qwen 3.5 9B via LM Studio. Full report:
 
 These per-turn gains compound across multi-turn agent loops. When an agent
 makes 30+ turns, a single broken JSON response can stall the whole run —
-Novexa makes that failure mode disappear.
+Gumi makes that failure mode disappear.
 
 ---
 
@@ -90,34 +90,34 @@ Pre-built archives for five platforms (the GitHub Actions workflow creates a
 
 | Platform | Archive |
 |---|---|
-| macOS arm64 | `novexa_v0.2.0-alpha_darwin_arm64.tar.gz` |
-| macOS amd64 | `novexa_v0.2.0-alpha_darwin_amd64.tar.gz` |
-| Linux amd64 | `novexa_v0.2.0-alpha_linux_amd64.tar.gz` |
-| Linux arm64 | `novexa_v0.2.0-alpha_linux_arm64.tar.gz` |
-| Windows amd64 | `novexa_v0.2.0-alpha_windows_amd64.zip` |
+| macOS arm64 | `gumi_v0.2.0-alpha_darwin_arm64.tar.gz` |
+| macOS amd64 | `gumi_v0.2.0-alpha_darwin_amd64.tar.gz` |
+| Linux amd64 | `gumi_v0.2.0-alpha_linux_amd64.tar.gz` |
+| Linux arm64 | `gumi_v0.2.0-alpha_linux_arm64.tar.gz` |
+| Windows amd64 | `gumi_v0.2.0-alpha_windows_amd64.zip` |
 
 Each archive contains the binary, embedded dashboard, starter model profiles,
-`novexa.example.yaml`, `README.md`, `LICENSE`, and `CHANGELOG.md`. SHA256
+`gumi.example.yaml`, `README.md`, `LICENSE`, and `CHANGELOG.md`. SHA256
 checksums are published alongside the archives.
 
 ### Install from source
 
 ```bash
-git clone https://github.com/EffNine/Novexa.git
-cd Novexa
+git clone https://github.com/EffNine/Gumi.git
+cd Gumi
 make build
-./novexa start
+./gumi start
 ```
 
 ### Docker
 
 ```bash
-docker build -t novexa:0.2.0-alpha .
-docker run -d --name novexa \
+docker build -t gumi:0.2.0-alpha .
+docker run -d --name gumi \
   -p 127.0.0.1:8787:8787 \
   -p 127.0.0.1:8788:8788 \
-  -v novexa-data:/data \
-  novexa:0.2.0-alpha
+  -v gumi-data:/data \
+  gumi:0.2.0-alpha
 ```
 
 ---
@@ -125,20 +125,20 @@ docker run -d --name novexa \
 ## ⚡ Quick start
 
 ```bash
-./novexa start
+./gumi start
 ```
 
-Point any OpenAI-compatible client at Novexa:
+Point any OpenAI-compatible client at Gumi:
 
 ```text
 base_url: http://127.0.0.1:8787/v1
-api_key:  novexa-local
+api_key:  gumi-local
 model:    lmstudio:qwen2.5-coder-7b-instruct
 ```
 
 ```bash
 curl http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer novexa-local" \
+  -H "Authorization: Bearer gumi-local" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "lmstudio:qwen2.5-coder-7b-instruct",
@@ -186,4 +186,4 @@ runtime layer possible.
 
 ---
 
-**Downloads:** [GitHub Releases](https://github.com/EffNine/Novexa/releases/tag/v0.2.0-alpha)
+**Downloads:** [GitHub Releases](https://github.com/EffNine/Gumi/releases/tag/v0.2.0-alpha)

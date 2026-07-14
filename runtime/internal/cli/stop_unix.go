@@ -27,7 +27,7 @@ func stopProcess() bool {
 	data, err := os.ReadFile(pidFilePath())
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("Novexa does not appear to be running (no PID file found).")
+			fmt.Println("Gumi does not appear to be running (no PID file found).")
 			return true
 		}
 		fmt.Fprintf(os.Stderr, "failed to read PID file: %v\n", err)
@@ -41,16 +41,16 @@ func stopProcess() bool {
 	}
 
 	if !isProcessRunning(pid) {
-		fmt.Printf("Novexa does not appear to be running (PID %d not found).\n", pid)
+		fmt.Printf("Gumi does not appear to be running (PID %d not found).\n", pid)
 		removePidFile()
 		return true
 	}
 
-	fmt.Printf("Stopping Novexa (PID %d)...\n", pid)
+	fmt.Printf("Stopping Gumi (PID %d)...\n", pid)
 
 	// Send SIGTERM for graceful shutdown.
 	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to signal Novexa (PID %d): %v\n", pid, err)
+		fmt.Fprintf(os.Stderr, "failed to signal Gumi (PID %d): %v\n", pid, err)
 		return false
 	}
 
@@ -59,7 +59,7 @@ func stopProcess() bool {
 	for time.Now().Before(deadline) {
 		if !isProcessRunning(pid) {
 			removePidFile()
-			fmt.Printf("Novexa stopped (PID %d).\n", pid)
+			fmt.Printf("Gumi stopped (PID %d).\n", pid)
 			return true
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -68,7 +68,7 @@ func stopProcess() bool {
 	// Graceful timeout reached — send SIGKILL.
 	fmt.Println("Graceful shutdown timed out, sending SIGKILL...")
 	if err := syscall.Kill(pid, syscall.SIGKILL); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to stop Novexa (PID %d).\n", pid)
+		fmt.Fprintf(os.Stderr, "Failed to stop Gumi (PID %d).\n", pid)
 		return false
 	}
 
@@ -76,10 +76,10 @@ func stopProcess() bool {
 	time.Sleep(2 * time.Second)
 	if !isProcessRunning(pid) {
 		removePidFile()
-		fmt.Printf("Novexa forcefully stopped (PID %d).\n", pid)
+		fmt.Printf("Gumi forcefully stopped (PID %d).\n", pid)
 		return true
 	}
 
-	fmt.Fprintf(os.Stderr, "Failed to stop Novexa (PID %d).\n", pid)
+	fmt.Fprintf(os.Stderr, "Failed to stop Gumi (PID %d).\n", pid)
 	return false
 }

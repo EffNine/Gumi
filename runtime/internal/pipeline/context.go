@@ -1,4 +1,4 @@
-// Package pipeline coordinates the Novexa request lifecycle.
+// Package pipeline coordinates the Gumi request lifecycle.
 //
 // Sprint 4 introduces the Pipeline Engine as the required path between the
 // Gateway Engine and Provider Engine. Later sprints will attach context,
@@ -8,16 +8,16 @@ package pipeline
 import (
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	contextengine "github.com/novexa/novexa/runtime/internal/context"
-	guardengine "github.com/novexa/novexa/runtime/internal/guard"
-	"github.com/novexa/novexa/runtime/internal/instruction"
-	"github.com/novexa/novexa/runtime/internal/profiles"
-	promptengine "github.com/novexa/novexa/runtime/internal/prompt"
-	"github.com/novexa/novexa/runtime/internal/provider"
-	repairengine "github.com/novexa/novexa/runtime/internal/repair"
-	validationengine "github.com/novexa/novexa/runtime/internal/validation"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	contextengine "github.com/EffNine/gumi/runtime/internal/context"
+	guardengine "github.com/EffNine/gumi/runtime/internal/guard"
+	"github.com/EffNine/gumi/runtime/internal/instruction"
+	"github.com/EffNine/gumi/runtime/internal/profiles"
+	promptengine "github.com/EffNine/gumi/runtime/internal/prompt"
+	"github.com/EffNine/gumi/runtime/internal/provider"
+	repairengine "github.com/EffNine/gumi/runtime/internal/repair"
+	validationengine "github.com/EffNine/gumi/runtime/internal/validation"
 )
 
 // Severity describes the importance of a pipeline event.

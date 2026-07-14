@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/api"
 )
 
 // IssueCode identifies a validation issue.

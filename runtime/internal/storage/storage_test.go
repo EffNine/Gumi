@@ -8,7 +8,7 @@ import (
 
 func TestOpenCreatesDatabaseAndDirectory(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "nested", "novexa.db")
+	dbPath := filepath.Join(dir, "nested", "gumi.db")
 
 	s, err := Open(dbPath)
 	if err != nil {
@@ -247,8 +247,8 @@ func TestDefaultPathUsesHomeDirectory(t *testing.T) {
 	if path == "" {
 		t.Fatal("DefaultPath returned empty string")
 	}
-	if filepath.Base(path) != "novexa.db" {
-		t.Errorf("expected basename novexa.db, got %s", filepath.Base(path))
+	if filepath.Base(path) != "gumi.db" {
+		t.Errorf("expected basename gumi.db, got %s", filepath.Base(path))
 	}
 }
 

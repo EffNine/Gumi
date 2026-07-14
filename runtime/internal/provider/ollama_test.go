@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 func newOllamaTestServer(t *testing.T) *httptest.Server {
@@ -143,7 +143,7 @@ func TestOllamaGenerateWithThinkFalse(t *testing.T) {
 		Messages: []api.Message{
 			{Role: "user", Content: "hi"},
 		},
-		Novexa: &api.NovexaExtensions{
+		Gumi: &api.GumiExtensions{
 			Thinking: &api.ThinkingConfig{Enabled: &falseVal},
 		},
 	})

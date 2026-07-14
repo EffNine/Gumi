@@ -1,12 +1,12 @@
-# Show HN: Novexa – An intelligence runtime that makes local AI models production-ready
+# Show HN: Gumi – An intelligence runtime that makes local AI models production-ready
 
-**Title:** Show HN: Novexa – An intelligence runtime that makes local AI models production-ready
+**Title:** Show HN: Gumi – An intelligence runtime that makes local AI models production-ready
 
 **Body:**
 
 Local AI is private and cheap, but broken JSON, repeated output, and weak instruction-following make it unusable in real apps.
 
-Novexa is a runtime layer that sits between your app and your local inference server (Ollama, LM Studio, or any OpenAI-compatible server). You point your app at Novexa's `/v1/chat/completions` endpoint and it stabilizes every request before it reaches the model.
+Gumi is a runtime layer that sits between your app and your local inference server (Ollama, LM Studio, or any OpenAI-compatible server). You point your app at Gumi's `/v1/chat/completions` endpoint and it stabilizes every request before it reaches the model.
 
 What changes:
 
@@ -29,15 +29,15 @@ Key features:
 Quick start:
 
 ```
-git clone https://github.com/EffNine/Novexa.git
-cd Novexa && make build
-./novexa start
+git clone https://github.com/EffNine/Gumi.git
+cd Gumi && make build
+./gumi start
 ```
 
-Then point your app at `http://127.0.0.1:8787/v1` with API key `novexa-local`.
+Then point your app at `http://127.0.0.1:8787/v1` with API key `gumi-local`.
 
 Works with OpenCode, Continue, Cline, Open WebUI, or any OpenAI SDK.
 
-Repo: https://github.com/EffNine/Novexa
+Repo: https://github.com/EffNine/Gumi
 
 First release: v0.2.0-alpha. Feedback welcome.

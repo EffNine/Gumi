@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/api"
 )
 
 // contextKey is a private type for context keys.

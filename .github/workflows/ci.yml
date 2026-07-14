@@ -41,7 +41,7 @@ jobs:
       - name: Build runtime binary
         run: |
           cd runtime
-          go build ./cmd/novexa
+          go build ./cmd/gumi
 
   dashboard:
     name: Dashboard build

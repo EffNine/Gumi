@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/api"
 )
 
 // ParsedAssistantResult describes what the assistant message contains after

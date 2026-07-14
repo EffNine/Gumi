@@ -1,7 +1,7 @@
-# LM Studio + Novexa
+# LM Studio + Gumi
 
 Configure [LM Studio](https://lmstudio.ai) as the local inference backend for
-[Novexa](https://novexa.dev). LM Studio runs the model; Novexa adds profiles,
+[Gumi](https://gumi.dev). LM Studio runs the model; Gumi adds profiles,
 validation, repair, and an OpenAI-compatible API that any client can use.
 
 ## What LM Studio provides
@@ -10,7 +10,7 @@ validation, repair, and an OpenAI-compatible API that any client can use.
 - An OpenAI-compatible **Local API Server** at `http://localhost:1234/v1`.
 - GPU/CPU inference on your own machine — no cloud API keys, no rate limits.
 
-## What Novexa adds on top
+## What Gumi adds on top
 
 - **Validated profiles** — correct `max_tokens`, `temperature`, `top_p`,
   `thinking` policy, prompt instructions, and repair strategy for each model.
@@ -29,22 +29,22 @@ validation, repair, and an OpenAI-compatible API that any client can use.
 ```text
 App / SDK / Tool
     ↓
-Novexa  http://127.0.0.1:8787/v1
+Gumi  http://127.0.0.1:8787/v1
     ↓
 LM Studio  http://localhost:1234/v1  (or your LAN URL)
     ↓
 Local model on GPU/CPU
 ```
 
-Clients connect only to Novexa. Novexa connects to LM Studio. You can run LM
-Studio on the same machine as Novexa or on another machine on your LAN.
+Clients connect only to Gumi. Gumi connects to LM Studio. You can run LM
+Studio on the same machine as Gumi or on another machine on your LAN.
 
 ## Prerequisites
 
 - [LM Studio](https://lmstudio.ai) installed.
 - A model downloaded and loaded in LM Studio.
 - LM Studio's **Local API Server** enabled.
-- [Novexa](https://novexa.dev) built or downloaded.
+- [Gumi](https://gumi.dev) built or downloaded.
 
 ## Recommended models
 
@@ -55,7 +55,7 @@ Studio on the same machine as Novexa or on another machine on your LAN.
 | Mid-size general chat | `lmstudio:google/gemma-4-e4b` | `gemma-4-e4b` |
 | Quality alternative | `lmstudio:ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
 
-Each model has a validated Novexa profile in `profiles/`. Profiles set the
+Each model has a validated Gumi profile in `profiles/`. Profiles set the
 correct `max_tokens`, `thinking` policy, prompt instructions, and repair
 strategy automatically.
 
@@ -78,12 +78,12 @@ You should see a JSON list containing the loaded model.
 
 ## Step 2 — LAN setup (optional)
 
-If Novexa runs on a different machine than LM Studio, enable the API server to
+If Gumi runs on a different machine than LM Studio, enable the API server to
 listen on your LAN IP:
 
 1. In LM Studio, start the Local API Server and note the IP shown in the UI, or
    check your machine's local IP address.
-2. Use that IP in the Novexa configuration.
+2. Use that IP in the Gumi configuration.
 
 Example LAN URL (replace `192.168.0.164` with your actual LM Studio host IP):
 
@@ -91,7 +91,7 @@ Example LAN URL (replace `192.168.0.164` with your actual LM Studio host IP):
 http://192.168.0.164:1234/v1
 ```
 
-Verify reachability from the Novexa machine:
+Verify reachability from the Gumi machine:
 
 ```bash
 curl http://192.168.0.164:1234/v1/models
@@ -100,22 +100,22 @@ curl http://192.168.0.164:1234/v1/models
 If this fails, check firewalls and that LM Studio is allowed to accept
 connections from the local network.
 
-## Step 3 — Start Novexa (localhost)
+## Step 3 — Start Gumi (localhost)
 
-Run Novexa with LM Studio on the same machine:
+Run Gumi with LM Studio on the same machine:
 
 ```bash
-NOVEXA_PROVIDER_DEFAULT=lmstudio \
-NOVEXA_LMSTUDIO_URL=http://localhost:1234/v1 \
-NOVEXA_DEFAULT_MODEL=qwen2.5-coder-7b-instruct \
-NOVEXA_PROVIDER_TIMEOUT_SECONDS=120 \
-./novexa start
+GUMI_PROVIDER_DEFAULT=lmstudio \
+GUMI_LMSTUDIO_URL=http://localhost:1234/v1 \
+GUMI_DEFAULT_MODEL=qwen2.5-coder-7b-instruct \
+GUMI_PROVIDER_TIMEOUT_SECONDS=120 \
+./gumi start
 ```
 
 You should see:
 
 ```text
-Novexa Runtime 0.1.0
+Gumi Runtime 0.1.0
 
 API        http://127.0.0.1:8787/v1
 Dashboard  http://127.0.0.1:8788
@@ -126,34 +126,34 @@ Model      qwen2.5-coder-7b-instruct
 Status     ready
 ```
 
-## Step 4 — Start Novexa (LAN example)
+## Step 4 — Start Gumi (LAN example)
 
 If LM Studio is on another machine at `192.168.0.164`:
 
 ```bash
-NOVEXA_PROVIDER_DEFAULT=lmstudio \
-NOVEXA_LMSTUDIO_URL=http://192.168.0.164:1234/v1 \
-NOVEXA_DEFAULT_MODEL=qwen2.5-coder-7b-instruct \
-NOVEXA_PROVIDER_TIMEOUT_SECONDS=120 \
-./novexa start
+GUMI_PROVIDER_DEFAULT=lmstudio \
+GUMI_LMSTUDIO_URL=http://192.168.0.164:1234/v1 \
+GUMI_DEFAULT_MODEL=qwen2.5-coder-7b-instruct \
+GUMI_PROVIDER_TIMEOUT_SECONDS=120 \
+./gumi start
 ```
 
 Replace `192.168.0.164` with your actual LM Studio host IP address.
 
-## Step 5 — Verify Novexa
+## Step 5 — Verify Gumi
 
-List models through Novexa:
+List models through Gumi:
 
 ```bash
 curl http://127.0.0.1:8787/v1/models \
-  -H "Authorization: Bearer novexa-local"
+  -H "Authorization: Bearer gumi-local"
 ```
 
 Send a chat completion:
 
 ```bash
 curl http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer novexa-local" \
+  -H "Authorization: Bearer gumi-local" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "lmstudio:qwen2.5-coder-7b-instruct",
@@ -163,16 +163,16 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 
 Expect an OpenAI-compatible response with generated code.
 
-## LM Studio quirks Novexa handles
+## LM Studio quirks Gumi handles
 
-| Quirk | What Novexa does |
+| Quirk | What Gumi does |
 |-------|------------------|
 | `reasoning_effort` | Sends `reasoning_effort: "none"` for profiles that disable chain-of-thought. |
 | `response_format` | Maps OpenAI-style JSON/schema requests to LM Studio-compatible parameters. |
 | Model aliases | Accepts `lmstudio:qwen2.5-coder-7b-instruct` and resolves it to the loaded LM Studio model. |
 | Parameter defaults | Applies profile defaults for `max_tokens`, `temperature`, `top_p`, and other parameters automatically. |
 
-You do not need to tune these parameters in your client. Novexa applies the
+You do not need to tune these parameters in your client. Gumi applies the
 validated model profile automatically.
 
 ## Troubleshooting
@@ -190,7 +190,7 @@ validated model profile automatically.
 - In LM Studio, load the model in the chat/inference panel.
 - Confirm with:
   `curl http://localhost:1234/v1/models`
-- Restart Novexa after loading or changing models.
+- Restart Gumi after loading or changing models.
 
 ### Wrong URL or missing `/v1`
 
@@ -203,7 +203,7 @@ http://localhost:1234      # wrong
 
 ### LAN firewall issue
 
-If `curl http://192.168.0.164:1234/v1/models` from the Novexa machine fails:
+If `curl http://192.168.0.164:1234/v1/models` from the Gumi machine fails:
 
 - Ensure LM Studio's API server is bound to the LAN interface, not only
   `127.0.0.1`.
@@ -213,9 +213,9 @@ If `curl http://192.168.0.164:1234/v1/models` from the Novexa machine fails:
 
 ### Empty or reasoning-only output
 
-- Restart Novexa with `NOVEXA_PROVIDER_TIMEOUT_SECONDS=180` for longer timeouts.
+- Restart Gumi with `GUMI_PROVIDER_TIMEOUT_SECONDS=180` for longer timeouts.
 - Use stabilized mode for normal chat.
-- Run `./novexa doctor` to check provider health and model availability.
+- Run `./gumi doctor` to check provider health and model availability.
 - Benchmark the model: `./scripts/benchmark-local-model.sh qwen2.5-coder-7b-instruct`
 
 ### Slow response
@@ -230,4 +230,4 @@ If `curl http://192.168.0.164:1234/v1/models` from the Novexa machine fails:
 
 - The identifier you pass to clients must use the `lmstudio:` prefix and match
   the validated profile, e.g. `lmstudio:qwen2.5-coder-7b-instruct`.
-- The underlying LM Studio model name may differ; Novexa resolves the alias.
+- The underlying LM Studio model name may differ; Gumi resolves the alias.

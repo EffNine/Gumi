@@ -1,6 +1,6 @@
-# Novexa Benchmarks
+# Gumi Benchmarks
 
-Reproducible benchmarks comparing direct provider calls vs Novexa Runtime.
+Reproducible benchmarks comparing direct provider calls vs Gumi Runtime.
 
 The unified benchmark framework is now the primary benchmarking tool.
 
@@ -8,39 +8,39 @@ The unified benchmark framework is now the primary benchmarking tool.
 
 ```bash
 # 1. Start LM Studio with a model loaded
-# 2. Start Novexa
-./novexa start
+# 2. Start Gumi
+./gumi start
 
 # 3. Run the unified benchmark
-novexa benchmark --model ornith-1.0-9b@q4_k_m --mode auto
+gumi benchmark --model ornith-1.0-9b@q4_k_m --mode auto
 ```
 
 ## Specification
 
 The design, architecture, data model, scoring methodology, and implementation
-roadmap for the Novexa Benchmark Suite are defined in:
+roadmap for the Gumi Benchmark Suite are defined in:
 
 📄 [`docs/specs/22-benchmark-specification.md`](../docs/specs/22-benchmark-specification.md)
 
 Key features of the new framework:
-- **Single command**: `novexa benchmark --model <name>`
+- **Single command**: `gumi benchmark --model <name>`
 - **Calibrated difficulty tiers**: Easy / Medium / Hard / Frontier
 - **Per-capability scoring**: JSON, instruction-following, tool-calling, reasoning, repetition
 - **Statistical rigor**: Multiple attempts, Cohen's d effect sizes, confidence intervals
-- **Degradation detection**: Measures whether Novexa ever makes correct output worse
+- **Degradation detection**: Measures whether Gumi ever makes correct output worse
 - **Frontier baseline**: Optional comparison to GPT-4o / Claude / Fable 5
 
 ## Calibration Results
 
 Calibrated against `ornith-1.0-9b@q4_k_m` via LM Studio:
 
-| Tier | Target | Direct | Novexa | Status |
+| Tier | Target | Direct | Gumi | Status |
 |------|--------|--------|--------|--------|
 | Easy | 70-90% | 50% | **75%** | ✅ |
 | Medium | 40-70% | 0% | **50%** | ✅ |
 | Hard | 10-40% | 8% | **33%** | ✅ |
 
-Novexa improved every capability with large effect sizes (Cohen's d > 0.8 for
+Gumi improved every capability with large effect sizes (Cohen's d > 0.8 for
 JSON, tool-calling, and reasoning). Degradation rate was 16.7%.
 
 ## Model Recommendations
@@ -61,7 +61,7 @@ benchmarks/
 ```
 
 Raw benchmark outputs are stored **outside** the repository at
-`~/.novexa/benchmarks/` to keep the repo small.
+`~/.gumi/benchmarks/` to keep the repo small.
 
 ## Legacy Benchmarks (Deprecated)
 

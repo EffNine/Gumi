@@ -84,4 +84,4 @@ notes:
   - Tuned for coding and debugging tasks.
   - May need strict formatting for reliable structured output.
   - Conservative temperature improves code correctness.
-  - Validated with LM Studio model qwen2.5-coder-7b-instruct (21/21 Novexa passes, Good baseline).
+  - Validated with LM Studio model qwen2.5-coder-7b-instruct (21/21 Gumi passes, Good baseline).

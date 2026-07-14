@@ -14,11 +14,11 @@ Thumbs.db
 runtime/bin/
 runtime/tmp/
 runtime/coverage.out
-runtime/novexa
+runtime/gumi
 *.db
 *.db-shm
 *.db-wal
-.novexa/
+.gumi/
 dist/
 
 # Dashboard dependencies and generated build output

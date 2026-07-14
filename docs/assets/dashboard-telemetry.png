@@ -1,0 +1,257 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 580" font-family="Inter, ui-sans-serif, system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .sidebar-bg { fill: #252a27; }
+      .sidebar-text { fill: #aeb5b1; font-size: 12px; }
+      .sidebar-active { fill: #e9ff65; }
+      .main-bg { fill: #f3f4f1; }
+      .paper { fill: #fbfcfa; }
+      .line { stroke: #d9ddd8; }
+      .muted { fill: #68706b; font-size: 10px; }
+      .green { fill: #18865a; }
+      .amber { fill: #b26a16; }
+      .red { fill: #c43f3f; }
+      .blue { fill: #2459d3; }
+      .ink { fill: #171a18; }
+      .brand-mark { fill: #e9ff65; }
+      .brand-mark-text { fill: #182019; font: 800 15px ui-monospace, monospace; }
+      .brand-text { fill: #f7f8f6; font-size: 15px; font-weight: 700; }
+      .brand-sub { fill: #aab1ad; font-size: 11px; }
+      .nav-text { fill: #aeb5b1; font-size: 12px; }
+      .nav-text-active { fill: #ffffff; font-size: 12px; }
+      .foot-text { fill: #858e88; font-size: 10px; font-family: ui-monospace, monospace; }
+      .eyebrow { fill: #68706b; font: 700 10px ui-monospace, monospace; }
+      .heading { fill: #171a18; font-size: 24px; font-weight: 700; }
+      .section-title { fill: #171a18; font-size: 17px; font-weight: 700; }
+      .th-text { fill: #68706b; font: 700 10px ui-monospace, monospace; }
+      .td-text { fill: #171a18; font-size: 12px; }
+      .td-muted { fill: #68706b; font-size: 11px; }
+      .code-text { fill: #171a18; font: 11px ui-monospace, monospace; }
+      .th-bg { fill: #e9ebe7; }
+    </style>
+  </defs>
+
+  <!-- Sidebar -->
+  <rect class="sidebar-bg" x="0" y="0" width="224" height="580"/>
+
+  <!-- Brand -->
+  <rect class="brand-mark" x="22" y="22" width="31" height="31" rx="0"/>
+  <text class="brand-mark-text" x="37" y="43" text-anchor="middle">N</text>
+  <text class="brand-text" x="64" y="35">Novexa</text>
+  <text class="brand-sub" x="64" y="50">Runtime console</text>
+
+  <line x1="14" y1="68" x2="210" y2="68" stroke="#3a403c" stroke-width="1"/>
+
+  <!-- Nav items -->
+  <g transform="translate(0, 86)">
+    <!-- Overview -->
+    <rect x="0" y="0" width="224" height="39" fill="transparent"/>
+    <text x="36" y="24" class="nav-text">Overview</text>
+    <rect x="14" y="11" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Requests - active -->
+    <rect x="0" y="43" width="224" height="39" fill="#303632"/>
+    <line x1="0" y1="43" x2="0" y2="82" stroke="#e9ff65" stroke-width="2"/>
+    <text x="36" y="67" class="nav-text-active">Requests</text>
+    <rect x="14" y="54" width="17" height="17" rx="3" fill="none" stroke="#e9ff65" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Providers -->
+    <rect x="0" y="86" width="224" height="39" fill="transparent"/>
+    <text x="36" y="110" class="nav-text">Providers</text>
+    <rect x="14" y="97" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Profiles -->
+    <rect x="0" y="129" width="224" height="39" fill="transparent"/>
+    <text x="36" y="153" class="nav-text">Profiles</text>
+    <rect x="14" y="140" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Config -->
+    <rect x="0" y="172" width="224" height="39" fill="transparent"/>
+    <text x="36" y="196" class="nav-text">Config</text>
+    <rect x="14" y="183" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Doctor -->
+    <rect x="0" y="215" width="224" height="39" fill="transparent"/>
+    <text x="36" y="239" class="nav-text">Doctor</text>
+    <rect x="14" y="226" width="17" height="17" rx="3" fill="none" stroke="#aeb5b1" stroke-width="1.5" opacity="0.6"/>
+  </g>
+
+  <!-- Runtime footer -->
+  <line x1="14" y1="530" x2="210" y2="530" stroke="#3a403c" stroke-width="1"/>
+  <circle cx="22" cy="548" r="3.5" fill="#18865a"/>
+  <text x="32" y="552" fill="#aeb5b1" font-size="10px" font-weight="700" font-family="ui-monospace, monospace" text-transform="uppercase">ok</text>
+  <text x="60" y="552" class="foot-text">127.0.0.1:8787</text>
+
+  <!-- Main content area -->
+  <rect class="main-bg" x="224" y="0" width="676" height="580"/>
+
+  <!-- Top bar -->
+  <line x1="224" y1="93" x2="900" y2="93" stroke="#d9ddd8" stroke-width="1"/>
+  <text x="258" y="40" class="eyebrow">Metadata only</text>
+  <text x="258" y="72" class="heading">Recent requests</text>
+
+  <!-- Record count badge -->
+  <rect x="730" y="48" width="70" height="22" rx="0" fill="transparent"/>
+  <text x="730" y="64" fill="#68706b" font-size="12px">8 records</text>
+
+  <!-- Refresh button -->
+  <rect x="830" y="30" width="36" height="36" rx="0" fill="#fbfcfa" stroke="#d9ddd8" stroke-width="1"/>
+  <rect x="840" y="40" width="16" height="16" rx="2" fill="none" stroke="#171a18" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Table -->
+  <g transform="translate(258, 121)">
+    <!-- Table header -->
+    <rect x="0" y="0" width="614" height="36" fill="#e9ebe7"/>
+    <line x1="0" y1="36" x2="614" y2="36" stroke="#d9ddd8" stroke-width="1"/>
+
+    <text x="14" y="23" class="th-text">Request</text>
+    <text x="174" y="23" class="th-text">Provider / model</text>
+    <text x="324" y="23" class="th-text">Mode</text>
+    <text x="394" y="23" class="th-text">Latency</text>
+    <text x="464" y="23" class="th-text">Stability</text>
+    <text x="544" y="23" class="th-text">Status</text>
+
+    <!-- Row 1: success -->
+    <line x1="0" y1="72" x2="614" y2="72" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="14" y="55" class="code-text">req_a1b2c3d4e5f6...</text>
+    <text x="14" y="68" class="td-muted">Jul 14, 14:32:18</text>
+
+    <text x="174" y="55" class="td-text" font-weight="600">lmstudio</text>
+    <text x="174" y="68" class="td-muted">qwen3.5-9b</text>
+
+    <text x="324" y="55" class="td-text">stabilized</text>
+    <text x="394" y="55" class="td-text">342 ms</text>
+
+    <!-- Stability icons: validation passed -->
+    <rect x="464" y="44" width="15" height="15" rx="2" fill="none" stroke="#2459d3" stroke-width="1.5"/>
+    <text x="480" y="55" class="td-text" fill="#2459d3">✓</text>
+
+    <circle cx="550" cy="50" r="3.5" fill="#18865a"/>
+    <text x="558" y="54" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">success</text>
+
+    <!-- Row 2: success -->
+    <line x1="0" y1="108" x2="614" y2="108" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="14" y="91" class="code-text">req_b2c3d4e5f6g7...</text>
+    <text x="14" y="104" class="td-muted">Jul 14, 14:28:05</text>
+
+    <text x="174" y="91" class="td-text" font-weight="600">lmstudio</text>
+    <text x="174" y="104" class="td-muted">qwen3.5-9b</text>
+
+    <text x="324" y="91" class="td-text">stabilized</text>
+    <text x="394" y="91" class="td-text">891 ms</text>
+
+    <rect x="464" y="80" width="15" height="15" rx="2" fill="none" stroke="#2459d3" stroke-width="1.5"/>
+    <text x="480" y="91" class="td-text" fill="#2459d3">✓</text>
+
+    <circle cx="550" cy="86" r="3.5" fill="#18865a"/>
+    <text x="558" y="90" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">success</text>
+
+    <!-- Row 3: repaired -->
+    <line x1="0" y1="144" x2="614" y2="144" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="14" y="127" class="code-text">req_c3d4e5f6g7h8...</text>
+    <text x="14" y="140" class="td-muted">Jul 14, 14:22:41</text>
+
+    <text x="174" y="127" class="td-text" font-weight="600">lmstudio</text>
+    <text x="174" y="140" class="td-muted">qwen2.5-coder-7b</text>
+
+    <text x="324" y="127" class="td-text">stabilized</text>
+    <text x="394" y="127" class="td-text">1,204 ms</text>
+
+    <rect x="464" y="116" width="15" height="15" rx="2" fill="none" stroke="#2459d3" stroke-width="1.5"/>
+    <text x="480" y="127" class="td-text" fill="#2459d3">✓</text>
+    <rect x="484" y="116" width="15" height="15" rx="2" fill="none" stroke="#b26a16" stroke-width="1.5"/>
+    <text x="498" y="127" class="td-text" fill="#b26a16">🔧</text>
+
+    <circle cx="550" cy="122" r="3.5" fill="#b26a16"/>
+    <text x="558" y="126" fill="#b26a16" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">repaired</text>
+
+    <!-- Row 4: retried -->
+    <line x1="0" y1="180" x2="614" y2="180" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="14" y="163" class="code-text">req_d4e5f6g7h8i9...</text>
+    <text x="14" y="176" class="td-muted">Jul 14, 14:15:30</text>
+
+    <text x="174" y="163" class="td-text" font-weight="600">lmstudio</text>
+    <text x="174" y="176" class="td-muted">qwen3.5-9b</text>
+
+    <text x="324" y="163" class="td-text">stabilized</text>
+    <text x="394" y="163" class="td-text">5,120 ms</text>
+
+    <rect x="464" y="152" width="15" height="15" rx="2" fill="none" stroke="#c43f3f" stroke-width="1.5"/>
+    <text x="480" y="163" class="td-text" fill="#c43f3f">✗</text>
+    <rect x="484" y="152" width="15" height="15" rx="2" fill="none" stroke="#2459d3" stroke-width="1.5"/>
+    <text x="498" y="163" class="td-text" fill="#2459d3">↻</text>
+
+    <circle cx="550" cy="158" r="3.5" fill="#b26a16"/>
+    <text x="558" y="162" fill="#b26a16" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">retried</text>
+
+    <!-- Row 5: success -->
+    <line x1="0" y1="216" x2="614" y2="216" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="14" y="199" class="code-text">req_e5f6g7h8i9j0...</text>
+    <text x="14" y="212" class="td-muted">Jul 14, 14:08:12</text>
+
+    <text x="174" y="199" class="td-text" font-weight="600">ollama</text>
+    <text x="174" y="212" class="td-muted">llama3.2-3b</text>
+
+    <text x="324" y="199" class="td-text">stabilized</text>
+    <text x="394" y="199" class="td-text">467 ms</text>
+
+    <rect x="464" y="188" width="15" height="15" rx="2" fill="none" stroke="#2459d3" stroke-width="1.5"/>
+    <text x="480" y="199" class="td-text" fill="#2459d3">✓</text>
+
+    <circle cx="550" cy="194" r="3.5" fill="#18865a"/>
+    <text x="558" y="198" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">success</text>
+
+    <!-- Row 6: success -->
+    <line x1="0" y1="252" x2="614" y2="252" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="14" y="235" class="code-text">req_f6g7h8i9j0k1...</text>
+    <text x="14" y="248" class="td-muted">Jul 14, 13:55:44</text>
+
+    <text x="174" y="235" class="td-text" font-weight="600">lmstudio</text>
+    <text x="174" y="248" class="td-muted">qwen3.5-9b</text>
+
+    <text x="324" y="235" class="td-text">stabilized</text>
+    <text x="394" y="235" class="td-text">612 ms</text>
+
+    <rect x="464" y="224" width="15" height="15" rx="2" fill="none" stroke="#2459d3" stroke-width="1.5"/>
+    <text x="480" y="235" class="td-text" fill="#2459d3">✓</text>
+
+    <circle cx="550" cy="230" r="3.5" fill="#18865a"/>
+    <text x="558" y="234" fill="#18865a" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">success</text>
+
+    <!-- Row 7: repaired -->
+    <line x1="0" y1="288" x2="614" y2="288" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="14" y="271" class="code-text">req_g7h8i9j0k1l2...</text>
+    <text x="14" y="284" class="td-muted">Jul 14, 13:42:09</text>
+
+    <text x="174" y="271" class="td-text" font-weight="600">ollama</text>
+    <text x="174" y="284" class="td-muted">llama3.2-3b</text>
+
+    <text x="324" y="271" class="td-text">stabilized</text>
+    <text x="394" y="271" class="td-text">2,891 ms</text>
+
+    <rect x="464" y="260" width="15" height="15" rx="2" fill="none" stroke="#2459d3" stroke-width="1.5"/>
+    <text x="480" y="271" class="td-text" fill="#2459d3">✓</text>
+    <rect x="484" y="260" width="15" height="15" rx="2" fill="none" stroke="#b26a16" stroke-width="1.5"/>
+    <text x="498" y="271" class="td-text" fill="#b26a16">🔧</text>
+
+    <circle cx="550" cy="266" r="3.5" fill="#b26a16"/>
+    <text x="558" y="270" fill="#b26a16" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">repaired</text>
+
+    <!-- Row 8: failed -->
+    <line x1="0" y1="324" x2="614" y2="324" stroke="#d9ddd8" stroke-width="1"/>
+    <text x="14" y="307" class="code-text">req_h8i9j0k1l2m3...</text>
+    <text x="14" y="320" class="td-muted">Jul 14, 13:28:55</text>
+
+    <text x="174" y="307" class="td-text" font-weight="600">openai-compatible</text>
+    <text x="174" y="320" class="td-muted">mistral-small</text>
+
+    <text x="324" y="307" class="td-text">stabilized</text>
+    <text x="394" y="307" class="td-text">—</text>
+
+    <rect x="464" y="296" width="15" height="15" rx="2" fill="none" stroke="#c43f3f" stroke-width="1.5"/>
+    <text x="480" y="307" class="td-text" fill="#c43f3f">✗</text>
+
+    <circle cx="550" cy="302" r="3.5" fill="#c43f3f"/>
+    <text x="558" y="306" fill="#c43f3f" font-size="10px" font-weight="700" font-family="ui-monospace, monospace">failed</text>
+  </g>
+</svg>

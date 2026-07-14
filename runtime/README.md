@@ -1,6 +1,6 @@
-# Novexa Runtime
+# Gumi Runtime
 
-This directory contains the Novexa Runtime, a local-first intelligence layer
+This directory contains the Gumi Runtime, a local-first intelligence layer
 that sits between AI applications and local inference engines.
 
 ## Sprint 10: Packaging and Release
@@ -15,9 +15,9 @@ local inference providers through thin adapters and includes:
 - Supported local providers: `ollama`, `lmstudio`, `openai-compatible-local`.
 - Provider health checks, model discovery, and normalized provider errors.
 - Provider timeout handling with a 60-second default.
-- Bearer-token auth with the local key `novexa-local`.
+- Bearer-token auth with the local key `gumi-local`.
 - Request-ID tracking via `X-Request-ID`.
-- Standard Novexa JSON error format.
+- Standard Gumi JSON error format.
 - Graceful shutdown on `Ctrl+C` (SIGINT/SIGTERM).
 
 The runtime also includes the intelligence pipeline, local telemetry, model
@@ -31,7 +31,7 @@ From the repository root:
 make build
 ```
 
-This rebuilds `dashboard/dist` and produces a `novexa` binary with release
+This rebuilds `dashboard/dist` and produces a `gumi` binary with release
 metadata injected via ldflags.
 
 ### Cross-platform release archives
@@ -50,7 +50,7 @@ starter profiles, README, LICENSE, CHANGELOG, and example config.
 
 ```text
 runtime/
-├── cmd/novexa/main.go        # CLI entrypoint
+├── cmd/gumi/main.go        # CLI entrypoint
 ├── internal/
 │   ├── api/                  # OpenAI-compatible request/response types
 │   ├── cli/                  # Command parsing and dispatch
@@ -67,18 +67,18 @@ runtime/
 From inside `runtime/`:
 
 ```bash
-go run ./cmd/novexa version
-go run ./cmd/novexa start
-go run ./cmd/novexa start --port 8787
-go run ./cmd/novexa status
-go run ./cmd/novexa doctor
-go run ./cmd/novexa providers
-go run ./cmd/novexa models
-go run ./cmd/novexa config show
-go run ./cmd/novexa benchmark
+go run ./cmd/gumi version
+go run ./cmd/gumi start
+go run ./cmd/gumi start --port 8787
+go run ./cmd/gumi status
+go run ./cmd/gumi doctor
+go run ./cmd/gumi providers
+go run ./cmd/gumi models
+go run ./cmd/gumi config show
+go run ./cmd/gumi benchmark
 ```
 
-`go run ./cmd/novexa start` starts the HTTP gateway and runs until it receives
+`go run ./cmd/gumi start` starts the HTTP gateway and runs until it receives
 `Ctrl+C`, at which point it shuts down gracefully.
 
 The API is served at `http://127.0.0.1:8787/v1`. When `dashboard/dist` has
@@ -93,7 +93,7 @@ go test ./...
 ## Configuration
 
 The 0.1.0 alpha release continues to use hard-coded safe defaults. YAML config
-loading will be added in a release after the alpha. `novexa.example.yaml` at the
+loading will be added in a release after the alpha. `gumi.example.yaml` at the
 repository root documents the planned configuration format.
 
 Default local API:
@@ -110,23 +110,23 @@ curl http://localhost:8787/health
 
 # Discovered models (auth required)
 curl http://localhost:8787/v1/models \
-  -H "Authorization: Bearer novexa-local"
+  -H "Authorization: Bearer gumi-local"
 
 # Auto-select an available local provider/model
 curl http://localhost:8787/v1/chat/completions \
-  -H "Authorization: Bearer novexa-local" \
+  -H "Authorization: Bearer gumi-local" \
   -H "Content-Type: application/json" \
   -d '{"model":"local:auto","messages":[{"role":"user","content":"Hello"}]}'
 
 # Request a specific provider/model when available
 curl http://localhost:8787/v1/chat/completions \
-  -H "Authorization: Bearer novexa-local" \
+  -H "Authorization: Bearer gumi-local" \
   -H "Content-Type: application/json" \
   -d '{"model":"ollama:llama3","messages":[{"role":"user","content":"Hello"}]}'
 
 # Provider unavailable error for an explicit model request
 curl http://localhost:8787/v1/chat/completions \
-  -H "Authorization: Bearer novexa-local" \
+  -H "Authorization: Bearer gumi-local" \
   -H "Content-Type: application/json" \
   -d '{"model":"ollama:not-a-real-model","messages":[{"role":"user","content":"Hello"}]}'
 ```

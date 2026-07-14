@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
 // Report is the full output of a benchmark run, ready for serialization.

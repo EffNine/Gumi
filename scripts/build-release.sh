@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Cross-compile Novexa release archives for all supported platforms and package
+# Cross-compile Gumi release archives for all supported platforms and package
 # them with the dashboard production build, model profiles, documentation, and
 # example configuration.
 #
@@ -34,9 +34,9 @@ DASHBOARD_DIR="dashboard/dist"
 PROFILES_DIR="profiles"
 
 LDFLAGS="-s -w \
-  -X github.com/novexa/novexa/runtime/internal/version.Version=${VERSION} \
-  -X github.com/novexa/novexa/runtime/internal/version.Commit=${COMMIT} \
-  -X github.com/novexa/novexa/runtime/internal/version.BuildDate=${BUILD_DATE}"
+  -X github.com/EffNine/gumi/runtime/internal/version.Version=${VERSION} \
+  -X github.com/EffNine/gumi/runtime/internal/version.Commit=${COMMIT} \
+  -X github.com/EffNine/gumi/runtime/internal/version.BuildDate=${BUILD_DATE}"
 
 require_dashboard() {
   if [ ! -f "${DASHBOARD_DIR}/index.html" ]; then
@@ -46,7 +46,7 @@ require_dashboard() {
 }
 
 require_files() {
-  for f in README.md LICENSE CHANGELOG.md novexa.example.yaml; do
+  for f in README.md LICENSE CHANGELOG.md gumi.example.yaml; do
     if [ ! -f "$f" ]; then
       echo "missing required release file: $f" >&2
       exit 1
@@ -58,19 +58,19 @@ build_target() {
   local os="$1"
   local arch="$2"
   local ext="$3"
-  local name="novexa-${VERSION}-${os}-${arch}"
+  local name="gumi-${VERSION}-${os}-${arch}"
   local dir="$(pwd)/${STAGING_DIR}/${name}"
 
   echo "building ${os}/${arch} ..."
   mkdir -p "${dir}"
 
   (cd runtime && GOOS="${os}" GOARCH="${arch}" CGO_ENABLED=0 \
-    go build -ldflags "${LDFLAGS}" -o "${dir}/novexa${ext}" ./cmd/novexa)
+    go build -ldflags "${LDFLAGS}" -o "${dir}/gumi${ext}" ./cmd/gumi)
 
   mkdir -p "${dir}/dashboard"
   cp -r "${DASHBOARD_DIR}" "${dir}/dashboard/"
   cp -r "${PROFILES_DIR}" "${dir}/profiles/"
-  cp README.md LICENSE CHANGELOG.md novexa.example.yaml "${dir}/"
+  cp README.md LICENSE CHANGELOG.md gumi.example.yaml "${dir}/"
 
   mkdir -p "${RELEASE_DIR_ABS}"
   if [ "${os}" = "windows" ]; then
@@ -94,7 +94,7 @@ main() {
   build_target windows amd64 ".exe"
 
   echo "generating SHA256SUMS ..."
-  (cd "${RELEASE_DIR}" && sha256sum novexa-* > SHA256SUMS.txt)
+  (cd "${RELEASE_DIR}" && sha256sum gumi-* > SHA256SUMS.txt)
 
   echo ""
   echo "release artifacts ready in ${RELEASE_DIR}:"

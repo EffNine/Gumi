@@ -1,11 +1,11 @@
-// Package profiles defines and loads Novexa model profiles.
+// Package profiles defines and loads Gumi model profiles.
 package profiles
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/novexa/novexa/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/api"
 )
 
 // Profile describes model-specific behaviour for one local model family.
@@ -83,7 +83,7 @@ type GuardSettings struct {
 }
 
 // ThinkingPolicy controls when and how a model may use internal reasoning.
-// Reasoning text is never stored by Novexa; only safe metadata is recorded.
+// Reasoning text is never stored by Gumi; only safe metadata is recorded.
 type ThinkingPolicy struct {
 	Allowed              bool     `yaml:"allowed,omitempty"`
 	DefaultMode          string   `yaml:"default_mode,omitempty"`

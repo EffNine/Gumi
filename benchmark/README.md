@@ -1,30 +1,30 @@
-# Novexa Benchmark Suite
+# Gumi Benchmark Suite
 
-A unified, scientifically rigorous benchmark framework for measuring Novexa's
+A unified, scientifically rigorous benchmark framework for measuring Gumi's
 impact on model output quality across local and frontier models.
 
 ## Quick Start
 
 ```bash
 # 1. Start LM Studio with a model loaded
-# 2. Start Novexa
-novexa start
+# 2. Start Gumi
+gumi start
 
 # 3. Run the benchmark
-novexa benchmark --model ornith-1.0-9b@q4_k_m --mode auto
+gumi benchmark --model ornith-1.0-9b@q4_k_m --mode auto
 ```
 
 ## CLI Usage
 
 ```
-novexa benchmark [flags]
+gumi benchmark [flags]
 
 Flags:
   --model string         Model name (required)
   --provider string      Provider (auto-detected from model name)
   --mode string          Execution mode: auto | quick | thorough | frontier (default "auto")
   --attempts int         Attempts per condition (default 3)
-  --conditions strings   Conditions to test (default "direct,novexa-stabilized")
+  --conditions strings   Conditions to test (default "direct,gumi-stabilized")
   --frontier-key string  API key for frontier baseline (optional)
   --frontier-model string Frontier model name (optional)
   --output string        Output directory (default "benchmarks/reports/")
@@ -49,14 +49,14 @@ For the full design specification, see `docs/specs/22-benchmark-specification.md
 
 ## Test Suites
 
-| Category | What it measures | Novexa engine under test |
+| Category | What it measures | Gumi engine under test |
 |----------|-----------------|--------------------------|
 | JSON | Valid JSON rate, key presence, schema compliance | Repair, Validation, Prompt |
 | Instruction | Constraint satisfaction rate | Instruction Assist |
 | Repetition | Deduplication of repeated content | Guard, Repair |
 | Tool Calling | Valid tool call JSON, correct arguments | Tool shim, Validation |
 | Reasoning | Correct answer on multi-step problems | Prompt, Context |
-| Degradation | Does Novexa corrupt already-correct output? | All engines (negative test) |
+| Degradation | Does Gumi corrupt already-correct output? | All engines (negative test) |
 
 ## Difficulty Tiers
 
@@ -71,24 +71,24 @@ For the full design specification, see `docs/specs/22-benchmark-specification.md
 
 The benchmark was calibrated against `ornith-1.0-9b@q4_k_m` via LM Studio:
 
-| Tier | Target | Direct | Novexa | Status |
+| Tier | Target | Direct | Gumi | Status |
 |------|--------|--------|--------|--------|
 | Easy | 70-90% | 50% | **75%** | ✅ |
 | Medium | 40-70% | 0% | **50%** | ✅ |
 | Hard | 10-40% | 8% | **33%** | ✅ |
 
-Novexa improved every capability with large effect sizes (Cohen's d > 0.8 for
+Gumi improved every capability with large effect sizes (Cohen's d > 0.8 for
 JSON, tool-calling, and reasoning). Degradation rate was 16.7% (1 semantic
 corruption out of 6 degradation tests).
 
 ## Sample Report
 
 ```
-# Novexa Benchmark Report
+# Gumi Benchmark Report
 **Model:** ornith-1.0-9b@q4_k_m · **Tier:** medium
 
 ## Overall
-| Metric | Direct | Novexa | Delta |
+| Metric | Direct | Gumi | Delta |
 |--------|--------|--------|-------|
 | Overall Score | 0.80 | 1.38 | +0.58 |
 | Latency (avg) | 4709ms | 1540ms | -3169ms |

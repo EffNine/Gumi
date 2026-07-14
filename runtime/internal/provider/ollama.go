@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 const ollamaDefaultURL = "http://localhost:11434"
@@ -205,9 +205,9 @@ func (o *OllamaAdapter) Generate(ctx context.Context, req api.ChatCompletionRequ
 		Options:  options,
 	}
 
-	// Resolve thinking from request-level novexa extension.
-	if req.Novexa != nil && req.Novexa.Thinking != nil && req.Novexa.Thinking.Enabled != nil {
-		payload.Think = req.Novexa.Thinking.Enabled
+	// Resolve thinking from request-level gumi extension.
+	if req.Gumi != nil && req.Gumi.Thinking != nil && req.Gumi.Thinking.Enabled != nil {
+		payload.Think = req.Gumi.Thinking.Enabled
 	}
 
 	body, err := json.Marshal(payload)
@@ -263,7 +263,7 @@ func (o *OllamaAdapter) Generate(ctx context.Context, req api.ChatCompletionRequ
 		return nil, ProviderError{
 			Code:       ValidationFailed,
 			Message:    "model exhausted output tokens on reasoning and returned an empty final answer",
-			Suggestion: "Increase max_tokens or disable thinking via novexa.thinking.enabled=false.",
+			Suggestion: "Increase max_tokens or disable thinking via gumi.thinking.enabled=false.",
 		}
 	}
 
@@ -329,8 +329,8 @@ func (o *OllamaAdapter) GenerateStream(ctx context.Context, req api.ChatCompleti
 		Options:  options,
 	}
 
-	if req.Novexa != nil && req.Novexa.Thinking != nil && req.Novexa.Thinking.Enabled != nil {
-		payload.Think = req.Novexa.Thinking.Enabled
+	if req.Gumi != nil && req.Gumi.Thinking != nil && req.Gumi.Thinking.Enabled != nil {
+		payload.Think = req.Gumi.Thinking.Enabled
 	}
 
 	body, err := json.Marshal(payload)

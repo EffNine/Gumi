@@ -3,7 +3,7 @@ package runner
 import (
 	"testing"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
 // TestRun is an integration test that requires a running LM Studio instance.
@@ -45,7 +45,7 @@ func TestOrchestrator_ClientForCondition(t *testing.T) {
 	o := NewOrchestrator(Config{Model: "test", Provider: "lmstudio"})
 
 	direct := NewProviderClient("http://localhost:1234", "")
-	novexa := NewProviderClient("http://127.0.0.1:8787", "")
+	gumi := NewProviderClient("http://127.0.0.1:8787", "")
 	frontier := NewProviderClient("https://api.anthropic.com", "sk-xxx")
 
 	tests := []struct {
@@ -54,15 +54,15 @@ func TestOrchestrator_ClientForCondition(t *testing.T) {
 		wantBase string
 	}{
 		{ConditionDirect, false, "http://localhost:1234"},
-		{ConditionNovexaStabilized, false, "http://127.0.0.1:8787"},
-		{ConditionNovexaLightweight, false, "http://127.0.0.1:8787"},
-		{ConditionNovexaDirect, false, "http://127.0.0.1:8787"},
+		{ConditionGumiStabilized, false, "http://127.0.0.1:8787"},
+		{ConditionGumiLightweight, false, "http://127.0.0.1:8787"},
+		{ConditionGumiDirect, false, "http://127.0.0.1:8787"},
 		{ConditionFrontier, false, "https://api.anthropic.com"},
 	}
 
 	for _, tt := range tests {
 		t.Run(string(tt.cond), func(t *testing.T) {
-			client := o.clientForCondition(tt.cond, direct, novexa, frontier)
+			client := o.clientForCondition(tt.cond, direct, gumi, frontier)
 			if tt.wantNil {
 				if client != nil {
 					t.Errorf("clientForCondition(%v) = %+v, want nil", tt.cond, client)
@@ -86,7 +86,7 @@ func TestComputeLatencyOverhead(t *testing.T) {
 		want  float64
 	}{
 		{
-			name: "no novexa results",
+			name: "no gumi results",
 			input: []benchmark.TestResult{
 				{Condition: "direct", LatencyMs: 100},
 			},
@@ -95,28 +95,28 @@ func TestComputeLatencyOverhead(t *testing.T) {
 		{
 			name: "no direct results",
 			input: []benchmark.TestResult{
-				{Condition: "novexa-stabilized", LatencyMs: 200},
+				{Condition: "gumi-stabilized", LatencyMs: 200},
 			},
 			want: 0,
 		},
 		{
-			name: "novexa slower by 50ms avg",
+			name: "gumi slower by 50ms avg",
 			input: []benchmark.TestResult{
 				{Condition: "direct", LatencyMs: 100},
 				{Condition: "direct", LatencyMs: 150},
-				{Condition: "novexa-stabilized", LatencyMs: 200},
-				{Condition: "novexa-lightweight", LatencyMs: 250},
+				{Condition: "gumi-stabilized", LatencyMs: 200},
+				{Condition: "gumi-lightweight", LatencyMs: 250},
 			},
 			// direct avg = (100+150)/2 = 125
-			// novexa avg = (200+250)/2 = 225
+			// gumi avg = (200+250)/2 = 225
 			// overhead = 225 - 125 = 100
 			want: 100,
 		},
 		{
-			name: "overhead capped at zero when novexa faster",
+			name: "overhead capped at zero when gumi faster",
 			input: []benchmark.TestResult{
 				{Condition: "direct", LatencyMs: 200},
-				{Condition: "novexa-stabilized", LatencyMs: 100},
+				{Condition: "gumi-stabilized", LatencyMs: 100},
 			},
 			want: 0,
 		},
@@ -171,19 +171,19 @@ func TestDirectBaseURL(t *testing.T) {
 	}
 }
 
-func TestNovexaBaseURL(t *testing.T) {
+func TestGumiBaseURL(t *testing.T) {
 	o := NewOrchestrator(Config{Provider: "lmstudio"})
-	got := o.novexaBaseURL()
+	got := o.gumiBaseURL()
 	want := ""
 	if got != want {
-		t.Errorf("novexaBaseURL() = %q, want %q", got, want)
+		t.Errorf("gumiBaseURL() = %q, want %q", got, want)
 	}
 
 	// Custom base URL overrides
 	o2 := NewOrchestrator(Config{BaseURL: "http://custom:8080"})
-	got2 := o2.novexaBaseURL()
+	got2 := o2.gumiBaseURL()
 	if got2 != "http://custom:8080" {
-		t.Errorf("novexaBaseURL with BaseURL = %q, want %q", got2, "http://custom:8080")
+		t.Errorf("gumiBaseURL with BaseURL = %q, want %q", got2, "http://custom:8080")
 	}
 }
 

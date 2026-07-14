@@ -3,7 +3,7 @@ package scorer
 import (
 	"testing"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
 func TestDegradationDetector_Identical(t *testing.T) {

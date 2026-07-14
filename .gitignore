@@ -10,6 +10,9 @@ Thumbs.db
 .claude/
 .remember/
 
+# Virtual environments
+.venv-terminal/
+
 # Internal spec/architecture docs (not for public repo)
 docs/specs/
 docs/guides/release-checklist.md
@@ -29,12 +32,12 @@ playwright-report/
 logs/
 
 # Runtime storage
-.novexa/
+.gumi/
 *.db
 *.db-shm
 *.db-wal
 
-# Benchmark raw outputs (stored outside repo at ~/.novexa/benchmarks/)
+# Benchmark raw outputs (stored outside repo at ~/.gumi/benchmarks/)
 benchmarks/archive/
 benchmarks/terminal-bench/
 benchmarks/standard/
@@ -47,7 +50,9 @@ benchmarks/lmstudio-matrix/
 runtime/bin/
 runtime/tmp/
 runtime/coverage.out
-runtime/novexa
+runtime/gumi
+novexa-benchmark
+novexa
 
 # Node / Dashboard
 dashboard/node_modules/
@@ -65,8 +70,8 @@ dist/
 benchmarks/
 build/
 bin/
-novexa
-novexa.exe
+gumi
+gumi.exe
 
 # Cache
 .cache/

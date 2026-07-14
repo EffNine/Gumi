@@ -1,7 +1,7 @@
 # Quickstart
 
 This quickstart assumes you are using Ollama. It takes about five minutes and
-covers installing Novexa, pulling a local model, and sending your first request.
+covers installing Gumi, pulling a local model, and sending your first request.
 
 ## 1. Install or start Ollama
 
@@ -41,18 +41,18 @@ Verify the model is installed:
 ollama list
 ```
 
-## 3. Start Novexa
+## 3. Start Gumi
 
 If you built from source or extracted a release archive, run:
 
 ```bash
-./novexa start
+./gumi start
 ```
 
 You should see:
 
 ```text
-Novexa Runtime 0.1.0
+Gumi Runtime 0.1.0
 
 API        http://127.0.0.1:8787/v1
 Dashboard  http://127.0.0.1:8788
@@ -63,7 +63,7 @@ Model      local:auto
 Status     ready
 ```
 
-Leave this terminal open. Novexa runs until you press `Ctrl+C`.
+Leave this terminal open. Gumi runs until you press `Ctrl+C`.
 
 ## 4. Open the dashboard
 
@@ -80,7 +80,7 @@ In another terminal, run:
 
 ```bash
 curl http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer novexa-local" \
+  -H "Authorization: Bearer gumi-local" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "local:auto",
@@ -88,14 +88,14 @@ curl http://127.0.0.1:8787/v1/chat/completions \
   }'
 ```
 
-Novexa selects an available local provider and model automatically, then returns
+Gumi selects an available local provider and model automatically, then returns
 an OpenAI-compatible response.
 
 To request a specific model, use the `provider:model` form:
 
 ```bash
 curl http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer novexa-local" \
+  -H "Authorization: Bearer gumi-local" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "ollama:qwen3:8b",
@@ -103,18 +103,18 @@ curl http://127.0.0.1:8787/v1/chat/completions \
   }'
 ```
 
-## 6. Run `novexa doctor` if something fails
+## 6. Run `gumi doctor` if something fails
 
 If a request does not work, run diagnostics in another terminal:
 
 ```bash
-./novexa doctor
+./gumi doctor
 ```
 
 Example output when Ollama is reachable but the default model is missing:
 
 ```text
-Novexa Doctor
+Gumi Doctor
 
 Runtime Config        ok
 Telemetry Storage     ok
@@ -127,7 +127,7 @@ Warnings:
 
 Suggestion:
 - Run: ollama pull qwen3:8b
-- Or start Novexa with: ./novexa start --model qwen3:8b
+- Or start Gumi with: ./gumi start --model qwen3:8b
 ```
 
 Common fixes are in the [troubleshooting guide](./troubleshooting.md).

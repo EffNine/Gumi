@@ -1,9 +1,9 @@
-// Package config provides Novexa runtime configuration loading.
+// Package config provides Gumi runtime configuration loading.
 //
 // Config is loaded from the first available source:
 //  1. YAML file at the given configPath (via --config flag)
-//  2. ~/.novexa/novexa.yaml
-//  3. ./novexa.yaml (project-local)
+//  2. ~/.gumi/gumi.yaml
+//  3. ./gumi.yaml (project-local)
 //  4. Safe defaults (no file needed)
 //
 // Environment variables override any YAML values (see applyEnvOverrides).
@@ -170,7 +170,7 @@ type TelemetryConfig struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Runtime: RuntimeConfig{
-			Name:        "novexa",
+			Name:        "gumi",
 			Mode:        "stabilized",
 			Host:        "127.0.0.1",
 			Port:        8787,
@@ -190,7 +190,7 @@ func DefaultConfig() *Config {
 		},
 		Auth: AuthConfig{
 			Mode:     "local",
-			LocalKey: "novexa-local",
+			LocalKey: "gumi-local",
 		},
 		Provider: ProviderConfig{
 			Default: "ollama",
@@ -259,8 +259,8 @@ func DefaultConfig() *Config {
 //
 // Config is loaded from the first available source:
 //  1. YAML file at the given configPath (via --config flag)
-//  2. ~/.novexa/novexa.yaml
-//  3. ./novexa.yaml (project-local)
+//  2. ~/.gumi/gumi.yaml
+//  3. ./gumi.yaml (project-local)
 //  4. Safe defaults
 //
 // Environment variables override any YAML values.
@@ -295,9 +295,9 @@ func configSearchPaths(configPath string) []string {
 	home, _ := os.UserHomeDir()
 	paths := []string{configPath}
 	if home != "" {
-		paths = append(paths, filepath.Join(home, ".novexa", "novexa.yaml"))
+		paths = append(paths, filepath.Join(home, ".gumi", "gumi.yaml"))
 	}
-	paths = append(paths, "novexa.yaml")
+	paths = append(paths, "gumi.yaml")
 	return paths
 }
 
@@ -314,22 +314,22 @@ func expandHome(path string) string {
 }
 
 func applyEnvOverrides(cfg *Config) {
-	if v := os.Getenv("NOVEXA_PROVIDER_DEFAULT"); v != "" {
+	if v := os.Getenv("GUMI_PROVIDER_DEFAULT"); v != "" {
 		cfg.Provider.Default = v
 	}
-	if v := os.Getenv("NOVEXA_OLLAMA_URL"); v != "" {
+	if v := os.Getenv("GUMI_OLLAMA_URL"); v != "" {
 		updateProvider(cfg, "ollama", func(s *ProviderSettings) { s.URL = v })
 	}
-	if v := os.Getenv("NOVEXA_LMSTUDIO_URL"); v != "" {
+	if v := os.Getenv("GUMI_LMSTUDIO_URL"); v != "" {
 		updateProvider(cfg, "lmstudio", func(s *ProviderSettings) { s.URL = v })
 	}
-	if v := os.Getenv("NOVEXA_OPENAI_COMPATIBLE_LOCAL_URL"); v != "" {
+	if v := os.Getenv("GUMI_OPENAI_COMPATIBLE_LOCAL_URL"); v != "" {
 		updateProvider(cfg, "openai_compatible_local", func(s *ProviderSettings) { s.URL = v })
 	}
-	if v := os.Getenv("NOVEXA_DEFAULT_MODEL"); v != "" {
+	if v := os.Getenv("GUMI_DEFAULT_MODEL"); v != "" {
 		updateProvider(cfg, cfg.Provider.Default, func(s *ProviderSettings) { s.DefaultModel = v })
 	}
-	if v := os.Getenv("NOVEXA_PROVIDER_TIMEOUT_SECONDS"); v != "" {
+	if v := os.Getenv("GUMI_PROVIDER_TIMEOUT_SECONDS"); v != "" {
 		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
 			for key := range cfg.Providers {
 				updateProvider(cfg, key, func(s *ProviderSettings) { s.TimeoutSeconds = seconds })

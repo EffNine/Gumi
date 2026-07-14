@@ -8,7 +8,7 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8787',
         rewrite: (path) => path.replace(/^\/api/, ''),
-        headers: { Authorization: 'Bearer novexa-local' },
+        headers: { Authorization: 'Bearer gumi-local' },
       },
     },
   },

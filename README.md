@@ -1,17 +1,17 @@
 <div align="center">
 
-# Novexa
+# Gumi
 
 ### Intelligence Runtime for Local AI
 
-**Novexa is an intelligence runtime that makes local AI models more stable,
+**Gumi is an intelligence runtime that makes local AI models more stable,
 reliable, and production-ready.**
 
 [![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![CI](https://github.com/EffNine/Novexa/actions/workflows/ci.yml/badge.svg)](https://github.com/EffNine/Novexa/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/EffNine/Novexa?include_prereleases&label=release)](https://github.com/EffNine/Novexa/releases)
+[![CI](https://github.com/EffNine/Gumi/actions/workflows/ci.yml/badge.svg)](https://github.com/EffNine/Gumi/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/EffNine/Gumi?include_prereleases&label=release)](https://github.com/EffNine/Gumi/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/EffNine/Novexa?style=social)](https://github.com/EffNine/Novexa/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/EffNine/Gumi?style=social)](https://github.com/EffNine/Gumi/stargazers)
 
 [Quick start](#get-started) · [Benchmarks](#benchmarks) · [Docs](./docs/) · [Integrations](./docs/integrations/README.md) · [Changelog](./CHANGELOG.md)
 
@@ -19,12 +19,12 @@ reliable, and production-ready.**
 
 ---
 
-Novexa sits between your app and your local inference server:
+Gumi sits between your app and your local inference server:
 
 ```text
 OpenCode / Continue / Cline / Open WebUI / SDK
         ↓
-Novexa Runtime
+Gumi Runtime
 http://127.0.0.1:8787/v1
         ↓
 LM Studio / Ollama / OpenAI-compatible local server
@@ -32,23 +32,23 @@ LM Studio / Ollama / OpenAI-compatible local server
 Local model
 ```
 
-Novexa is not a model, chatbot, or hosted cloud gateway. It is the runtime layer
+Gumi is not a model, chatbot, or hosted cloud gateway. It is the runtime layer
 around local AI.
 
 ---
 
 ## Quick demo
 
-Start Novexa and point any OpenAI-compatible client at it — that's it.
+Start Gumi and point any OpenAI-compatible client at it — that's it.
 
 ```bash
 # Build and start
 make build
-./novexa start
+./gumi start
 
 # Any OpenAI SDK / cURL works out of the box
 curl http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer novexa-local" \
+  -H "Authorization: Bearer gumi-local" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "lmstudio:qwen2.5-coder-7b-instruct",
@@ -59,7 +59,7 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://127.0.0.1:8787/v1", api_key="novexa-local")
+client = OpenAI(base_url="http://127.0.0.1:8787/v1", api_key="gumi-local")
 print(client.chat.completions.create(
     model="lmstudio:qwen2.5-coder-7b-instruct",
     messages=[{"role": "user", "content": "Write a tiny TypeScript add function."}],
@@ -70,7 +70,7 @@ Dashboard: **http://127.0.0.1:8788**
 
 <!-- A demo GIF will go here once recorded. -->
 
-![Novexa quick demo](./docs/assets/novexa-demo.gif)
+![Gumi quick demo](./docs/assets/gumi-demo.gif)
 
 ---
 
@@ -79,7 +79,7 @@ Dashboard: **http://127.0.0.1:8788**
 Benchmarked on Ornith 9B and Qwen 3.5 9B via LM Studio.
 Full report: [`benchmarks/reports/SUMMARY-20260712.md`](benchmarks/reports/SUMMARY-20260712.md).
 
-| Metric | Direct (no Novexa) | Novexa | Change |
+| Metric | Direct (no Gumi) | Gumi | Change |
 |---|---|---|---|
 | JSON validity (agentic) | 0% | **100%** | +100% |
 | JSON + required keys | 0% | **100%** | +100% |
@@ -98,20 +98,20 @@ where a single broken JSON response can stall the entire run.
 
 - **OpenCode / Continue / Cline users** — You run a coding agent on a local
   model and hit broken JSON, repeated output, or empty responses. Point your
-  client at Novexa instead of the raw provider and those failure modes
+  client at Gumi instead of the raw provider and those failure modes
   disappear.
 - **Ollama / LM Studio users** — You like local inference but the model is
-  rough in real apps. Novexa adds JSON repair, instruction-following assist,
+  rough in real apps. Gumi adds JSON repair, instruction-following assist,
   anti-loop guards, and telemetry without replacing your model.
 - **Local AI app builders** — You're building on top of local models and need
   an OpenAI-compatible reliability layer with model routing, memory, and
-  provider-specific fixes. Novexa is that layer.
+  provider-specific fixes. Gumi is that layer.
 
 ---
 
-## What makes Novexa different?
+## What makes Gumi different?
 
-| | Novexa | Raw Ollama / LM Studio | Cloud gateways |
+| | Gumi | Raw Ollama / LM Studio | Cloud gateways |
 |---|---|---|---|
 | Runs locally (no data leaves your machine) | ✅ | ✅ | ❌ |
 | OpenAI-compatible drop-in | ✅ | partial | ✅ |
@@ -123,7 +123,7 @@ where a single broken JSON response can stall the entire run.
 | Local telemetry dashboard | ✅ | ❌ | ✅ |
 | Local-first, no cloud dependency | ✅ | ✅ | ❌ |
 
-Novexa improves the **layer around the model** instead of replacing the model.
+Gumi improves the **layer around the model** instead of replacing the model.
 It is not an agent framework, a model, or a hosted cloud gateway — it is the
 runtime that makes whatever model you already run behave reliably.
 
@@ -131,7 +131,7 @@ runtime that makes whatever model you already run behave reliably.
 
 ## Screenshots
 
-> The Novexa dashboard runs at `http://127.0.0.1:8788` and shows request
+> The Gumi dashboard runs at `http://127.0.0.1:8788` and shows request
 > metadata, provider status, telemetry, and diagnostics. Full prompts and
 > responses are hidden by default.
 
@@ -147,7 +147,7 @@ runtime that makes whatever model you already run behave reliably.
 
 ---
 
-## Why Novexa?
+## Why Gumi?
 
 Local AI is private and cheap, but it is often rough in real apps:
 
@@ -159,7 +159,7 @@ Local AI is private and cheap, but it is often rough in real apps:
 - model-specific tuning headaches
 - poor debugging visibility
 
-Novexa improves the layer around the model instead of replacing the model.
+Gumi improves the layer around the model instead of replacing the model.
 
 It provides:
 
@@ -185,27 +185,27 @@ It provides:
 Build from source:
 
 ```bash
-git clone https://github.com/EffNine/Novexa.git
-cd Novexa
+git clone https://github.com/EffNine/Gumi.git
+cd Gumi
 make build
-./novexa start
+./gumi start
 ```
 
 Or download a pre-built archive from
-[GitHub Releases](https://github.com/EffNine/Novexa/releases).
+[GitHub Releases](https://github.com/EffNine/Gumi/releases).
 
 ### Docker
 
 ```bash
-docker build -t novexa:0.2.0-alpha .
-docker run -d --name novexa \
+docker build -t gumi:0.2.0-alpha .
+docker run -d --name gumi \
   -p 127.0.0.1:8787:8787 \
   -p 127.0.0.1:8788:8788 \
-  -v novexa-data:/data \
-  novexa:0.2.0-alpha
+  -v gumi-data:/data \
+  gumi:0.2.0-alpha
 ```
 
-The runtime stores telemetry at `/data/.novexa/novexa.db` on a persistent Docker
+The runtime stores telemetry at `/data/.gumi/gumi.db` on a persistent Docker
 volume. See [Installation → Docker](./docs/installation.md#docker) for details.
 
 Default endpoints:
@@ -213,7 +213,7 @@ Default endpoints:
 ```text
 API:       http://127.0.0.1:8787/v1
 Dashboard: http://127.0.0.1:8788
-API key:   novexa-local
+API key:   gumi-local
 ```
 
 See:
@@ -227,10 +227,10 @@ See:
 
 ## Recommended Local Setup
 
-For LM Studio, Novexa uses its OpenAI-compatible API for inference and can
+For LM Studio, Gumi uses its OpenAI-compatible API for inference and can
 optionally manage model lifecycle via LM Studio's v1 REST API:
 
-| Capability | Novexa today | LM Studio v1 API available |
+| Capability | Gumi today | LM Studio v1 API available |
 |---|---|---|
 | Chat completion (temperature, top_p, tools, etc.) | ✅ | ✅ |
 | Per-model default temperature via profiles | ✅ | ✅ |
@@ -243,17 +243,17 @@ optionally manage model lifecycle via LM Studio's v1 REST API:
 Basic LM Studio setup:
 
 ```bash
-NOVEXA_PROVIDER_DEFAULT=lmstudio \
-NOVEXA_LMSTUDIO_URL=http://localhost:1234/v1 \
-NOVEXA_DEFAULT_MODEL=qwen2.5-coder-7b-instruct \
-NOVEXA_PROVIDER_TIMEOUT_SECONDS=120 \
-./novexa start
+GUMI_PROVIDER_DEFAULT=lmstudio \
+GUMI_LMSTUDIO_URL=http://localhost:1234/v1 \
+GUMI_DEFAULT_MODEL=qwen2.5-coder-7b-instruct \
+GUMI_PROVIDER_TIMEOUT_SECONDS=120 \
+./gumi start
 ```
 
 For a LAN-hosted LM Studio server, replace the URL:
 
 ```bash
-NOVEXA_LMSTUDIO_URL=http://192.168.0.164:1234/v1
+GUMI_LMSTUDIO_URL=http://192.168.0.164:1234/v1
 ```
 
 Recommended model choices:
@@ -271,23 +271,23 @@ Apps should only need:
 
 ```text
 base_url: http://127.0.0.1:8787/v1
-api_key: novexa-local
+api_key: gumi-local
 model: lmstudio:qwen2.5-coder-7b-instruct
 ```
 
-Novexa handles profile tuning, thinking policy, provider quirks, JSON handling,
+Gumi handles profile tuning, thinking policy, provider quirks, JSON handling,
 and runtime behavior.
 
 ---
 
 ## Benchmarks
 
-Novexa improves local model reliability across multiple dimensions. Full
+Gumi improves local model reliability across multiple dimensions. Full
 report: [`benchmarks/reports/SUMMARY-20260712.md`](benchmarks/reports/SUMMARY-20260712.md).
 
 ### Ornith 9B — Agentic Coding (Tool calls + JSON + Multi-turn)
 
-| Metric | Direct LM Studio | Novexa Stabilized | Improvement |
+| Metric | Direct LM Studio | Gumi Stabilized | Improvement |
 |---|---|---|---|
 | JSON Validity | 0% | **100%** | +100% |
 | JSON + Required Keys | 0% | **100%** | +100% |
@@ -296,22 +296,22 @@ report: [`benchmarks/reports/SUMMARY-20260712.md`](benchmarks/reports/SUMMARY-20
 
 ### Instruction-Following Assist
 
-Novexa automatically detects formatting constraints (sentence count, word
+Gumi automatically detects formatting constraints (sentence count, word
 restrictions, bullet format, JSON, line count, etc.) and injects explicit
 reminders into the system prompt:
 
 ```
 Prompt: "2 sentences, end with 'learning', no word 'language'"
-→ Novexa: "CRITICAL: 1. Exactly 2 sentences. 2. End with 'learning'.
+→ Gumi: "CRITICAL: 1. Exactly 2 sentences. 2. End with 'learning'.
            3. Do NOT use the word 'language'."
 → Valid response in 1 attempt ✅
 ```
 
-### How Novexa Helps Agent Frameworks
+### How Gumi Helps Agent Frameworks
 
-Novexa is not an agent framework. It improves **every turn** inside any
+Gumi is not an agent framework. It improves **every turn** inside any
 agent loop (OpenCode, Continue, Claude Code, Terminus-2). When an agent
-makes 30+ turns to solve a task, Novexa's per-turn reliability gains
+makes 30+ turns to solve a task, Gumi's per-turn reliability gains
 compound:
 
 | Per-turn improvement | After 30 turns | Compound effect |
@@ -321,7 +321,7 @@ compound:
 | Tool calls: 100% maintained | All tool invocations valid | No wasted episodes |
 
 > **Ornith 9B scores 43.1% on Terminal-Bench 2.1 and 69.4% on SWE-Bench
-> Verified when using agent frameworks.** Novexa helps local deployments
+> Verified when using agent frameworks.** Gumi helps local deployments
 > close the gap with cloud-grade reliability per turn.
 
 ---
@@ -347,14 +347,14 @@ Future candidates:
 
 ## Runtime Modes
 
-Novexa supports multiple runtime modes:
+Gumi supports multiple runtime modes:
 
 | Mode | Benchmark label | Best for |
 |---|---|---|
-| `direct` | `B-NovexaDirect` | Diagnostics and raw provider comparison |
-| `lightweight` | `C-NovexaLightweight` | Coding agents and low-token calls |
-| `stabilized` | `D-NovexaStabilized` | General chat quality and reliability |
-| `structured` | `E-NovexaStructured` | JSON/schema-sensitive workflows |
+| `direct` | `B-GumiDirect` | Diagnostics and raw provider comparison |
+| `lightweight` | `C-GumiLightweight` | Coding agents and low-token calls |
+| `stabilized` | `D-GumiStabilized` | General chat quality and reliability |
+| `structured` | `E-GumiStructured` | JSON/schema-sensitive workflows |
 | `agent` | — | Agentic coding loops (with optional router) |
 
 Provider-direct benchmarks use:
@@ -381,8 +381,8 @@ Current guides:
 - [OpenAI SDK clients](./docs/integrations/openai-sdk.md)
 - [LM Studio setup](./docs/integrations/lmstudio.md) — including management API capabilities
 
-All guides use the same basic pattern: point the client at Novexa's
-OpenAI-compatible API, then let Novexa handle provider and model behavior.
+All guides use the same basic pattern: point the client at Gumi's
+OpenAI-compatible API, then let Gumi handle provider and model behavior.
 
 ---
 
@@ -392,7 +392,7 @@ cURL:
 
 ```bash
 curl http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer novexa-local" \
+  -H "Authorization: Bearer gumi-local" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "lmstudio:qwen2.5-coder-7b-instruct",
@@ -402,7 +402,7 @@ curl http://127.0.0.1:8787/v1/chat/completions \
         "content": "Write a Go function that adds two ints. Return code only."
       }
     ],
-    "novexa": {
+    "gumi": {
       "mode": "lightweight"
     }
   }'
@@ -415,7 +415,7 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="http://127.0.0.1:8787/v1",
-    api_key="novexa-local",
+    api_key="gumi-local",
 )
 
 response = client.chat.completions.create(
@@ -452,13 +452,13 @@ Profiles apply defaults such as:
 - JSON-only instructions
 - guard settings
 
-If no matching profile exists, Novexa falls back to `generic-local`.
+If no matching profile exists, Gumi falls back to `generic-local`.
 
 ---
 
 ## Agentic Coding Router
 
-Novexa includes an **Agentic Coding Router** that automatically selects the
+Gumi includes an **Agentic Coding Router** that automatically selects the
 right model for each coding task based on difficulty. When enabled, the router
 classifies every agent step using structural heuristics (message length, file
 count, traceback presence, keywords, step count) and routes to the optimal
@@ -477,7 +477,7 @@ model while the next "implement payment handler" step escalates to a large one.
 Routing is **opt-in** (disabled by default) and only activates in agent mode.
 
 ```yaml
-# novexa.yaml
+# gumi.yaml
 routing:
   enabled: true         # Enable per-step coding routing
 ```
@@ -487,7 +487,7 @@ Clients can also provide per-request hints:
 ```json
 {
   "model": "lmstudio:qwen2.5-coder-7b-instruct",
-  "novexa": {
+  "gumi": {
     "routing": {
       "hint_difficulty": 4,
       "hint_task_type": "refactor",
@@ -504,7 +504,7 @@ See the full specification at `docs/specs/19-agentic-coding-router-specification
 
 ## Agentic Coding
 
-Novexa focuses on three hero models for agentic coding with local AI:
+Gumi focuses on three hero models for agentic coding with local AI:
 
 | Role | Model | Profile |
 |---|---|---|
@@ -512,7 +512,7 @@ Novexa focuses on three hero models for agentic coding with local AI:
 | Complex reasoning fallback | `lmstudio:qwen/qwen3.5-9b` | `qwen3.5-9b` |
 | Quality alternative | `lmstudio:ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
 
-These models declare `tool_calling: weak` because they do not reliably emit native OpenAI-style `tool_calls`. Novexa adds a prompt-based tool-calling shim for them:
+These models declare `tool_calling: weak` because they do not reliably emit native OpenAI-style `tool_calls`. Gumi adds a prompt-based tool-calling shim for them:
 
 1. Converts `tools` into explicit prompt instructions and a JSON schema.
 2. Asks the model to reply with a JSON tool call object.
@@ -526,7 +526,7 @@ Agentic modes also harden structured JSON output, summarize old tool results to 
 
 ## Memory Engine (Experimental)
 
-Novexa includes a **Memory Engine** that gives coding agents persistent,
+Gumi includes a **Memory Engine** that gives coding agents persistent,
 cross-model memory using zero VRAM. Facts, episode summaries, and model-fit
 data are stored in SQLite — shared across all models, surviving model swaps
 and session boundaries.
@@ -558,7 +558,7 @@ budget (default 1200 tokens). Facts are scored by `relevance × confidence ×
 access_frequency` — the most relevant facts are selected first.
 
 ```yaml
-# novexa.yaml
+# gumi.yaml
 memory:
   enabled: true                     # Opt-in in V1
   injection_budget_tokens: 1200    # Tokens reserved for memory context
@@ -570,19 +570,19 @@ memory:
 ### CLI Commands
 
 ```bash
-novexa memory status        # Show database path, fact count, model fit entries
-novexa memory facts         # List stored facts
-novexa memory facts search  # Search facts by key/value
-novexa memory clear --force # Reset all memory
+gumi memory status        # Show database path, fact count, model fit entries
+gumi memory facts         # List stored facts
+gumi memory facts search  # Search facts by key/value
+gumi memory clear --force # Reset all memory
 ```
 
 ### API Endpoints
 
 ```text
-GET  /v1/novexa/memory/facts       # List/search stored facts
-GET  /v1/novexa/memory/model-fit   # Model performance data
-GET  /v1/novexa/memory/status      # Memory engine status
-POST /v1/novexa/memory/clear       # Clear all memory
+GET  /v1/gumi/memory/facts       # List/search stored facts
+GET  /v1/gumi/memory/model-fit   # Model performance data
+GET  /v1/gumi/memory/status      # Memory engine status
+POST /v1/gumi/memory/clear       # Clear all memory
 ```
 
 Memory is **opt-in** (disabled by default, set `memory.enabled: true`).
@@ -594,7 +594,7 @@ See the full specification at `docs/specs/20-memory-engine-specification.md`.
 
 ## Managed Thinking (Experimental)
 
-Local reasoning models can behave more like frontier models when they are allowed to think before answering. Novexa adds a **managed thinking** layer so reasoning is controlled, not chaotic:
+Local reasoning models can behave more like frontier models when they are allowed to think before answering. Gumi adds a **managed thinking** layer so reasoning is controlled, not chaotic:
 
 - `thinking_policy` in model profiles decides when thinking is enabled.
 - Token budget is split into output budget + reasoning budget.
@@ -607,19 +607,19 @@ Enable per request:
 
 ```json
 {
-  "novexa": {
+  "gumi": {
     "thinking": { "enabled": true }
   }
 }
 ```
 
-Current limitation: some local models emit reasoning as plain prose inside the main content. Novexa strips explicit markers and separate reasoning fields, but cannot yet remove free-form reasoning prose from every model.
+Current limitation: some local models emit reasoning as plain prose inside the main content. Gumi strips explicit markers and separate reasoning fields, but cannot yet remove free-form reasoning prose from every model.
 
 Run the managed thinking benchmark:
 
 ```bash
 LMSTUDIO_URL=http://localhost:1234/v1 \
-NOVEXA_URL=http://127.0.0.1:8787/v1 \
+GUMI_URL=http://127.0.0.1:8787/v1 \
 ATTEMPTS=1 \
 ./scripts/benchmark-managed-thinking.sh qwen/qwen3.5-9b
 ```
@@ -665,15 +665,15 @@ profiles automatically.
 
 For a reproducible comparison against an established benchmark, install the
 EleutherAI LM Evaluation Harness and run IFEval through the direct provider and
-Novexa with identical generation settings:
+Gumi with identical generation settings:
 
 ```bash
 python3 -m venv .venv-bench
 .venv-bench/bin/pip install "lm-eval[api]" langdetect immutabledict
 
 DIRECT_BASE_URL=http://192.168.0.164:1234/v1 \
-NOVEXA_BASE_URL=http://127.0.0.1:8787/v1 \
-NOVEXA_MODEL=lmstudio:qwen/qwen3.5-9b \
+GUMI_BASE_URL=http://127.0.0.1:8787/v1 \
+GUMI_MODEL=lmstudio:qwen/qwen3.5-9b \
 LM_EVAL_BIN="$PWD/.venv-bench/bin/lm_eval" \
 ./scripts/benchmark-standard-scorecard.sh qwen/qwen3.5-9b
 ```
@@ -682,14 +682,14 @@ The default task is `ifeval`, a standard instruction-following benchmark. The
 runner writes raw `lm-eval` output plus a Markdown and JSON scorecard under
 `benchmarks/standard/`. Add supported generation tasks with
 `STANDARD_TASKS=ifeval,<task>`; keep task version, model artifact, few-shot
-count, and generation settings unchanged for every comparison. Start Novexa in
+count, and generation settings unchanged for every comparison. Start Gumi in
 the mode being measured before running the scorecard; `stabilized` is its
-default mode. For example: `go run ./cmd/novexa start --mode stabilized`.
+default mode. For example: `go run ./cmd/gumi start --mode stabilized`.
 Use `LIMIT=50` only for a fast validation run; omit it for the full score.
 
 ### Terminal-Bench agent scorecard
 
-Terminal-Bench measures a complete coding agent (model, Novexa, agent loop, and
+Terminal-Bench measures a complete coding agent (model, Gumi, agent loop, and
 terminal tools), rather than the model alone. It requires Docker Desktop and a
 Python 3.13 environment:
 
@@ -698,7 +698,7 @@ python3.13 -m venv .venv-terminal
 .venv-terminal/bin/pip install terminal-bench
 
 DIRECT_BASE_URL=http://192.168.0.164:1234/v1 \
-NOVEXA_BASE_URL=http://127.0.0.1:8787/v1 \
+GUMI_BASE_URL=http://127.0.0.1:8787/v1 \
 ./scripts/benchmark-terminal-bench.sh qwen/qwen3.5-9b
 ```
 
@@ -708,12 +708,12 @@ after the smoke run succeeds.
 
 ### Agentic coding benchmark
 
-Run a focused comparison of direct LM Studio vs. Novexa on tool-calling,
+Run a focused comparison of direct LM Studio vs. Gumi on tool-calling,
 structured JSON, and multi-turn prompts:
 
 ```bash
 LMSTUDIO_URL=http://localhost:1234/v1 \
-NOVEXA_URL=http://127.0.0.1:8787/v1 \
+GUMI_URL=http://127.0.0.1:8787/v1 \
 ATTEMPTS=3 \
 ./scripts/benchmark-agentic-coding.sh qwen2.5-coder-7b-instruct
 ```
@@ -728,17 +728,17 @@ Results are written to `benchmarks/agentic/<model>-<timestamp>.md` and
 Implemented commands:
 
 ```bash
-novexa start
-novexa status
-novexa doctor
-novexa config show
-novexa providers
-novexa models
-novexa benchmark
-novexa logs
-novexa version
-novexa stop
-novexa restart
+gumi start
+gumi status
+gumi doctor
+gumi config show
+gumi providers
+gumi models
+gumi benchmark
+gumi logs
+gumi version
+gumi stop
+gumi restart
 ```
 
 ---
@@ -758,7 +758,7 @@ responses are hidden by default.
 
 ## Telemetry and Privacy
 
-Novexa is local-first and privacy-first.
+Gumi is local-first and privacy-first.
 
 Default telemetry behavior:
 
@@ -770,14 +770,14 @@ telemetry:
   log_responses: false
 ```
 
-By default, Novexa stores metadata only. It does not store full prompts or full
+By default, Gumi stores metadata only. It does not store full prompts or full
 responses unless explicitly configured. It does not send external telemetry.
 
 ---
 
 ## Alpha Limitations
 
-Novexa `0.2.0-alpha` is usable, but not feature-complete:
+Gumi `0.2.0-alpha` is usable, but not feature-complete:
 
 - Continue tab autocomplete should use LM Studio directly for now.
 - Dockerfile exists, but Docker image verification may vary by host.
@@ -799,9 +799,9 @@ Alpha release archives are built for:
 
 ## Development Rules
 
-Novexa follows these rules:
+Gumi follows these rules:
 
-1. Keep Novexa local-first.
+1. Keep Gumi local-first.
 2. Do not add cloud providers in V1.
 3. Do not add billing in V1.
 4. Do not bypass the Pipeline Engine.
@@ -814,7 +814,7 @@ Novexa follows these rules:
 
 ## Contributing
 
-Contributions are welcome! Novexa is local-first and runtime-only — please
+Contributions are welcome! Gumi is local-first and runtime-only — please
 read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR to understand the
 core rules (no cloud providers in V1, no billing, keep provider adapters thin,
 don't bypass the Pipeline Engine).
@@ -836,10 +836,10 @@ opening issues.
 
 ## Star history
 
-[![Star History Chart](https://api.star-history.com/svg?repos=EffNine/Novexa&type=Date)](https://star-history.com/#EffNine/Novexa&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=EffNine/Gumi&type=Date)](https://star-history.com/#EffNine/Gumi&Date)
 
 ---
 
 ## License
 
-Novexa is licensed under the Apache License 2.0. See [LICENSE](./LICENSE).
+Gumi is licensed under the Apache License 2.0. See [LICENSE](./LICENSE).

@@ -7,14 +7,14 @@ import (
 )
 
 // StoreArtifact writes a raw model output to the artifact storage directory.
-// Artifacts are stored at ~/.novexa/benchmarks/<run-id>/artifacts/<test-id>-<condition>-<attempt>.txt.
+// Artifacts are stored at ~/.gumi/benchmarks/<run-id>/artifacts/<test-id>-<condition>-<attempt>.txt.
 func StoreArtifact(runID string, testID string, condition string, attempt int, output string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("getting home directory: %w", err)
 	}
 
-	dir := filepath.Join(home, ".novexa", "benchmarks", runID, "artifacts")
+	dir := filepath.Join(home, ".gumi", "benchmarks", runID, "artifacts")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("creating artifact directory: %w", err)
 	}

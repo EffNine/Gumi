@@ -45,10 +45,10 @@ var WeightsByTier = map[string]ModelWeights{
 	},
 }
 
-// Capability holds the direct and novexa metric sets for a single capability.
+// Capability holds the direct and gumi metric sets for a single capability.
 type Capability struct {
 	Direct     MetricSet
-	Novexa     MetricSet
+	Gumi     MetricSet
 	Delta      float64
 	EffectSize float64
 }
@@ -57,7 +57,7 @@ type Capability struct {
 // degradation metrics, and latency overhead.
 //
 // The formula is a weighted sum of capability deltas minus a latency penalty.
-// Returns the overall score and whether Novexa is "worth it" (> 5% improvement).
+// Returns the overall score and whether Gumi is "worth it" (> 5% improvement).
 func OverallScore(caps map[string]Capability, degrad DegradationReport, latencyOverhead float64, tier string) (float64, bool) {
 	w, ok := WeightsByTier[tier]
 	if !ok {

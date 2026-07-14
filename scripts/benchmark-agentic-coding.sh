@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Novexa Agentic Coding Benchmark
+# Gumi Agentic Coding Benchmark
 # Usage: ./scripts/benchmark-agentic-coding.sh <model_name>
 #
-# Compares direct provider calls vs Novexa Runtime on agentic coding tasks:
+# Compares direct provider calls vs Gumi Runtime on agentic coding tasks:
 #   - prompt-based tool calling
 #   - structured JSON output
 #   - multi-turn tool context
 #
 # Requirements:
 #   - LM Studio running on http://localhost:1234/v1
-#   - Novexa running on http://localhost:8787
+#   - Gumi running on http://localhost:8787
 #   - jq installed
 
 MODEL="${1:-}"
@@ -25,13 +25,13 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 LMSTUDIO_URL="${LMSTUDIO_URL:-http://localhost:1234/v1}"
-NOVEXA_URL="${NOVEXA_URL:-http://localhost:8787/v1}"
-NOVEXA_HEALTH_URL="${NOVEXA_HEALTH_URL:-${NOVEXA_URL%/v1}/health}"
+GUMI_URL="${GUMI_URL:-http://localhost:8787/v1}"
+GUMI_HEALTH_URL="${GUMI_HEALTH_URL:-${GUMI_URL%/v1}/health}"
 ATTEMPTS="${ATTEMPTS:-3}"
 BENCHMARK_TIMEOUT_SECONDS="${BENCHMARK_TIMEOUT_SECONDS:-120}"
 
 DIRECT_MODE_LABEL="A-LMStudioDirect"
-NOVEXA_MODEL="lmstudio:$MODEL"
+GUMI_MODEL="lmstudio:$MODEL"
 
 results_json='[]'
 pass=0
@@ -51,8 +51,8 @@ preflight_checks() {
     echo "Error: LM Studio is not reachable at $LMSTUDIO_URL." >&2
     exit 1
   fi
-  if ! curl --max-time 5 -fsS "$NOVEXA_HEALTH_URL" > /dev/null 2>&1; then
-    echo "Error: Novexa is not reachable at $NOVEXA_HEALTH_URL." >&2
+  if ! curl --max-time 5 -fsS "$GUMI_HEALTH_URL" > /dev/null 2>&1; then
+    echo "Error: Gumi is not reachable at $GUMI_HEALTH_URL." >&2
     exit 1
   fi
 }
@@ -67,7 +67,7 @@ make_payload() {
   if [ "$base_url" = "$LMSTUDIO_URL" ]; then
     model="$MODEL"
   else
-    model="$NOVEXA_MODEL"
+    model="$GUMI_MODEL"
   fi
 
   local tool_block=""
@@ -78,10 +78,10 @@ EOF
 )
   fi
 
-  local novexa_block=""
-  if [ "$base_url" = "$NOVEXA_URL" ]; then
-    novexa_block=$(cat <<EOF
-,"novexa":{"mode":"$mode"}
+  local gumi_block=""
+  if [ "$base_url" = "$GUMI_URL" ]; then
+    gumi_block=$(cat <<EOF
+,"gumi":{"mode":"$mode"}
 EOF
 )
   fi
@@ -93,7 +93,7 @@ EOF
   "max_tokens": 4096,
   "temperature": 0.3
   $tool_block
-  $novexa_block
+  $gumi_block
 }
 EOF
 }
@@ -101,10 +101,10 @@ EOF
 call_api() {
   local url="$1"
   local payload="$2"
-  if [ "$url" = "$NOVEXA_URL" ]; then
+  if [ "$url" = "$GUMI_URL" ]; then
     curl -sS --max-time "$BENCHMARK_TIMEOUT_SECONDS" -X POST "$url/chat/completions" \
       -H "Content-Type: application/json" \
-      -H "Authorization: Bearer novexa-local" \
+      -H "Authorization: Bearer gumi-local" \
       -d "$payload"
   else
     curl -sS --max-time "$BENCHMARK_TIMEOUT_SECONDS" -X POST "$url/chat/completions" \
@@ -297,7 +297,7 @@ run_benchmark() {
   run_prompt "$mode_label" "$base_url" "$mode" "json" "$json_prompt" "false"
 
   # Multi-turn context prompt: includes a prior tool result and asks for next step
-  # This is only meaningful against Novexa; direct provider gets the same raw messages.
+  # This is only meaningful against Gumi; direct provider gets the same raw messages.
   local multiturn_prompt='"You previously read main.go. What is the next file you should read? Return a tool call."'
   run_prompt "$mode_label" "$base_url" "$mode" "multi_turn" "$multiturn_prompt" "true"
 }
@@ -305,7 +305,7 @@ run_benchmark() {
 write_report() {
   local timestamp
   timestamp=$(date -u +"%Y%m%dT%H%M%SZ")
-  local raw_dir="$HOME/.novexa/benchmarks/agentic-coding"
+  local raw_dir="$HOME/.gumi/benchmarks/agentic-coding"
   local report_dir="$REPO_DIR/benchmarks/reports"
   mkdir -p "$raw_dir" "$report_dir"
   local base="$raw_dir/${MODEL//\//_}-${timestamp}"
@@ -345,7 +345,7 @@ EOF
 
 ## Conclusion
 
-$(if [ "$pass" -ge "$(( total * 2 / 3 ))" ]; then echo "Worth it — Novexa agentic modes match or exceed direct provider quality for most requests."; else echo "Mixed — some agentic tasks still fail; tune profiles and retry strategy."; fi)
+$(if [ "$pass" -ge "$(( total * 2 / 3 ))" ]; then echo "Worth it — Gumi agentic modes match or exceed direct provider quality for most requests."; else echo "Mixed — some agentic tasks still fail; tune profiles and retry strategy."; fi)
 
 Raw JSON: \`$base.json\`
 EOF
@@ -356,9 +356,9 @@ EOF
 main() {
   preflight_checks
   run_benchmark "$DIRECT_MODE_LABEL" "$LMSTUDIO_URL" "direct"
-  run_benchmark "B-NovexaLightweight" "$NOVEXA_URL" "lightweight"
-  run_benchmark "C-NovexaStabilized" "$NOVEXA_URL" "stabilized"
-  run_benchmark "D-NovexaStructured" "$NOVEXA_URL" "structured"
+  run_benchmark "B-GumiLightweight" "$GUMI_URL" "lightweight"
+  run_benchmark "C-GumiStabilized" "$GUMI_URL" "stabilized"
+  run_benchmark "D-GumiStructured" "$GUMI_URL" "structured"
   write_report
 }
 

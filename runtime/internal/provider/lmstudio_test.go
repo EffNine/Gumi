@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/logger"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
 func newLMStudioTestServer(t *testing.T) *httptest.Server {
@@ -162,7 +162,7 @@ func TestLMStudioGenerateDisablesThinkingWithReasoningEffortNone(t *testing.T) {
 		Messages: []api.Message{
 			{Role: "user", Content: "What is 2+2?"},
 		},
-		Novexa: &api.NovexaExtensions{
+		Gumi: &api.GumiExtensions{
 			Thinking: &api.ThinkingConfig{Enabled: &thinkingEnabled},
 		},
 	})
@@ -170,8 +170,8 @@ func TestLMStudioGenerateDisablesThinkingWithReasoningEffortNone(t *testing.T) {
 		t.Fatalf("unexpected generate error: %v", err)
 	}
 
-	if _, ok := captured["novexa"]; ok {
-		t.Fatal("expected LM Studio payload to omit Novexa extension field")
+	if _, ok := captured["gumi"]; ok {
+		t.Fatal("expected LM Studio payload to omit Gumi extension field")
 	}
 	if got := captured["reasoning_effort"]; got != "none" {
 		t.Fatalf("expected reasoning_effort none, got %v", got)
@@ -194,8 +194,8 @@ func TestLMStudioGenerateOmitsReasoningEffortWhenThinkingUnspecified(t *testing.
 		t.Fatalf("unexpected generate error: %v", err)
 	}
 
-	if _, ok := captured["novexa"]; ok {
-		t.Fatal("expected LM Studio payload to omit Novexa extension field")
+	if _, ok := captured["gumi"]; ok {
+		t.Fatal("expected LM Studio payload to omit Gumi extension field")
 	}
 	if _, ok := captured["reasoning_effort"]; ok {
 		t.Fatal("expected reasoning_effort to be omitted when thinking is unspecified")

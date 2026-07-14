@@ -1,18 +1,18 @@
-# Novexa Release Standard
+# Gumi Release Standard
 
 **Version:** 1.0  
 **Status:** Active  
-**Scope:** Versioning, release process, and artifact conventions for Novexa Runtime
+**Scope:** Versioning, release process, and artifact conventions for Gumi Runtime
 
 ---
 
 ## 1. Versioning
 
-Novexa follows **Semantic Versioning 2.0** (`MAJOR.MINOR.PATCH`).
+Gumi follows **Semantic Versioning 2.0** (`MAJOR.MINOR.PATCH`).
 
 ### Pre-1.0 Convention
 
-While Novexa is in alpha/beta (v0.x), the convention is:
+While Gumi is in alpha/beta (v0.x), the convention is:
 
 | Component | Meaning |
 |-----------|---------|
@@ -38,7 +38,7 @@ While Novexa is in alpha/beta (v0.x), the convention is:
 
 ## 2. Release Cadence
 
-Novexa does not follow a fixed calendar schedule. Releases are made when:
+Gumi does not follow a fixed calendar schedule. Releases are made when:
 
 - A sprint completes with all planned features merged and tested
 - A critical bug fix is needed
@@ -56,7 +56,7 @@ Before tagging a release, verify:
 
 - [ ] `CHANGELOG.md` is up to date with all changes since last release
 - [ ] `README.md` reflects current features and usage
-- [ ] `novexa.example.yaml` matches the current config schema
+- [ ] `gumi.example.yaml` matches the current config schema
 - [ ] `go test ./runtime/...` passes
 - [ ] `go vet ./runtime/...` passes
 - [ ] `make dashboard` builds successfully
@@ -93,13 +93,13 @@ The GitHub Actions workflow will:
 Each release archive contains:
 
 ```
-novexa                    # Go binary (or novexa.exe on Windows)
+gumi                    # Go binary (or gumi.exe on Windows)
 dashboard/                # Production dashboard build
 profiles/                 # Model profile YAML files
 README.md                 # Project readme
 LICENSE                   # License file
 CHANGELOG.md              # Change log
-novexa.example.yaml       # Example configuration
+gumi.example.yaml       # Example configuration
 ```
 
 **Explicitly excluded:**
@@ -116,7 +116,7 @@ novexa.example.yaml       # Example configuration
 Each GitHub release should include:
 
 ```markdown
-## Novexa v0.X.0-alpha
+## Gumi v0.X.0-alpha
 
 ### Added
 - Feature 1

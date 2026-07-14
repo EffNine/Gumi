@@ -2,7 +2,7 @@ suite:
   id: degradation-semantic
   category: degradation
   tier: semantic
-  description: "Semantic degradation — Novexa must not change correct answers or reformat code"
+  description: "Semantic degradation — Gumi must not change correct answers or reformat code"
   target_direct_score: "0.95-1.00"
   model_profiles: [medium, frontier]
   attempts_recommended: 3

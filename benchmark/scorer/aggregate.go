@@ -3,7 +3,7 @@ package scorer
 import (
 	"math"
 
-	"github.com/novexa/novexa/benchmark"
+	"github.com/EffNine/gumi/benchmark"
 )
 
 // Aggregate computes a MetricSet from a collection of test results, using the

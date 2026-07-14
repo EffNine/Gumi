@@ -48,7 +48,7 @@ check_archive() {
   local os="$1"
   local arch="$2"
   local ext="$3"
-  local name="novexa-${VERSION}-${os}-${arch}"
+  local name="gumi-${VERSION}-${os}-${arch}"
 
   if [ "${os}" = "windows" ]; then
     local archive="${RELEASE_DIR}/${name}.zip"
@@ -56,26 +56,26 @@ check_archive() {
       fail "archive not found: ${archive}"
       return
     fi
-    check_file_in_zip "${archive}" "${name}/novexa.exe"
+    check_file_in_zip "${archive}" "${name}/gumi.exe"
     check_file_in_zip "${archive}" "${name}/dashboard/dist/index.html"
     check_file_in_zip "${archive}" "${name}/profiles/generic-local.yaml"
     check_file_in_zip "${archive}" "${name}/README.md"
     check_file_in_zip "${archive}" "${name}/LICENSE"
     check_file_in_zip "${archive}" "${name}/CHANGELOG.md"
-    check_file_in_zip "${archive}" "${name}/novexa.example.yaml"
+    check_file_in_zip "${archive}" "${name}/gumi.example.yaml"
   else
     local archive="${RELEASE_DIR}/${name}.tar.gz"
     if [ ! -f "${archive}" ]; then
       fail "archive not found: ${archive}"
       return
     fi
-    check_file_in_tar "${archive}" "${name}/novexa${ext}"
+    check_file_in_tar "${archive}" "${name}/gumi${ext}"
     check_file_in_tar "${archive}" "${name}/dashboard/dist/index.html"
     check_file_in_tar "${archive}" "${name}/profiles/generic-local.yaml"
     check_file_in_tar "${archive}" "${name}/README.md"
     check_file_in_tar "${archive}" "${name}/LICENSE"
     check_file_in_tar "${archive}" "${name}/CHANGELOG.md"
-    check_file_in_tar "${archive}" "${name}/novexa.example.yaml"
+    check_file_in_tar "${archive}" "${name}/gumi.example.yaml"
   fi
 }
 

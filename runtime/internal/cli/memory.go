@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/novexa/novexa/runtime/internal/config"
-	"github.com/novexa/novexa/runtime/internal/memory"
+	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/memory"
 )
 
 func runMemory(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: novexa memory [status|facts|clear]")
+		fmt.Fprintln(os.Stderr, "Usage: gumi memory [status|facts|clear]")
 		os.Exit(1)
 	}
 
@@ -39,7 +39,7 @@ func runMemory(args []string) {
 		runMemoryClear(mem, args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown memory subcommand: %q\n", args[0])
-		fmt.Fprintln(os.Stderr, "Usage: novexa memory [status|facts|clear]")
+		fmt.Fprintln(os.Stderr, "Usage: gumi memory [status|facts|clear]")
 		os.Exit(1)
 	}
 }
@@ -157,7 +157,7 @@ func resolveMemoryDBPath() string {
 	if err != nil {
 		return ""
 	}
-	return home + "/.novexa/memory.db"
+	return home + "/.gumi/memory.db"
 }
 
 // MemoryConfig returns a default memory config for CLI use.

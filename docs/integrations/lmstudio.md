@@ -1,6 +1,6 @@
 # LM Studio Integration
 
-LM Studio is the recommended local inference provider for Novexa. It can run on
+LM Studio is the recommended local inference provider for Gumi. It can run on
 a secondary machine (Mac Mini, PC with GPU) and expose an OpenAI-compatible API
 over the local network — zero RAM impact on your development machine.
 
@@ -11,7 +11,7 @@ over the local network — zero RAM impact on your development machine.
 ```
 Your Mac (dev machine)              Secondary machine (e.g. Mac Mini)
 ┌─────────────────────┐            ┌──────────────────────────┐
-│ Novexa Runtime      │  HTTP      │ LM Studio                │
+│ Gumi Runtime      │  HTTP      │ LM Studio                │
 │ localhost:8787      │───────────▶│ 192.168.0.164:1234       │
 │                     │            │                          │
 │ Agentic Coding      │            │ Model loaded in VRAM     │
@@ -20,14 +20,14 @@ Your Mac (dev machine)              Secondary machine (e.g. Mac Mini)
 └─────────────────────┘            └──────────────────────────┘
 ```
 
-This is the **recommended setup** for Novexa — all inference happens on the
+This is the **recommended setup** for Gumi — all inference happens on the
 remote machine, your dev machine stays free.
 
 ---
 
-## What Novexa Controls Today
+## What Gumi Controls Today
 
-Novexa's `LMStudioAdapter` uses LM Studio's **OpenAI-compatible** endpoint
+Gumi's `LMStudioAdapter` uses LM Studio's **OpenAI-compatible** endpoint
 (`/v1/chat/completions`) and controls these inference parameters:
 
 | Parameter | Set via profile | Per-request override |
@@ -54,16 +54,16 @@ defaults:
   thinking: false
 ```
 
-If the incoming request doesn't set a parameter, Novexa fills it from the
+If the incoming request doesn't set a parameter, Gumi fills it from the
 profile. Explicit request values are never overwritten.
 
 ---
 
-## What Novexa Controls via v1 REST API (Model Management)
+## What Gumi Controls via v1 REST API (Model Management)
 
-Novexa now uses LM Studio's **v1 REST API** (`/api/v1/*`) for model lifecycle management:
+Gumi now uses LM Studio's **v1 REST API** (`/api/v1/*`) for model lifecycle management:
 
-| Endpoint | Purpose | Novexa status |
+| Endpoint | Purpose | Gumi status |
 |----------|---------|:-------------:|
 | `POST /api/v1/models/load` | Load model with `context_length`, `flash_attention`, `offload_kv_cache_to_gpu`, `eval_batch_size`, `num_experts` | ✅ Implemented |
 | `POST /api/v1/models/unload` | Unload model by `instance_id` | ✅ Implemented |
@@ -82,7 +82,7 @@ type ModelManager interface {
 }
 ```
 
-Novexa + Agentic Coding Router can now:
+Gumi + Agentic Coding Router can now:
 
 1. Classify the coding task (trivial → novel)
 2. Decide the best model and config via the router
@@ -93,7 +93,7 @@ Novexa + Agentic Coding Router can now:
 ### Config Example
 
 ```yaml
-# novexa.yaml
+# gumi.yaml
 providers:
   lmstudio:
     url: http://192.168.0.164:1234/v1
@@ -123,19 +123,19 @@ providers:
 
 ```bash
 # Show available models on disk and currently loaded model
-novexa lmstudio status
+gumi lmstudio status
 
 # Load a model with optional overrides
-novexa lmstudio load qwen2.5-coder-7b-instruct \
+gumi lmstudio load qwen2.5-coder-7b-instruct \
   --context-length 16384 \
   --flash-attention \
   --offload-kv-cache
 
 # Unload a model by instance ID
-novexa lmstudio unload <instance-id>
+gumi lmstudio unload <instance-id>
 
 # List models on disk
-novexa lmstudio models
+gumi lmstudio models
 ```
 
 All commands support `--url` to point at a specific LM Studio instance, or
@@ -152,17 +152,17 @@ Enable the local inference server in Settings → Server → "Start Server".
 
 Default URL: `http://localhost:1234/v1`
 
-### 2. Point Novexa at it
+### 2. Point Gumi at it
 
 ```bash
-NOVEXA_PROVIDER_DEFAULT=lmstudio \
-NOVEXA_LMSTUDIO_URL=http://192.168.0.164:1234/v1 \
-NOVEXA_DEFAULT_MODEL=lmstudio:qwen2.5-coder-7b-instruct \
-NOVEXA_PROVIDER_TIMEOUT_SECONDS=120 \
-./novexa start
+GUMI_PROVIDER_DEFAULT=lmstudio \
+GUMI_LMSTUDIO_URL=http://192.168.0.164:1234/v1 \
+GUMI_DEFAULT_MODEL=lmstudio:qwen2.5-coder-7b-instruct \
+GUMI_PROVIDER_TIMEOUT_SECONDS=120 \
+./gumi start
 ```
 
-Or in `novexa.yaml`:
+Or in `gumi.yaml`:
 
 ```yaml
 providers:
@@ -182,7 +182,7 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="http://127.0.0.1:8787/v1",
-    api_key="novexa-local",
+    api_key="gumi-local",
 )
 
 response = client.chat.completions.create(
@@ -209,7 +209,7 @@ response = client.chat.completions.create(
 
 **Model loading takes 3-10 seconds on first request.**
 This is normal — LM Studio loads the model into VRAM on the first inference
-call. Novexa uses exponential backoff (3s → 6s) for model-loading errors.
+call. Gumi uses exponential backoff (3s → 6s) for model-loading errors.
 
 **Connection refused.**
 Ensure LM Studio's server is running on the remote machine. Check the URL and
@@ -223,7 +223,7 @@ LM Studio runs on the secondary machine's hardware. For better performance:
 - Set a reasonable context length (not max)
 
 **"Engine protocol startup was aborted" error.**
-This happens when LM Studio is swapping models. Novexa retries with
+This happens when LM Studio is swapping models. Gumi retries with
 exponential backoff automatically. If it persists, check:
 - The model isn't too large for available VRAM
 - Another model isn't being loaded simultaneously
@@ -236,5 +236,5 @@ exponential backoff automatically. If it persists, check:
 - [LM Studio REST API](https://lmstudio.ai/docs/developer/rest)
 - [LM Studio Load Model](https://lmstudio.ai/docs/developer/rest/load)
 - [LM Studio Unload Model](https://lmstudio.ai/docs/developer/rest/unload)
-- [Novexa Agentic Coding Router spec](../specs/19-agentic-coding-router-specification.md)
-- [Novexa Implementation Roadmap](../specs/14-implementation-roadmap.md)
+- [Gumi Agentic Coding Router spec](../specs/19-agentic-coding-router-specification.md)
+- [Gumi Implementation Roadmap](../specs/14-implementation-roadmap.md)

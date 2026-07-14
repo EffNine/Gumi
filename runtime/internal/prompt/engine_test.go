@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/novexa/novexa/runtime/internal/api"
-	contextengine "github.com/novexa/novexa/runtime/internal/context"
+	"github.com/EffNine/gumi/runtime/internal/api"
+	contextengine "github.com/EffNine/gumi/runtime/internal/context"
 )
 
 func TestBuildAddsSystemPromptAndPreservesUserMessage(t *testing.T) {
@@ -19,7 +19,7 @@ func TestBuildAddsSystemPromptAndPreservesUserMessage(t *testing.T) {
 		},
 		ContextPackage: contextengine.Package{
 			ActiveRequest:  "Hello",
-			PreservedFacts: []string{"Novexa must stay local-first."},
+			PreservedFacts: []string{"Gumi must stay local-first."},
 		},
 		ExistingSystem: []string{"Use concise answers."},
 	})
@@ -31,10 +31,10 @@ func TestBuildAddsSystemPromptAndPreservesUserMessage(t *testing.T) {
 		t.Fatalf("expected first message system, got %s", out.FinalMessages[0].Role)
 	}
 	system, _ := out.FinalMessages[0].Content.(string)
-	if !strings.Contains(system, "Novexa Runtime") {
-		t.Fatalf("expected Novexa runtime instruction, got %q", system)
+	if !strings.Contains(system, "Gumi Runtime") {
+		t.Fatalf("expected Gumi runtime instruction, got %q", system)
 	}
-	if !strings.Contains(system, "Novexa must stay local-first") {
+	if !strings.Contains(system, "Gumi must stay local-first") {
 		t.Fatalf("expected preserved fact in system prompt, got %q", system)
 	}
 	if out.FinalMessages[1].Role != "user" {
