@@ -128,19 +128,39 @@ runtime that makes whatever model you already run behave reliably.
 
 ---
 
-## Screenshots
+## Dashboard
 
-> The Gumi dashboard runs at `http://127.0.0.1:8788` and shows request
-> metadata, provider status, telemetry, and diagnostics. Full prompts and
-> responses are hidden by default.
+> The Gumi dashboard runs at `http://127.0.0.1:8788` and provides 11 pages
+> covering every aspect of the runtime. Full prompts and responses are hidden
+> by default.
 
-| Dashboard overview | Provider status |
+| Overview | Playground |
 |---|---|
-| ![Dashboard overview](./docs/assets/dashboard-overview.png) | ![Provider status](./docs/assets/dashboard-providers.png) |
+| ![Overview](./docs/assets/dashboard-overview.png) | Interactive chat with provider/model/mode selection |
 
-| Request telemetry | Doctor diagnostics |
-|---|---|
-| ![Request telemetry](./docs/assets/dashboard-telemetry.png) | ![Doctor diagnostics](./docs/assets/dashboard-doctor.png) |
+| Requests | Analytics | Providers | Models |
+|---|---|---|---|
+| Request history with filtering | Latency distribution & provider breakdown | Provider health cards | Model load/unload & configuration |
+
+| Memory | Profiles | Logs | Config | Doctor |
+|---|---|---|---|---|
+| Facts CRUD & model-fit | Profile listing | Real-time SSE log streaming | Resolved config viewer | Diagnostic checks |
+
+**Page overview:**
+
+| Page | Description |
+|------|-------------|
+| **Overview** | Runtime status, pipeline visualization, provider health, recent activity |
+| **Playground** | Interactive chat — select provider, model, and pipeline mode |
+| **Requests** | Request history table with status, latency, validation, repair info |
+| **Analytics** | Latency distribution bar chart, provider breakdown, success rate, trends |
+| **Providers** | Provider status cards with health indicators and model counts |
+| **Models** | Model listing with load/unload, context length, flash attention config |
+| **Memory** | Browse facts, model-fit leaderboard, memory engine status, clear action |
+| **Profiles** | Model profile listing with capabilities and defaults |
+| **Logs** | Real-time log viewer via SSE with level filtering |
+| **Config** | Resolved runtime config with redacted secrets, save-to-disk action |
+| **Doctor** | Visual diagnostics with status/suggestion for each check |
 
 ---
 

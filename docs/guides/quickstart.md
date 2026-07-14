@@ -67,12 +67,21 @@ Leave this terminal open. Gumi runs until you press `Ctrl+C`.
 
 ## 4. Open the dashboard
 
-Open http://127.0.0.1:8788 in your browser. The dashboard shows:
+Open http://127.0.0.1:8788 in your browser. The dashboard has 11 pages:
 
-- runtime status
-- provider health
-- recent request metadata (no full prompts or responses by default)
-- a `doctor` view with diagnostic checks
+- **Overview** — Runtime status, pipeline visualization, provider health, recent activity
+- **Playground** — Interactive chat with provider/model/mode selection
+- **Requests** — Request history table with filtering and status indicators
+- **Analytics** — Latency distribution, provider breakdown, success rate, trends
+- **Providers** — Provider health cards with model counts
+- **Models** — Model listing with load/unload and configuration
+- **Memory** — Facts CRUD, model-fit leaderboard, memory engine status
+- **Profiles** — Model profile listing
+- **Logs** — Real-time log viewer via SSE with level filtering
+- **Config** — Resolved config viewer with redacted secrets
+- **Doctor** — Visual diagnostic checks with suggestions
+
+Full prompts and responses are hidden by default for privacy.
 
 ## 5. Call the chat completions endpoint
 
