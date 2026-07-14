@@ -1,6 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect x="2" y="18" width="28" height="7" rx="3.5" fill="#d45d4a"/>
-  <rect x="6" y="11" width="20" height="6" rx="3" fill="#e88b7a"/>
-  <rect x="11" y="5" width="10" height="5" rx="2.5" fill="#f2a99a"/>
-  <line x1="16" y1="4" x2="16" y2="28" stroke="#161310" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="16" cy="17" r="12" fill="#f6d6c6"/>
+  <path d="M8 14c0-4 3.6-8 8-8s8 4 8 8v3c0 4-3.6 6-8 6s-8-2-8-6v-3z" fill="#d45d4a"/>
+  <path d="M9 14c2-2 5-2 7 0M16 14c2-2 5-2 7 0" stroke="#2a1f1b" stroke-width="1.2" stroke-linecap="round"/>
+  <circle cx="12.5" cy="18.5" r="2.2" fill="#2a1f1b"/>
+  <circle cx="19.5" cy="18.5" r="2.2" fill="#2a1f1b"/>
+  <circle cx="13.2" cy="17.8" r="0.8" fill="#fff"/>
+  <circle cx="20.2" cy="17.8" r="0.8" fill="#fff"/>
+  <line x1="15.5" y1="23" x2="16.5" y2="23" stroke="#2a1f1b" stroke-width="1.2" stroke-linecap="round"/>
+  <ellipse cx="16" cy="24" rx="3" ry="1.2" fill="#e88b7a" opacity="0.35"/>
 </svg>
