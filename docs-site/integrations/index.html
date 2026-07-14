@@ -26,6 +26,7 @@
     <p>Gumi is a drop-in OpenAI-compatible endpoint. Any tool that supports OpenAI's API can use Gumi by changing the <code>base_url</code> and <code>api_key</code>.</p>
 
     <h2>OpenCode</h2>
+    <div class="content-card">
     <p>Configure OpenCode to use Gumi as its LLM provider:</p>
     <div class="code-block">
       <div class="code-header">~/.opencode/config.json</div>
@@ -49,8 +50,10 @@
   }
 }</code></pre>
     </div>
+    </div>
 
     <h2>Continue</h2>
+    <div class="content-card">
     <p>Add Gumi as a provider in Continue's config:</p>
     <div class="code-block">
       <div class="code-header">~/.continue/config.json</div>
@@ -81,8 +84,10 @@
 }</code></pre>
     </div>
     <p><strong>Note:</strong> For tab autocomplete, you may want to use LM Studio directly for lower latency. Gumi's pipeline adds ~100-500ms overhead which can feel sluggish for inline completions.</p>
+    </div>
 
     <h2>Cline</h2>
+    <div class="content-card">
     <p>Configure Cline to use Gumi as its API provider:</p>
     <div class="code-block">
       <div class="code-header">Cline Settings → API Provider</div>
@@ -91,16 +96,20 @@ Base URL: http://127.0.0.1:8787/v1
 API Key: gumi-local
 Model: lmstudio:qwen2.5-coder-7b-instruct</code></pre>
     </div>
+    </div>
 
     <h2>Open WebUI</h2>
+    <div class="content-card">
     <p>Connect Open WebUI to Gumi as an OpenAI-compatible endpoint:</p>
     <div class="code-block">
       <div class="code-header">Open WebUI → Admin Settings → Connections</div>
       <pre><code>URL: http://127.0.0.1:8787/v1
 Key: gumi-local</code></pre>
     </div>
+    </div>
 
     <h2>Any OpenAI SDK</h2>
+    <div class="content-card">
     <p>All OpenAI-compatible SDKs work with Gumi by changing two values:</p>
     <div class="code-block">
       <div class="code-header">Python</div>
@@ -120,8 +129,10 @@ const client = new OpenAI({
   apiKey: 'gumi-local',
 });</code></pre>
     </div>
+    </div>
 
     <h2>Recommended models</h2>
+    <div class="content-card">
     <div class="table-wrap">
     <table>
       <thead>
@@ -135,6 +146,7 @@ const client = new OpenAI({
         <tr><td>Ollama mid-size</td><td><code>gemma3:4b</code></td><td>Ollama</td></tr>
       </tbody>
     </table>
+    </div>
     </div>
   </main>
 
