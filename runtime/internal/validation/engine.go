@@ -3,6 +3,7 @@ package validation
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/EffNine/gumi/runtime/internal/api"
@@ -70,7 +71,7 @@ func (e *Engine) Validate(in Input) Report {
 		Severity:   "info",
 		Confidence: 1,
 		Metadata: map[string]string{
-			"response_length": stringInt(len(content)),
+			"response_length": strconv.Itoa(len(content)),
 		},
 	}
 
@@ -279,23 +280,4 @@ func hasRepetition(content string, format *api.ResponseFormat, mode string) bool
 		}
 	}
 	return false
-}
-
-func stringInt(v int) string {
-	return strconvItoa(v)
-}
-
-func strconvItoa(v int) string {
-	if v == 0 {
-		return "0"
-	}
-	var digits [20]byte
-	i := len(digits)
-	n := v
-	for n > 0 {
-		i--
-		digits[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(digits[i:])
 }

@@ -1029,6 +1029,10 @@ func (m *MemoryEngine) GarbageCollectExpired() (int64, error) {
 					})
 				}
 			}
+			if err := rows.Err(); err != nil {
+				rows.Close()
+				return factCount, fmt.Errorf("gc facts: iterate eviction rows: %w", err)
+			}
 			rows.Close()
 		}
 	}

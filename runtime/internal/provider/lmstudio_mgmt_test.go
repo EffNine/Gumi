@@ -282,6 +282,52 @@ func TestLMStudioUnloadModelClearsInstanceID(t *testing.T) {
 	}
 }
 
+// Regression: auto-unload must pass the previous model ID, not an empty string.
+func TestLMStudioAutoUnloadPreviousModelID(t *testing.T) {
+	server := newLMStudioMgmtTestServer(t)
+	defer server.Close()
+
+	adapter := newLMStudioMgmtAdapter(t, server.URL, &config.LMStudioMgmtConfig{Enabled: true})
+	ctx := context.Background()
+
+	// Load a first model.
+	loadResp1, err := adapter.LoadModel(ctx, "qwen3-8b", nil)
+	if err != nil {
+		t.Fatalf("first LoadModel failed: %v", err)
+	}
+	if adapter.LoadedModelID() == "" {
+		t.Fatal("expected non-empty LoadedModelID after first load")
+	}
+
+	// Load a second, different model.
+	loadResp2, err := adapter.LoadModel(ctx, "qwen3-1.7b", nil)
+	if err != nil {
+		t.Fatalf("second LoadModel failed: %v", err)
+	}
+
+	// The two loads should have different instance IDs.
+	if loadResp1.InstanceID == loadResp2.InstanceID {
+		t.Fatalf("expected different instance IDs for different models, got both %s", loadResp1.InstanceID)
+	}
+
+	// Unload the first model by its instance ID (simulating auto-unload).
+	if err := adapter.UnloadModel(ctx, loadResp1.InstanceID); err != nil {
+		t.Fatalf("UnloadModel with previous instance ID failed: %v", err)
+	}
+	// The loaded ID should still be the second model.
+	if adapter.LoadedModelID() != loadResp2.InstanceID {
+		t.Fatalf("expected LoadedModelID to still be %s, got %s", loadResp2.InstanceID, adapter.LoadedModelID())
+	}
+
+	// Now unload the second model.
+	if err := adapter.UnloadModel(ctx, loadResp2.InstanceID); err != nil {
+		t.Fatalf("UnloadModel with current instance ID failed: %v", err)
+	}
+	if adapter.LoadedModelID() != "" {
+		t.Fatal("expected LoadedModelID to be empty after unloading the current model")
+	}
+}
+
 func TestLMStudioListAvailableModels(t *testing.T) {
 	server := newLMStudioMgmtTestServer(t)
 	defer server.Close()

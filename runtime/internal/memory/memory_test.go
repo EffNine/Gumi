@@ -900,6 +900,46 @@ func TestObserveAndCheckMultipleKeys(t *testing.T) {
 // ClearSession
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Regression: rows.Err() check after eviction query
+// ---------------------------------------------------------------------------
+
+func TestGarbageCollectExpiredChecksRowsErr(t *testing.T) {
+	eng := newTestEngine(t)
+	defer eng.Close()
+
+	// Store enough facts to trigger LRU eviction.
+	for i := 0; i < 110; i++ {
+		fact := MemoryFact{
+			Key:        fmt.Sprintf("evict:rows:err:%d", i),
+			Value:      "value",
+			Source:     "test",
+			Confidence: 0.5,
+		}
+		if err := eng.StoreFact(fact); err != nil {
+			t.Fatalf("StoreFact %d failed: %v", i, err)
+		}
+	}
+
+	// Run GC — this exercises the eviction path that calls rows.Err().
+	count, err := eng.GarbageCollectExpired()
+	if err != nil {
+		t.Fatalf("GarbageCollectExpired failed: %v", err)
+	}
+	if count < 0 {
+		t.Fatal("expected non-negative eviction count")
+	}
+
+	// Verify the facts were actually evicted (should be <= 100).
+	facts, err := eng.ListFacts(200)
+	if err != nil {
+		t.Fatalf("ListFacts failed: %v", err)
+	}
+	if len(facts) > 100 {
+		t.Fatalf("expected <= 100 facts after GC, got %d", len(facts))
+	}
+}
+
 func TestClearSession(t *testing.T) {
 	eng := newTestEngine(t)
 	defer eng.Close()

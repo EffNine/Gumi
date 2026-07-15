@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -1151,7 +1152,7 @@ func TestRunChatCompletionToolShimForWeakModels(t *testing.T) {
 	if result.Error.Code != "" {
 		t.Fatalf("unexpected pipeline error: %v", result.Error)
 	}
-	if adapter.seenReq.Tools != nil && len(adapter.seenReq.Tools) != 0 {
+	if len(adapter.seenReq.Tools) != 0 {
 		t.Fatalf("expected native tools cleared for weak model, got %v", adapter.seenReq.Tools)
 	}
 	if len(adapter.seenMessages) == 0 {
@@ -1370,6 +1371,171 @@ func TestAgentModeAppliesProfileDefaults(t *testing.T) {
 	assertEvent(t, result.Context, "profile_defaults_applied")
 	if adapter.seenReq.Temperature == nil {
 		t.Fatal("expected profile temperature default to be applied")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Regression tests for recently fixed bugs
+// ---------------------------------------------------------------------------
+
+func TestIsContextCriticalPreservesSystemAndDeveloper(t *testing.T) {
+	messages := []api.Message{
+		{Role: "system", Content: "you are a helpful assistant"},
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi"},
+		{Role: "user", Content: "what is go?"},
+	}
+	if !isContextCritical(messages, 0) {
+		t.Fatal("expected system message to be critical")
+	}
+	// Only the most recent user (index 3) should be critical.
+	if isContextCritical(messages, 1) {
+		t.Fatal("expected first user message to NOT be critical (only most recent user is critical)")
+	}
+	if isContextCritical(messages, 2) {
+		t.Fatal("expected assistant message to NOT be critical")
+	}
+	if !isContextCritical(messages, 3) {
+		t.Fatal("expected most recent user message to be critical")
+	}
+}
+
+func TestIsContextCriticalOnlyPreservesMostRecentUserMessage(t *testing.T) {
+	messages := []api.Message{
+		{Role: "system", Content: "you are a helpful assistant"},
+		{Role: "user", Content: "first question"},
+		{Role: "assistant", Content: "first answer"},
+		{Role: "user", Content: "second question"},
+		{Role: "assistant", Content: "second answer"},
+		{Role: "user", Content: "third question"},
+	}
+	// System is critical.
+	if !isContextCritical(messages, 0) {
+		t.Fatal("expected system message to be critical")
+	}
+	// Only the most recent user (index 5) should be critical.
+	for i := 1; i < 5; i++ {
+		if isContextCritical(messages, i) {
+			t.Fatalf("expected message at index %d (role=%s) to NOT be critical", i, messages[i].Role)
+		}
+	}
+	if !isContextCritical(messages, 5) {
+		t.Fatal("expected most recent user message to be critical")
+	}
+}
+
+func TestIsContextCriticalDeveloperRole(t *testing.T) {
+	messages := []api.Message{
+		{Role: "developer", Content: "app instructions"},
+		{Role: "user", Content: "do it"},
+	}
+	if !isContextCritical(messages, 0) {
+		t.Fatal("expected developer message to be critical")
+	}
+}
+
+func TestCheckAgentContextCompactionRemovesNonCriticalMessages(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeAgent)
+	cfg.Runtime.Agent.MaxSteps = 100                    // avoid AGENT_STEP_LIMIT_EXCEEDED before compaction runs
+	cfg.Runtime.Agent.ContextCompactionThreshold = 0.01 // very low threshold to force compaction
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	// Build a message list with long messages that exceeds the threshold.
+	messages := []api.Message{
+		{Role: "system", Content: "you are a helpful assistant"},
+	}
+	for i := 0; i < 30; i++ {
+		messages = append(messages, api.Message{Role: "user", Content: fmt.Sprintf("This is a long user message number %d that contains enough text to contribute significantly to the token estimate and trigger context compaction when combined with many other messages like this one.", i)})
+		messages = append(messages, api.Message{Role: "assistant", Content: fmt.Sprintf("This is a long assistant response number %d that also contains enough text to contribute significantly to the token estimate and help trigger context compaction.", i)})
+	}
+
+	// Run through the pipeline in agent mode.
+	result := engine.RunChatCompletion(context.Background(), "req_compaction", api.ChatCompletionRequest{
+		Model:    "local:auto",
+		Messages: messages,
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	// Compaction should have been triggered.
+	if result.Context.ContextCompactionCount == 0 {
+		t.Fatal("expected context compaction to be triggered")
+	}
+	// The system message should be preserved.
+	foundSystem := false
+	for _, msg := range result.Context.NormalizedRequest.Messages {
+		if msg.Role == "system" {
+			foundSystem = true
+			break
+		}
+	}
+	if !foundSystem {
+		t.Fatal("expected system message to be preserved after compaction")
+	}
+	// The most recent user message should be preserved.
+	foundRecentUser := false
+	for _, msg := range result.Context.NormalizedRequest.Messages {
+		if msg.Role == "user" {
+			foundRecentUser = true
+			break
+		}
+	}
+	if !foundRecentUser {
+		t.Fatal("expected most recent user message to be preserved after compaction")
+	}
+}
+
+func TestCheckAgentContextCompactionPreservesCriticalMessages(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Runtime.Mode = string(ModeAgent)
+	cfg.Runtime.Agent.MaxSteps = 100 // avoid AGENT_STEP_LIMIT_EXCEEDED before compaction runs
+	cfg.Runtime.Agent.ContextCompactionThreshold = 0.01
+	adapter := &fakeAdapter{name: "ollama"}
+	engine := testEngine(adapter, cfg)
+
+	messages := []api.Message{
+		{Role: "developer", Content: "app instructions that must be preserved during context compaction"},
+	}
+	for i := 0; i < 30; i++ {
+		messages = append(messages, api.Message{Role: "user", Content: fmt.Sprintf("This is a long user message number %d that contains enough text to contribute significantly to the token estimate and trigger context compaction when combined with many other messages like this one.", i)})
+		messages = append(messages, api.Message{Role: "assistant", Content: fmt.Sprintf("This is a long assistant response number %d that also contains enough text to contribute significantly to the token estimate and help trigger context compaction.", i)})
+	}
+
+	result := engine.RunChatCompletion(context.Background(), "req_compaction_critical", api.ChatCompletionRequest{
+		Model:    "local:auto",
+		Messages: messages,
+	})
+
+	if result.Error.Code != "" {
+		t.Fatalf("unexpected pipeline error: %v", result.Error)
+	}
+	if result.Context.ContextCompactionCount == 0 {
+		t.Fatal("expected context compaction to be triggered")
+	}
+	// Developer message must be preserved.
+	foundDev := false
+	for _, msg := range result.Context.NormalizedRequest.Messages {
+		if msg.Role == "developer" {
+			foundDev = true
+			break
+		}
+	}
+	if !foundDev {
+		t.Fatal("expected developer message to be preserved after compaction")
+	}
+	// Most recent user message must be preserved.
+	foundRecentUser := false
+	for _, msg := range result.Context.NormalizedRequest.Messages {
+		if msg.Role == "user" {
+			foundRecentUser = true
+			break
+		}
+	}
+	if !foundRecentUser {
+		t.Fatal("expected most recent user message to be preserved after compaction")
 	}
 }
 

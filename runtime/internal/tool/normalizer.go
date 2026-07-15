@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/validation"
 )
 
 // ParsedAssistantResult describes what the assistant message contains after
@@ -109,81 +110,5 @@ func nowMs() int64 {
 }
 
 func extractJSONCandidate(content string) string {
-	trimmed := strings.TrimSpace(content)
-	if trimmed == "" {
-		return ""
-	}
-	// Strip markdown fences if present.
-	if strings.HasPrefix(trimmed, "```") {
-		trimmed = strings.TrimPrefix(trimmed, "```json")
-		trimmed = strings.TrimPrefix(trimmed, "```")
-		if idx := strings.LastIndex(trimmed, "```"); idx >= 0 {
-			trimmed = trimmed[:idx]
-		}
-		trimmed = strings.TrimSpace(trimmed)
-	}
-	// Quick heuristic: if it doesn't look like JSON, skip.
-	if !strings.HasPrefix(trimmed, "{") && !strings.HasPrefix(trimmed, "[") {
-		return ""
-	}
-	// Extract outermost object/array by brace matching.
-	var start int
-	if strings.HasPrefix(trimmed, "[") {
-		start = 0
-	} else {
-		start = strings.Index(trimmed, "{")
-		if start < 0 {
-			return ""
-		}
-	}
-	end := findMatchingClose(trimmed[start:])
-	if end < 0 {
-		return ""
-	}
-	return strings.TrimSpace(trimmed[start : start+end+1])
-}
-
-func findMatchingClose(s string) int {
-	depth := 0
-	var open, close byte
-	switch s[0] {
-	case '{':
-		open, close = '{', '}'
-	case '[':
-		open, close = '[', ']'
-	default:
-		return -1
-	}
-	inString := false
-	escaped := false
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if inString {
-			if escaped {
-				escaped = false
-				continue
-			}
-			if c == '\\' {
-				escaped = true
-				continue
-			}
-			if c == '"' {
-				inString = false
-			}
-			continue
-		}
-		if c == '"' {
-			inString = true
-			continue
-		}
-		if c == open {
-			depth++
-		} else if c == close {
-			depth--
-			if depth == 0 {
-				return i
-			}
-		}
-	}
-	return -1
+	return validation.ExtractJSONCandidate(content)
 }

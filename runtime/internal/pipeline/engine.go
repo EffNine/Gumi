@@ -872,7 +872,7 @@ func (e *Engine) checkAgentContextCompaction(pc *Context) {
 	trimmed := make([]api.Message, 0, preserveRecent+2)
 
 	for i, msg := range messages {
-		if i < preserveFrom && !isContextCritical(msg, i, len(messages)) {
+		if i < preserveFrom && !isContextCritical(messages, i) {
 			removedCount++
 			continue
 		}
@@ -927,21 +927,19 @@ func (e *Engine) checkAgentContextCompaction(pc *Context) {
 }
 
 // isContextCritical returns true if the message must be preserved during
-// compaction. System/developer messages and the last user message are critical.
-func isContextCritical(msg api.Message, index int, total int) bool {
-	if msg.Role == "system" || msg.Role == "developer" {
+// compaction. System/developer messages are always critical; only the most
+// recent user message is critical.
+func isContextCritical(messages []api.Message, index int) bool {
+	if messages[index].Role == "system" || messages[index].Role == "developer" {
 		return true
 	}
 	// Preserve the most recent user message (the current prompt).
-	for i := total - 1; i >= 0; i-- {
-		if i == index {
-			return true
-		}
-		if i < index {
-			return false
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "user" {
+			return i == index
 		}
 	}
-	return index == total-1
+	return false
 }
 
 // agentPostProcess runs agent-specific post-generation processing:
@@ -1219,6 +1217,10 @@ func (e *Engine) applyModelManagement(ctx context.Context, pc *Context) error {
 		return nil // management not configured or disabled
 	}
 
+	// Capture the previously loaded model ID before loading the new one,
+	// so auto-unload can target the correct previous model.
+	previousID := mgmt.LoadedModelID()
+
 	// Look up per-model config override.
 	modelCfg := mgmt.BuildPerModelConfig(pc.SelectedModel)
 
@@ -1243,9 +1245,10 @@ func (e *Engine) applyModelManagement(ctx context.Context, pc *Context) error {
 		"status":            resp.Status,
 	})
 
-	// Auto-unload previous model if configured.
-	if providerCfg.ModelManagement.AutoUnload {
-		mgmt.UnloadModel(ctx, "")
+	// Auto-unload previous model if configured. Only unload if the previous
+	// ID is non-empty and differs from the newly loaded model.
+	if providerCfg.ModelManagement.AutoUnload && previousID != "" && previousID != resp.InstanceID {
+		mgmt.UnloadModel(ctx, previousID)
 	}
 
 	return nil

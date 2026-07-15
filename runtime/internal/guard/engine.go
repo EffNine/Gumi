@@ -2,6 +2,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -207,6 +208,32 @@ func (e *Engine) CheckAgent(in Input, agentIn AgentInput) Output {
 	}
 }
 
+// normalizeToolCallArgs attempts to parse JSON arguments and re-marshal them
+// with canonical key ordering so that semantically identical arguments produce
+// the same string. On any parse failure it falls back to the trimmed raw string.
+func normalizeToolCallArgs(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return trimmed
+	}
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		return trimmed
+	}
+	// Re-marshal with sorted keys for canonical form.
+	normalized, err := json.Marshal(parsed)
+	if err != nil {
+		return trimmed
+	}
+	return string(normalized)
+}
+
+// toolCallSignature builds a canonical signature for a tool call, normalizing
+// JSON arguments so that key ordering and whitespace differences are ignored.
+func toolCallSignature(call api.ToolCall) string {
+	return call.Function.Name + "\x00" + normalizeToolCallArgs(call.Function.Arguments)
+}
+
 // countRepeatedToolCalls returns the maximum repetition count of any tool call
 // (same name + arguments) across all assistant messages.
 func countRepeatedToolCalls(messages []api.Message) int {
@@ -220,7 +247,7 @@ func countRepeatedToolCalls(messages []api.Message) int {
 			if call.Function.Name == "" {
 				continue
 			}
-			sig := call.Function.Name + "\x00" + strings.TrimSpace(call.Function.Arguments)
+			sig := toolCallSignature(call)
 			counts[sig]++
 			if counts[sig] > maxCount {
 				maxCount = counts[sig]
@@ -258,7 +285,7 @@ func hasToolCallLoop(messages []api.Message) bool {
 			if call.Function.Name == "" {
 				continue
 			}
-			sig := call.Function.Name + "\x00" + strings.TrimSpace(call.Function.Arguments)
+			sig := toolCallSignature(call)
 			if seen[sig] {
 				return true
 			}

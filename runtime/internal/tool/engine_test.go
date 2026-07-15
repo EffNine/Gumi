@@ -410,6 +410,38 @@ func TestValidateToolCallsEmptyToolName(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Regression: extractJSONCandidate strips ```python fences
+// ---------------------------------------------------------------------------
+
+func TestExtractJSONCandidatePythonFence(t *testing.T) {
+	// Some models (e.g. Essential AI RNJ-1) wrap JSON inside ```python blocks.
+	content := "```python\nimport json\n\ndata = {\n    \"name\": \"test\",\n    \"value\": 42\n}\n\njson_object = json.dumps(data)\nprint(json_object)\n```"
+	candidate := extractJSONCandidate(content)
+	if candidate == "" {
+		t.Fatal("expected non-empty candidate from python fence")
+	}
+	if !strings.Contains(candidate, "\"name\"") || !strings.Contains(candidate, "\"value\"") {
+		t.Fatalf("expected JSON keys in candidate, got %q", candidate)
+	}
+}
+
+func TestExtractJSONCandidateBareFence(t *testing.T) {
+	content := "```\n{\"ok\": true}\n```"
+	candidate := extractJSONCandidate(content)
+	if candidate != "{\"ok\": true}" {
+		t.Fatalf("expected bare JSON from fence, got %q", candidate)
+	}
+}
+
+func TestExtractJSONCandidateNoFence(t *testing.T) {
+	content := `{"key": "value"}`
+	candidate := extractJSONCandidate(content)
+	if candidate != content {
+		t.Fatalf("expected unchanged JSON, got %q", candidate)
+	}
+}
+
 func TestValidateToolCallsEmptyArguments(t *testing.T) {
 	tools := []api.Tool{
 		{Type: "function", Function: api.ToolFunction{Name: "test", Parameters: map[string]interface{}{}}},

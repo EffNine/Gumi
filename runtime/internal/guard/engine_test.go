@@ -101,6 +101,37 @@ func TestAgentGuardBlocksRepeatedToolCallStrict(t *testing.T) {
 	}
 }
 
+func TestToolCallLoopDetectionReorderedKeys(t *testing.T) {
+	// JSON arguments with reordered keys should be treated as the same call.
+	messages := []api.Message{
+		{Role: "user", Content: "read the file"},
+		{Role: "assistant", Content: "", ToolCalls: []api.ToolCall{{Function: api.ToolFunction{Name: "read_file", Arguments: `{"path":"main.go","line":10}`}}}},
+		{Role: "tool", Content: "package main", ToolCallID: "call_1"},
+		{Role: "assistant", Content: "", ToolCalls: []api.ToolCall{{Function: api.ToolFunction{Name: "read_file", Arguments: `{"line":10,"path":"main.go"}`}}}},
+	}
+	// hasToolCallLoop should detect this as a loop.
+	if !hasToolCallLoop(messages) {
+		t.Fatal("expected hasToolCallLoop to detect reordered keys as same call")
+	}
+	// countRepeatedToolCalls should return 2.
+	if n := countRepeatedToolCalls(messages); n != 2 {
+		t.Fatalf("expected countRepeatedToolCalls=2, got %d", n)
+	}
+}
+
+func TestToolCallLoopDetectionDifferentKeysNotLoop(t *testing.T) {
+	// Different arguments should NOT be detected as a loop.
+	messages := []api.Message{
+		{Role: "user", Content: "read files"},
+		{Role: "assistant", Content: "", ToolCalls: []api.ToolCall{{Function: api.ToolFunction{Name: "read_file", Arguments: `{"path":"main.go"}`}}}},
+		{Role: "tool", Content: "package main", ToolCallID: "call_1"},
+		{Role: "assistant", Content: "", ToolCalls: []api.ToolCall{{Function: api.ToolFunction{Name: "read_file", Arguments: `{"path":"other.go"}`}}}},
+	}
+	if hasToolCallLoop(messages) {
+		t.Fatal("expected hasToolCallLoop to NOT detect different paths as loop")
+	}
+}
+
 func TestAgentGuardWarnsRepeatedToolCallStandard(t *testing.T) {
 	messages := []api.Message{
 		{Role: "user", Content: "read the file"},
