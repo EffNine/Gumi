@@ -1,0 +1,101 @@
+[
+  {
+    "mode": "A-LMStudioDirect-ThinkingOn",
+    "prompt": "debugging",
+    "attempt": 1,
+    "status": 200,
+    "latency_ms": 4765,
+    "response_nonempty": true,
+    "no_reasoning_leak": true,
+    "content_length": 2265,
+    "content_preview": "\"The likely bug in the Go function is due to concurrent access and modification o\""
+  },
+  {
+    "mode": "A-LMStudioDirect-ThinkingOn",
+    "prompt": "planning",
+    "attempt": 1,
+    "status": 200,
+    "latency_ms": 6642,
+    "response_nonempty": true,
+    "no_reasoning_leak": true,
+    "content_length": 3570,
+    "content_preview": "\"To refactor a 500-line monolithic HTTP handler into three smaller handlers while\""
+  },
+  {
+    "mode": "A-LMStudioDirect-ThinkingOn",
+    "prompt": "json",
+    "attempt": 1,
+    "status": 200,
+    "latency_ms": 250,
+    "response_nonempty": true,
+    "no_reasoning_leak": true,
+    "content_length": 47,
+    "content_preview": "\"```json\\n{\\n  \\\"name\\\": \\\"test\\\",\\n  \\\"value\\\": 42\\n}\\n```\\n\""
+  },
+  {
+    "mode": "B-Gumi-ThinkingOn",
+    "prompt": "debugging",
+    "attempt": 1,
+    "status": 200,
+    "latency_ms": 4927,
+    "response_nonempty": true,
+    "no_reasoning_leak": true,
+    "content_length": 976,
+    "content_preview": "\"The likely bug is a race condition. When multiple goroutines access and modify t\""
+  },
+  {
+    "mode": "B-Gumi-ThinkingOn",
+    "prompt": "planning",
+    "attempt": 1,
+    "status": 422,
+    "latency_ms": 7637,
+    "response_nonempty": false,
+    "no_reasoning_leak": true,
+    "content_length": 0,
+    "content_preview": "\"\\n\""
+  },
+  {
+    "mode": "B-Gumi-ThinkingOn",
+    "prompt": "json",
+    "attempt": 1,
+    "status": 200,
+    "latency_ms": 238,
+    "response_nonempty": true,
+    "no_reasoning_leak": true,
+    "content_length": 29,
+    "content_preview": "\"{\\\"name\\\": \\\"test\\\", \\\"value\\\": 42}\\n\""
+  },
+  {
+    "mode": "C-Gumi-ThinkingOff",
+    "prompt": "debugging",
+    "attempt": 1,
+    "status": 200,
+    "latency_ms": 4084,
+    "response_nonempty": true,
+    "no_reasoning_leak": true,
+    "content_length": 807,
+    "content_preview": "\"The likely bug is race condition. When multiple goroutines access and modify the\""
+  },
+  {
+    "mode": "C-Gumi-ThinkingOff",
+    "prompt": "planning",
+    "attempt": 1,
+    "status": 422,
+    "latency_ms": 4160,
+    "response_nonempty": false,
+    "no_reasoning_leak": true,
+    "content_length": 0,
+    "content_preview": "\"\\n\""
+  },
+  {
+    "mode": "C-Gumi-ThinkingOff",
+    "prompt": "json",
+    "attempt": 1,
+    "status": 200,
+    "latency_ms": 213,
+    "response_nonempty": true,
+    "no_reasoning_leak": true,
+    "content_length": 29,
+    "content_preview": "\"{\\\"name\\\": \\\"test\\\", \\\"value\\\": 42}\\n\""
+  }
+]
