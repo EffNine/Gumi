@@ -71,7 +71,7 @@ dist/
 benchmarks/
 build/
 bin/
-gumi
+/gumi
 gumi.exe
 
 # Cache
