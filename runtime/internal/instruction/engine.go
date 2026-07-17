@@ -15,7 +15,7 @@ import (
 
 // Constraint is a single rule extracted from the user's prompt.
 type Constraint struct {
-	Type  string `json:"type"`  // sentences, words, lines, bullets, json, no_word, end_with, start_with, min_chars
+	Type  string `json:"type"`  // sentences, words, lines, bullets, json, no_word, end_with, start_with, min_chars, digit_answer, one_word
 	Label string `json:"label"` // human-readable description
 	Value string `json:"value"` // param (e.g. "3", "health", "learning")
 	Hint  string `json:"hint"`  // reminder text for the model
@@ -62,6 +62,19 @@ var (
 	reSections    = regexp.MustCompile(`(?i)(?:highlight\s+at\s+least\s+)?(\d+)\s+sections?`)
 	reEachCap     = regexp.MustCompile(`(?i)(?:each\s+line\s+must\s+start\s+with\s+a\s+capital)`)
 	reNoRhyme     = regexp.MustCompile(`(?i)(?:do\s+not\s+rhyme|no\s+rhym(?:e|ing))`)
+	reOneWord     = regexp.MustCompile(`(?i)(?:answer|respond|reply|output|return)\s+(?:with\s+|in\s+)?one\s+word|(?:in|with)\s+one\s+word\.?`)
+	reDigitAsk    = regexp.MustCompile(`(?i)(?:answer|respond|reply|output|return)\s+(?:with\s+)?(?:a\s+)?(?:numeric\s+)?(?:digit|number)|numeric\s+digit\s+only|(?:as|with)\s+(?:a\s+)?digit`)
+	reMathAsk     = regexp.MustCompile(`(?i)(?:\d+\s*[\+\-\*/×÷]\s*\d+|what\s+is\s+\d+|how\s+many|\d+\s*\+\s*\d+)`)
+
+	// Spelled cardinals that local models often emit instead of digits.
+	spelledNumbers = map[string]struct{}{
+		"zero": {}, "one": {}, "two": {}, "three": {}, "four": {}, "five": {},
+		"six": {}, "seven": {}, "eight": {}, "nine": {}, "ten": {},
+		"eleven": {}, "twelve": {}, "thirteen": {}, "fourteen": {}, "fifteen": {},
+		"sixteen": {}, "seventeen": {}, "eighteen": {}, "nineteen": {}, "twenty": {},
+		"thirty": {}, "forty": {}, "fifty": {}, "sixty": {}, "seventy": {},
+		"eighty": {}, "ninety": {}, "hundred": {}, "thousand": {},
+	}
 )
 
 // Extract scans the user prompt for known constraint patterns and returns
@@ -220,6 +233,34 @@ func (e *Engine) Extract(userMessage string) Result {
 		})
 	}
 
+	wantsOneWord := reOneWord.MatchString(userMessage)
+	wantsDigit := reDigitAsk.MatchString(userMessage)
+	isMath := reMathAsk.MatchString(userMessage)
+
+	// Math + one-word / digit format → require a numeric digit (not "Four").
+	if isMath && (wantsOneWord || wantsDigit) {
+		constraints = append(constraints, Constraint{
+			Type: "digit_answer", Label: "numeric digit only",
+			Value: "", Hint: "For this math question, answer with the numeric digit only (example: 4). Do NOT spell the number (example: not Four). Output a single digit or number with no punctuation or explanation.",
+			Check: "digit_answer",
+		})
+	} else if wantsDigit {
+		constraints = append(constraints, Constraint{
+			Type: "digit_answer", Label: "numeric digit only",
+			Value: "", Hint: "Answer with the numeric digit only (example: 4). Do NOT spell the number (example: not Four).",
+			Check: "digit_answer",
+		})
+	}
+
+	// One-word answers (non-digit or in addition to digit) must be a single token.
+	if wantsOneWord {
+		constraints = append(constraints, Constraint{
+			Type: "one_word", Label: "exactly one word",
+			Value: "1", Hint: "Your entire response must be exactly one word. No sentences, no punctuation, no extra explanation.",
+			Check: "one_word",
+		})
+	}
+
 	if len(constraints) == 0 {
 		return Result{}
 	}
@@ -305,6 +346,10 @@ func checkConstraint(response string, c Constraint) (bool, string) {
 		return checkSections(response, c)
 	case "no_rhyme":
 		return checkNoRhyme(response)
+	case "digit_answer":
+		return checkDigitAnswer(response)
+	case "one_word":
+		return checkOneWord(response)
 	}
 	return true, ""
 }
@@ -484,6 +529,60 @@ func checkNoRhyme(response string) (bool, string) {
 		}
 	}
 	return true, ""
+}
+
+func checkDigitAnswer(response string) (bool, string) {
+	cleaned := normalizeAnswerToken(response)
+	if cleaned == "" {
+		return false, "empty response (expected a numeric digit)"
+	}
+	if _, spelled := spelledNumbers[cleaned]; spelled {
+		return false, fmt.Sprintf("spelled number '%s' is not allowed; use a numeric digit instead", cleaned)
+	}
+	start := 0
+	if cleaned[0] == '-' {
+		if len(cleaned) == 1 {
+			return false, fmt.Sprintf("expected a numeric digit, got '%s'", cleaned)
+		}
+		start = 1
+	}
+	for i := start; i < len(cleaned); i++ {
+		ch := cleaned[i]
+		if ch < '0' || ch > '9' {
+			return false, fmt.Sprintf("expected a numeric digit, got '%s'", cleaned)
+		}
+	}
+	return true, ""
+}
+
+func checkOneWord(response string) (bool, string) {
+	cleaned := strings.TrimSpace(response)
+	if cleaned == "" {
+		return false, "empty response (expected exactly one word)"
+	}
+	// Treat trailing punctuation as still one word ("Paris." / "4.").
+	fields := strings.Fields(cleaned)
+	if len(fields) != 1 {
+		return false, fmt.Sprintf("expected exactly one word, got %d", len(fields))
+	}
+	return true, ""
+}
+
+func normalizeAnswerToken(response string) string {
+	trimmed := strings.TrimSpace(response)
+	if trimmed == "" {
+		return ""
+	}
+	// Take the first field so "Four." / "4\n" normalize cleanly.
+	fields := strings.Fields(trimmed)
+	token := fields[0]
+	var b strings.Builder
+	for _, ch := range strings.ToLower(token) {
+		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
+			b.WriteRune(ch)
+		}
+	}
+	return b.String()
 }
 
 // ── Helpers ────────────────────────────────────────────────────────

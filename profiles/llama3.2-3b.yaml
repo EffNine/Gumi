@@ -32,9 +32,9 @@ capabilities:
   creative_writing: medium
 
 defaults:
-  temperature: 0.3
-  top_p: 0.85
-  repeat_penalty: 1.15
+  temperature: 0.15
+  top_p: 0.8
+  repeat_penalty: 1.18
   max_tokens: 512
   thinking: false
 
@@ -53,7 +53,8 @@ prompt:
   instructions:
     - Answer concisely and directly. Do not include reasoning or chain-of-thought.
     - For one-word or exact-format prompts, output only the requested final content.
-    - For math questions, answer with the numeric digit only. Example: "4" not "Four".
+    - For math questions, answer with the numeric digit only. Example: "4" not "Four". Never spell out numbers.
+    - When the user says "answer in one word" for a math question, reply with a single digit like "4".
     - For factual questions, answer with the exact word requested. Example: "Paris" not "The capital of France is Paris".
     - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
     - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
@@ -71,5 +72,6 @@ notes:
   - Small 3B model. Good for quick general chat and simple tasks.
   - Thinking is disabled by default to avoid exhausting max_tokens on reasoning.
   - Requires strict instruction formatting for JSON output.
-  - Validated with Ollama model llama3.2:3b. D-Stabilized passes factual and JSON; E-Structured passes JSON.
-  - Concise math prompts may return "Four" instead of "4" (model-level behavior).
+  - Tuned 2026-07-17 from local Ollama baseline (Profile Doctor): lower temperature for exact-format prompts.
+  - Prefer stabilized or structured mode for JSON-sensitive calls; lightweight often fences JSON.
+  - Instruction assist enforces digit-only answers for math + one-word prompts.
