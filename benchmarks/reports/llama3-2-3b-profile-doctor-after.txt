@@ -1,0 +1,45 @@
+Gumi Profile Doctor
+
+Model: llama3.2:3b
+Provider: ollama
+Report: /home/ubuntu/.gumi/benchmarks/local-model/llama3-2-3b-20260717T142912Z.json
+Generated: 2026-07-17T14:29:12Z
+Profile: profiles/llama3.2-3b.yaml
+Result: Good baseline with lightweight caveat
+
+Findings:
+- Gumi passed 22/30 checks.
+- Direct provider passed 3/9 checks.
+- B-GumiDirect (diagnostic): 3/9 passed.
+  - Exact instruction failures in direct mode: 3
+  - JSON failures in direct mode: 3
+- C-GumiLightweight: 7/9 passed.
+  - JSON failures: 2
+- D-GumiStabilized: all 9 passed.
+- E-GumiStructured: all 3 passed.
+- Latency overhead is acceptable: direct provider p50 632ms, Gumi direct p50 601ms.
+
+Note: Direct mode has failures, but stabilized/structured modes pass. This is acceptable because direct mode is intentionally thin.
+
+Note: Lightweight mode (C) has failures, but stabilized (D) and structured (E) pass. Lightweight prompt is intentionally minimal; failures are expected for models that need stronger instructions.
+
+Recommended profile changes:
+- Add stronger JSON instruction:
+  "When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after."
+- Prefer structured mode for JSON-sensitive application calls.
+- Direct mode exact-format failures detected. Use stabilized mode (D) for production workloads requiring exact output.
+- Direct mode JSON failures detected. Use stabilized mode (D) or structured mode (E) for JSON-sensitive calls.
+
+Suggested YAML patch snippet:
+defaults:
+  max_tokens: 512
+  thinking: false
+
+context:
+  max_input_tokens: 4000
+
+prompt:
+  instructions:
+    - For one-word or exact-format prompts, output only the requested final content.
+    - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
+    - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
