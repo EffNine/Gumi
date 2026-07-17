@@ -1,0 +1,38 @@
+Gumi Profile Doctor
+
+Model: qwen2.5-coder-7b-instruct
+Provider: lmstudio
+Report: /home/dev/.gumi/benchmarks/local-model/qwen2-5-coder-7b-instruct-20260717T182603Z.json
+Generated: 2026-07-17T18:26:03Z
+Result: Good baseline with lightweight caveat
+
+Findings:
+- Gumi passed 27/30 checks.
+- Direct provider passed 6/9 checks.
+- B-GumiDirect (diagnostic): all 9 passed.
+- C-GumiLightweight: 6/9 passed.
+  - JSON failures: 3
+- D-GumiStabilized: all 9 passed.
+- E-GumiStructured: all 3 passed.
+- Latency overhead is acceptable: direct provider p50 3738ms, Gumi direct p50 1996ms.
+
+Note: Lightweight mode (C) has failures, but stabilized (D) and structured (E) pass. Lightweight prompt is intentionally minimal; failures are expected for models that need stronger instructions.
+
+Recommended profile changes:
+- Add stronger JSON instruction:
+  "When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after."
+- Prefer structured mode for JSON-sensitive application calls.
+
+Suggested YAML patch snippet:
+defaults:
+  max_tokens: 512
+  thinking: false
+
+context:
+  max_input_tokens: 4000
+
+prompt:
+  instructions:
+    - For one-word or exact-format prompts, output only the requested final content.
+    - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
+    - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
