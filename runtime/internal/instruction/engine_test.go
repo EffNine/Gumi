@@ -443,3 +443,107 @@ func TestBuildRetryHint(t *testing.T) {
 		t.Errorf("hint should contain 'FIX EACH ONE': %s", hint)
 	}
 }
+
+func TestExtractDigitAnswerFromMathOneWord(t *testing.T) {
+	result := New().Extract("What is 2+2? Answer in one word.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints")
+	}
+	hasDigit := false
+	hasOneWord := false
+	for _, c := range result.Constraints {
+		if c.Type == "digit_answer" {
+			hasDigit = true
+		}
+		if c.Type == "one_word" {
+			hasOneWord = true
+		}
+	}
+	if !hasDigit {
+		t.Error("expected digit_answer constraint for math + one-word prompt")
+	}
+	if !hasOneWord {
+		t.Error("expected one_word constraint")
+	}
+	if !strings.Contains(result.HintBlock, "numeric digit") {
+		t.Errorf("hint should mention numeric digit: %s", result.HintBlock)
+	}
+}
+
+func TestExtractDigitAnswerExplicit(t *testing.T) {
+	result := New().Extract("How many sides does a triangle have? Answer with a digit.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints")
+	}
+	hasDigit := false
+	for _, c := range result.Constraints {
+		if c.Type == "digit_answer" {
+			hasDigit = true
+		}
+	}
+	if !hasDigit {
+		t.Error("expected digit_answer constraint")
+	}
+}
+
+func TestExtractOneWordWithoutMath(t *testing.T) {
+	result := New().Extract("What is the capital of France? Answer in one word.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints")
+	}
+	hasDigit := false
+	hasOneWord := false
+	for _, c := range result.Constraints {
+		if c.Type == "digit_answer" {
+			hasDigit = true
+		}
+		if c.Type == "one_word" {
+			hasOneWord = true
+		}
+	}
+	if hasDigit {
+		t.Error("did not expect digit_answer for factual one-word prompt")
+	}
+	if !hasOneWord {
+		t.Error("expected one_word constraint")
+	}
+}
+
+func TestValidateDigitAnswer(t *testing.T) {
+	e := New()
+	constraints := []Constraint{{Type: "digit_answer", Check: "digit_answer", Label: "numeric digit only"}}
+
+	if v := e.Validate("4", constraints); !v.Passed {
+		t.Errorf("expected pass for '4': %v", v.Violations)
+	}
+	if v := e.Validate("4.", constraints); !v.Passed {
+		t.Errorf("expected pass for '4.': %v", v.Violations)
+	}
+	if v := e.Validate("-12", constraints); !v.Passed {
+		t.Errorf("expected pass for '-12': %v", v.Violations)
+	}
+	if v := e.Validate("Four", constraints); v.Passed {
+		t.Error("expected fail for spelled 'Four'")
+	}
+	if v := e.Validate("Four.", constraints); v.Passed {
+		t.Error("expected fail for spelled 'Four.'")
+	}
+	if v := e.Validate("the answer is 4", constraints); v.Passed {
+		t.Error("expected fail for multi-word prose")
+	}
+}
+
+func TestValidateOneWord(t *testing.T) {
+	e := New()
+	constraints := []Constraint{{Type: "one_word", Check: "one_word", Label: "exactly one word"}}
+
+	if v := e.Validate("Paris", constraints); !v.Passed {
+		t.Errorf("expected pass for 'Paris': %v", v.Violations)
+	}
+	if v := e.Validate("Paris.", constraints); !v.Passed {
+		t.Errorf("expected pass for 'Paris.': %v", v.Violations)
+	}
+	if v := e.Validate("The capital is Paris", constraints); v.Passed {
+		t.Error("expected fail for multi-word answer")
+	}
+}

@@ -1,0 +1,44 @@
+Gumi Profile Doctor
+
+Model: llama3.2:3b
+Provider: ollama
+Report: /home/ubuntu/.gumi/benchmarks/local-model/llama3-2-3b-20260717T142438Z.json
+Generated: 2026-07-17T14:24:38Z
+Profile: profiles/llama3.2-3b.yaml
+Result: Needs tuning
+
+Findings:
+- Gumi passed 17/30 checks.
+- Direct provider passed 3/9 checks.
+- B-GumiDirect (diagnostic): 3/9 passed.
+  - Exact instruction failures in direct mode: 3
+  - JSON failures in direct mode: 3
+- C-GumiLightweight: 3/9 passed.
+  - Exact instruction failures: 3
+  - JSON failures: 3
+- D-GumiStabilized: 8/9 passed.
+  - Exact instruction failures: 1
+- E-GumiStructured: all 3 passed.
+- Latency overhead is acceptable: direct provider p50 650ms, Gumi direct p50 599ms.
+
+Recommended profile changes:
+- Add exact-format instruction:
+  "For one-word or exact-format prompts, output only the requested final content."
+- Add stronger JSON instruction:
+  "When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after."
+- Prefer structured mode for JSON-sensitive application calls.
+- Direct mode JSON failures detected. Use stabilized mode (D) or structured mode (E) for JSON-sensitive calls.
+
+Suggested YAML patch snippet:
+defaults:
+  max_tokens: 512
+  thinking: false
+
+context:
+  max_input_tokens: 4000
+
+prompt:
+  instructions:
+    - For one-word or exact-format prompts, output only the requested final content.
+    - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
+    - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
