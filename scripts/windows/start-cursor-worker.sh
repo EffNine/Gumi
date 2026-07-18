@@ -12,8 +12,10 @@ LOCK_FILE="${LOG_DIR}/cursor-worker.lock"
 RESTART_DELAY_SEC="${CURSOR_WORKER_RESTART_DELAY_SEC:-5}"
 
 mkdir -p "$LOG_DIR"
-# Login shells aren't used by Scheduled Task / wsl -- bash -lc in all cases.
-export PATH="${HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+
+# Use a clean Linux PATH. WSL login shells inject Windows paths that contain
+# spaces / parentheses (e.g. Program Files (x86)) and break unquoted expansions.
+export PATH="${HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
 log() {
   echo "$(date -Is) $*" | tee -a "$LOG_FILE"
@@ -37,7 +39,7 @@ if ! flock -n 9; then
   exit 0
 fi
 echo $$ >"$PID_FILE"
-trap 'rm -f "$PID_FILE"; flock -u 9' EXIT
+trap 'rm -f "$PID_FILE"; flock -u 9 2>/dev/null || true' EXIT
 
 worker_running() {
   pgrep -af "cursor-agent/.*/index.js worker start" >/dev/null 2>&1
@@ -56,7 +58,6 @@ log "starting Cursor agent worker dir=$WORKER_DIR name=$WORKER_NAME agent=$(comm
 
 while true; do
   set +e
-  # Use --cd so we don't depend on an interactive shell cwd.
   agent worker start \
     --worker-dir "$WORKER_DIR" \
     --name "$WORKER_NAME" \

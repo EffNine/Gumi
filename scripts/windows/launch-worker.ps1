@@ -6,6 +6,9 @@
 .DESCRIPTION
   Used from the Startup folder and/or Scheduled Task after auto logon.
   Logs to %USERPROFILE%\.gumi\logs\cursor-worker-windows.log
+
+  Retries forever so a transient WSL boot failure cannot leave the machine
+  without a worker.
 #>
 [CmdletBinding()]
 param(
@@ -14,13 +17,15 @@ param(
   [string]$WorkerDir = '/home/dev/Gumi',
   [string]$WorkerName = 'gumi-windows',
   [int]$InitialDelaySec = 20,
-  [int]$WslReadyTimeoutSec = 180
+  [int]$WslReadyTimeoutSec = 180,
+  [int]$RetryDelaySec = 10
 )
 
 $ErrorActionPreference = 'Continue'
 $logDir = Join-Path $env:USERPROFILE '.gumi\logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir 'cursor-worker-windows.log'
+$scriptPath = "$WorkerDir/scripts/windows/start-cursor-worker.sh"
 
 function Write-Log([string]$Message) {
   $line = '{0} {1}' -f (Get-Date -Format 'o'), $Message
@@ -28,42 +33,46 @@ function Write-Log([string]$Message) {
   Write-Host $line
 }
 
+function Wait-WslReady {
+  $deadline = (Get-Date).AddSeconds($WslReadyTimeoutSec)
+  while ((Get-Date) -lt $deadline) {
+    & wsl.exe -d $Distro -u $WslUser --exec /bin/true 2>$null
+    if ($LASTEXITCODE -eq 0) { return $true }
+    Write-Log "waiting for WSL ready (last exit=$LASTEXITCODE)"
+    Start-Sleep -Seconds 3
+  }
+  return $false
+}
+
+function Start-WorkerOnce {
+  # Pass env into WSL without fragile bash -lc quoting.
+  $env:CURSOR_WORKER_DIR = $WorkerDir
+  $env:CURSOR_WORKER_NAME = $WorkerName
+  $env:WSLENV = 'CURSOR_WORKER_DIR/u:CURSOR_WORKER_NAME/u'
+
+  # Ensure executable bit (idempotent).
+  & wsl.exe -d $Distro -u $WslUser --exec /bin/chmod +x $scriptPath 2>$null
+
+  Write-Log "starting worker watchdog name=$WorkerName dir=$WorkerDir script=$scriptPath"
+  # --exec avoids login-shell PATH pollution from Windows (Program Files (x86)).
+  & wsl.exe -d $Distro -u $WslUser --exec /bin/bash $scriptPath
+  return $LASTEXITCODE
+}
+
 Write-Log "launcher start distro=$Distro user=$WslUser delay=${InitialDelaySec}s"
 if ($InitialDelaySec -gt 0) {
   Start-Sleep -Seconds $InitialDelaySec
 }
 
-# Wait until WSL can run a trivial command (boot can lag after auto logon).
-$deadline = (Get-Date).AddSeconds($WslReadyTimeoutSec)
-$ready = $false
-while ((Get-Date) -lt $deadline) {
-  & wsl.exe -d $Distro -u $WslUser --exec /bin/true 2>$null
-  if ($LASTEXITCODE -eq 0) {
-    $ready = $true
-    break
+while ($true) {
+  if (-not (Wait-WslReady)) {
+    Write-Log "ERROR: WSL not ready within ${WslReadyTimeoutSec}s; retrying in ${RetryDelaySec}s"
+    Start-Sleep -Seconds $RetryDelaySec
+    continue
   }
-  Write-Log "waiting for WSL ready (last exit=$LASTEXITCODE)"
-  Start-Sleep -Seconds 3
-}
-if (-not $ready) {
-  Write-Log "ERROR: WSL not ready within ${WslReadyTimeoutSec}s"
-  exit 1
-}
-Write-Log 'WSL ready'
+  Write-Log 'WSL ready'
 
-$scriptPath = "$WorkerDir/scripts/windows/start-cursor-worker.sh"
-$bash = @"
-export PATH=`$HOME/.local/bin:`$PATH
-export CURSOR_WORKER_DIR='$WorkerDir'
-export CURSOR_WORKER_NAME='$WorkerName'
-chmod +x '$scriptPath' 2>/dev/null || true
-exec '$scriptPath'
-"@
-
-Write-Log "starting worker watchdog name=$WorkerName dir=$WorkerDir"
-# Keep this PowerShell process alive with the WSL session so Task Scheduler
-# treats the job as still running and can restart it on failure.
-& wsl.exe -d $Distro -u $WslUser -- bash -lc $bash
-$code = $LASTEXITCODE
-Write-Log "worker/wsl exited code=$code"
-exit $code
+  $code = Start-WorkerOnce
+  Write-Log "worker/wsl exited code=$code; retrying in ${RetryDelaySec}s"
+  Start-Sleep -Seconds $RetryDelaySec
+}
