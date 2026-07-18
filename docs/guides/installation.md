@@ -130,6 +130,8 @@ cd gumi-0.2.0-alpha-linux-amd64
 
 ## Windows
 
+### Run a release binary
+
 1. Download the `windows-amd64.zip` archive.
 2. Extract it with File Explorer or PowerShell:
 
@@ -148,6 +150,16 @@ cd gumi
 Windows Defender may warn about an unrecognized binary. You can click
 "More info" and "Run anyway" for a local development tool, or build from
 source yourself.
+
+### Develop on Windows (WSL2 + GPU)
+
+For a full Go/Node development environment on a Windows PC (including RTX
+GPUs via LM Studio/Ollama on the host), see
+[Windows development setup](./windows-dev.md). One-command bootstrap:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\setup-dev-env.ps1
+```
 
 ## Start Gumi
 
