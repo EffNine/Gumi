@@ -49,6 +49,13 @@ func WriteMarkdown(r *Report, path string) error {
 	degPct := res.Degradation.DegradationRate * 100
 	b.WriteString(fmt.Sprintf("| Degradation Rate | — | %.1f%% | — | — |\n", degPct))
 
+	// Published baseline
+	if res.PublishedBaseline != nil {
+		pb := res.PublishedBaseline
+		b.WriteString(fmt.Sprintf("| **Published %s** | **—** | **%.2f** | — | — |\n",
+			escMD(pb.Benchmark), pb.Score))
+	}
+
 	worthItStr := "❌ No"
 	if res.Summary.WorthIt {
 		worthItStr = "✅ Yes"
@@ -63,11 +70,11 @@ func WriteMarkdown(r *Report, path string) error {
 
 	capOrder := []string{"json", "instruction", "tool_calling", "reasoning", "repetition"}
 	capNames := map[string]string{
-		"json":          "JSON",
-		"instruction":   "Instruction",
-		"tool_calling":  "Tool-calling",
-		"reasoning":     "Reasoning",
-		"repetition":    "Repetition",
+		"json":         "JSON",
+		"instruction":  "Instruction",
+		"tool_calling": "Tool-calling",
+		"reasoning":    "Reasoning",
+		"repetition":   "Repetition",
 	}
 
 	for _, cap := range capOrder {

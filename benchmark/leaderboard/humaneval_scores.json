@@ -1,0 +1,14 @@
+{
+  "humaneval": [
+    {
+      "model": "qwen2.5-coder:7b",
+      "score": 0.831,
+      "source": "Qwen2.5-Coder technical report (pass@1)"
+    },
+    {
+      "model": "ornith:9b",
+      "score": 0.0,
+      "source": "No published HumanEval score known; update this value after running an official eval"
+    }
+  ]
+}

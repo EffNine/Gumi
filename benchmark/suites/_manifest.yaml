@@ -24,3 +24,7 @@ categories:
   - id: degradation
     name: Degradation Detection
     tiers: [cosmetic, semantic, frontier]
+
+  - id: coding
+    name: Code Generation
+    tiers: [small, medium, frontier]

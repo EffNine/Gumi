@@ -5,28 +5,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/EffNine/gumi/benchmark"
+	"github.com/EffNine/gumi/benchmark/leaderboard"
 	"github.com/EffNine/gumi/benchmark/report"
 	"github.com/EffNine/gumi/benchmark/scorer"
 )
 
 // Config describes the parameters for a benchmark run.
 type Config struct {
-	Model         string
-	Provider      string
-	Mode          string
-	Attempts      int
-	Conditions    []string
-	FrontierKey   string
-	FrontierModel string
-	OutputDir     string
-	JSONOutput    bool
-	APIKey        string
-	BaseURL       string
+	Model            string
+	Provider         string
+	Mode             string
+	Attempts         int
+	Conditions       []string
+	FrontierKey      string
+	FrontierModel    string
+	OutputDir        string
+	JSONOutput       bool
+	APIKey           string
+	BaseURL          string
+	SuiteSelector    string
+	LeaderboardScore float64
+	DirectBaseURL    string
 }
 
 // Run is the main entry point for the benchmark subsystem.
@@ -81,6 +86,13 @@ func (o *Orchestrator) Execute() (*report.Report, error) {
 	suites, err := LoadSuites(tier)
 	if err != nil {
 		return nil, fmt.Errorf("loading suites: %w", err)
+	}
+
+	if o.config.SuiteSelector != "" {
+		suites = filterSuites(suites, o.config.SuiteSelector)
+		if len(suites) == 0 {
+			return nil, fmt.Errorf("no suite matched selector %q", o.config.SuiteSelector)
+		}
 	}
 
 	// 3. Parse conditions
@@ -182,6 +194,12 @@ func (o *Orchestrator) Execute() (*report.Report, error) {
 			Degradation:  convertDegradationReport(degReport),
 			PerTest:      allResults,
 		},
+	}
+
+	// 11b. Resolve published baseline
+	pubBaseline := o.resolvePublishedBaseline()
+	if pubBaseline != nil {
+		result.RunResult.PublishedBaseline = pubBaseline
 	}
 
 	// 12. Write outputs
@@ -425,9 +443,13 @@ func (o *Orchestrator) clientForCondition(cond Condition, direct, gumi, frontier
 }
 
 // directBaseURL returns the URL for direct (raw provider) API calls.
-// This always goes to the raw provider (LM Studio), never through Gumi.
-// The BaseURL config is only for the Gumi runtime, not for direct calls.
+// This always goes to the raw provider, never through Gumi. If the user
+// provided --direct-base-url, use it; otherwise fall back to the legacy
+// LM Studio default for backward compatibility.
 func (o *Orchestrator) directBaseURL() string {
+	if o.config.DirectBaseURL != "" {
+		return o.config.DirectBaseURL
+	}
 	return "http://192.168.0.164:1234"
 }
 
@@ -499,6 +521,54 @@ func convertDegradationReport(dr scorer.DegradationReport) benchmark.Degradation
 		Corruptions:     corruptions,
 		LatencyOverhead: dr.LatencyOverhead,
 	}
+}
+
+// filterSuites returns only suites whose ID contains the selector substring.
+func filterSuites(suites []benchmark.Suite, selector string) []benchmark.Suite {
+	var out []benchmark.Suite
+	for _, s := range suites {
+		if s.ID == selector || strings.Contains(s.ID, selector) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// resolvePublishedBaseline returns a leaderboard score for the configured model.
+func (o *Orchestrator) resolvePublishedBaseline() *benchmark.PublishedBaseline {
+	score := o.config.LeaderboardScore
+	if score == 0 {
+		scores, err := leaderboard.LoadHumanevalScores(LeaderboardDir())
+		if err != nil {
+			return nil
+		}
+		score = scores.Lookup(o.config.Model)
+	}
+	if score == 0 {
+		return nil
+	}
+	return &benchmark.PublishedBaseline{
+		Benchmark: "HumanEval",
+		Model:     o.config.Model,
+		Score:     score,
+		Source:    "published leaderboard (curated)",
+	}
+}
+
+// LeaderboardDir returns the absolute path to the benchmark leaderboard directory.
+func LeaderboardDir() string {
+	candidates := []string{
+		"leaderboard",
+		"../leaderboard",
+		"benchmark/leaderboard",
+	}
+	for _, c := range candidates {
+		if info, err := os.Stat(c); err == nil && info.IsDir() {
+			abs, _ := filepath.Abs(c)
+			return abs
+		}
+	}
+	return "leaderboard"
 }
 
 // sanitizeName replaces characters that are problematic in filenames.

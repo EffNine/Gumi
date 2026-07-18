@@ -1,0 +1,11 @@
+suite:
+  id: humaneval
+  category: coding
+  tier: small
+  description: "OpenAI HumanEval: 164 Python function-completion problems"
+  target_direct_score: "0.10-0.70"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 1
+  data_source: humaneval.jsonl
+  timeout_seconds: 60
+  max_tokens: 512

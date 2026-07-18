@@ -136,25 +136,36 @@ func runLogs(tail int) {
 func runBenchmark(base, key string, jsonOutput bool, args []string) {
 	fs := flag.NewFlagSet("benchmark", flag.ContinueOnError)
 	model := fs.String("model", "", "Model name (e.g., \"ornith-1.0-9b@q4_k_m\")")
+	provider := fs.String("provider", "", "Provider (ollama, lmstudio, openai_compatible_local)")
 	mode := fs.String("mode", "auto", "Execution mode: auto | quick | thorough | frontier")
 	attempts := fs.Int("attempts", 3, "Attempts per condition")
 	conditions := fs.String("conditions", "direct,gumi-stabilized", "Comma-separated conditions")
+	suite := fs.String("suite", "", "Run only the named suite (e.g. humaneval)")
+	leaderboardScore := fs.Float64("leaderboard-score", 0, "Override published leaderboard score")
+	directBaseURL := fs.String("direct-base-url", "", "Direct provider API base URL (e.g., http://localhost:11434)")
 	frontierKey := fs.String("frontier-key", "", "API key for frontier baseline")
 	frontierModel := fs.String("frontier-model", "", "Frontier model name")
 	outputDir := fs.String("output", "benchmarks/reports/", "Output directory")
-	_ = fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "Benchmark flag error: %v\n", err)
+		os.Exit(1)
+	}
 
 	cfg := runner.Config{
-		BaseURL:       base,
-		APIKey:        key,
-		JSONOutput:    jsonOutput,
-		Model:         *model,
-		Mode:          *mode,
-		Attempts:      *attempts,
-		Conditions:    parseBenchmarkConditions(*conditions),
-		FrontierKey:   *frontierKey,
-		FrontierModel: *frontierModel,
-		OutputDir:     *outputDir,
+		BaseURL:          base,
+		APIKey:           key,
+		JSONOutput:       jsonOutput,
+		Model:            *model,
+		Provider:         *provider,
+		Mode:             *mode,
+		Attempts:         *attempts,
+		Conditions:       parseBenchmarkConditions(*conditions),
+		SuiteSelector:    *suite,
+		LeaderboardScore: *leaderboardScore,
+		DirectBaseURL:    *directBaseURL,
+		FrontierKey:      *frontierKey,
+		FrontierModel:    *frontierModel,
+		OutputDir:        *outputDir,
 	}
 	rep, err := runner.Run(cfg)
 	if err != nil {

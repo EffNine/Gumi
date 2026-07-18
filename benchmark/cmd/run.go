@@ -23,6 +23,9 @@ func main() {
 	jsonOutput := flag.Bool("json", false, "Machine-readable JSON output to stdout")
 	apiKey := flag.String("api-key", "", "API key for the provider")
 	baseURL := flag.String("base-url", "http://127.0.0.1:8787", "Runtime API base URL")
+	directBaseURL := flag.String("direct-base-url", "", "Direct provider API base URL (e.g., http://localhost:11434)")
+	suite := flag.String("suite", "", "Run only the suite with this ID (e.g., humaneval)")
+	leaderboardScore := flag.Float64("leaderboard-score", 0, "Override published leaderboard score")
 
 	flag.Parse()
 
@@ -33,17 +36,20 @@ func main() {
 	}
 
 	cfg := runner.Config{
-		Model:         *model,
-		Provider:      *provider,
-		Mode:          *mode,
-		Attempts:      *attempts,
-		Conditions:    parseConditions(*conditions),
-		FrontierKey:   *frontierKey,
-		FrontierModel: *frontierModel,
-		OutputDir:     *outputDir,
-		JSONOutput:    *jsonOutput,
-		APIKey:        *apiKey,
-		BaseURL:       *baseURL,
+		Model:            *model,
+		Provider:         *provider,
+		Mode:             *mode,
+		Attempts:         *attempts,
+		Conditions:       parseConditions(*conditions),
+		SuiteSelector:    *suite,
+		LeaderboardScore: *leaderboardScore,
+		DirectBaseURL:    *directBaseURL,
+		FrontierKey:      *frontierKey,
+		FrontierModel:    *frontierModel,
+		OutputDir:        *outputDir,
+		JSONOutput:       *jsonOutput,
+		APIKey:           *apiKey,
+		BaseURL:          *baseURL,
 	}
 
 	log.Printf("benchmark starting — model=%s mode=%s attempts=%d", cfg.Model, cfg.Mode, cfg.Attempts)

@@ -5,17 +5,18 @@ package benchmark
 // configuration, summary statistics, per-capability breakdowns, degradation
 // analysis, per-test details, and an optional frontier model baseline.
 type RunResult struct {
-	SchemaVersion    int                  `json:"schema_version"`
-	RunID            string               `json:"run_id"`
-	Model            string               `json:"model"`
-	Provider         string               `json:"provider"`
-	ModelTier        string               `json:"model_tier"`
-	Config           RunConfig            `json:"config"`
-	Summary          Summary              `json:"summary"`
-	Capabilities     map[string]Capability `json:"capabilities"`
-	Degradation      DegradationReport    `json:"degradation"`
-	PerTest          []TestResult         `json:"per_test"`
-	FrontierBaseline *FrontierScores      `json:"frontier_baseline,omitempty"`
+	SchemaVersion     int                   `json:"schema_version"`
+	RunID             string                `json:"run_id"`
+	Model             string                `json:"model"`
+	Provider          string                `json:"provider"`
+	ModelTier         string                `json:"model_tier"`
+	Config            RunConfig             `json:"config"`
+	Summary           Summary               `json:"summary"`
+	Capabilities      map[string]Capability `json:"capabilities"`
+	Degradation       DegradationReport     `json:"degradation"`
+	PerTest           []TestResult          `json:"per_test"`
+	FrontierBaseline  *FrontierScores       `json:"frontier_baseline,omitempty"`
+	PublishedBaseline *PublishedBaseline    `json:"published_baseline,omitempty"`
 }
 
 // RunConfig describes the configuration used for a benchmark run.
@@ -38,7 +39,7 @@ type Summary struct {
 // Capability holds per-capability benchmark results comparing direct and Gumi runs.
 type Capability struct {
 	Direct          MetricSet `json:"direct"`
-	Gumi          MetricSet `json:"gumi"`
+	Gumi            MetricSet `json:"gumi"`
 	Delta           float64   `json:"delta"`
 	EffectSize      float64   `json:"effect_size"`
 	FrontierCeiling float64   `json:"frontier_ceiling,omitempty"`
@@ -70,17 +71,17 @@ type TestResult struct {
 
 // SuiteTest defines a single test case within a benchmark suite.
 type SuiteTest struct {
-	ID              string       `yaml:"id"`
-	Difficulty      string       `yaml:"difficulty"`
-	Description     string       `yaml:"description"`
-	Prompt          string       `yaml:"prompt,omitempty"`
-	Type            string       `yaml:"type,omitempty"`
-	Variants        []string     `yaml:"variants,omitempty"`
-	ExpectedAnswer  string       `yaml:"expected_answer,omitempty"`
-	Expected        interface{}  `yaml:"expected,omitempty"`
-	TimeoutSeconds  int          `yaml:"timeout_seconds"`
-	MaxTokens       int          `yaml:"max_tokens"`
-	Constraints     []Constraint `yaml:"constraints,omitempty"`
+	ID             string       `yaml:"id"`
+	Difficulty     string       `yaml:"difficulty"`
+	Description    string       `yaml:"description"`
+	Prompt         string       `yaml:"prompt,omitempty"`
+	Type           string       `yaml:"type,omitempty"`
+	Variants       []string     `yaml:"variants,omitempty"`
+	ExpectedAnswer string       `yaml:"expected_answer,omitempty"`
+	Expected       interface{}  `yaml:"expected,omitempty"`
+	TimeoutSeconds int          `yaml:"timeout_seconds"`
+	MaxTokens      int          `yaml:"max_tokens"`
+	Constraints    []Constraint `yaml:"constraints,omitempty"`
 }
 
 // Constraint defines a single check that a model's response must pass.
@@ -92,14 +93,17 @@ type Constraint struct {
 
 // Suite is a collection of tests at a specific category and difficulty tier.
 type Suite struct {
-	ID                  string       `yaml:"id"`
-	Category            string       `yaml:"category"`
-	Tier                string       `yaml:"tier"`
-	Description         string       `yaml:"description"`
-	TargetDirectScore   string       `yaml:"target_direct_score"`
-	ModelProfiles       []string     `yaml:"model_profiles"`
-	AttemptsRecommended int          `yaml:"attempts_recommended"`
-	Tests               []SuiteTest  `yaml:"tests"`
+	ID                  string      `yaml:"id"`
+	Category            string      `yaml:"category"`
+	Tier                string      `yaml:"tier"`
+	Description         string      `yaml:"description"`
+	TargetDirectScore   string      `yaml:"target_direct_score"`
+	ModelProfiles       []string    `yaml:"model_profiles"`
+	AttemptsRecommended int         `yaml:"attempts_recommended"`
+	DataSource          string      `yaml:"data_source,omitempty"`
+	TimeoutSeconds      int         `yaml:"timeout_seconds,omitempty"`
+	MaxTokens           int         `yaml:"max_tokens,omitempty"`
+	Tests               []SuiteTest `yaml:"tests"`
 }
 
 // DegradationReport records cases where Gumi over-repaired or altered correct output.
@@ -125,13 +129,21 @@ type FrontierScores struct {
 	Scores map[string]float64 `json:"scores"`
 }
 
+// PublishedBaseline holds a publicly reported benchmark score for the target model.
+type PublishedBaseline struct {
+	Benchmark string  `json:"benchmark"`
+	Model     string  `json:"model"`
+	Score     float64 `json:"score"`
+	Source    string  `json:"source,omitempty"`
+}
+
 // ChatCompletionRequest represents a request to a chat completion API.
 type ChatCompletionRequest struct {
-	Model    string              `json:"model"`
-	Messages []ChatMessage       `json:"messages"`
-	MaxTokens int                `json:"max_tokens,omitempty"`
-	Temperature float64          `json:"temperature,omitempty"`
-	Gumi    *GumiConfig      `json:"gumi,omitempty"`
+	Model       string        `json:"model"`
+	Messages    []ChatMessage `json:"messages"`
+	MaxTokens   int           `json:"max_tokens,omitempty"`
+	Temperature float64       `json:"temperature,omitempty"`
+	Gumi        *GumiConfig   `json:"gumi,omitempty"`
 }
 
 // ChatMessage represents a single message in a chat completion conversation.
@@ -150,9 +162,9 @@ type ChatCompletionResponse struct {
 
 // Choice represents a single completion choice returned by the API.
 type Choice struct {
-	Index        int          `json:"index"`
-	Message      ChatMessage  `json:"message"`
-	FinishReason string       `json:"finish_reason"`
+	Index        int         `json:"index"`
+	Message      ChatMessage `json:"message"`
+	FinishReason string      `json:"finish_reason"`
 }
 
 // Usage holds token usage statistics for a completion request.

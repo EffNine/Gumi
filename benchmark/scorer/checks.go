@@ -30,6 +30,7 @@ var CheckRegistry = map[string]CheckFunc{
 	"no_markdown":      checkNoMarkdown,
 	"no_commas":        checkNoCommas,
 	"self_consistency": checkSelfConsistency,
+	"python_exec":      pythonExecCheck,
 }
 
 // checkEQ verifies numeric or string equality, or boolean field checks.

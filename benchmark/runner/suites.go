@@ -83,6 +83,11 @@ func loadSuiteFile(category, tier string) (benchmark.Suite, error) {
 		sf.Suite.Category = category
 	}
 
+	if sf.Suite.DataSource != "" {
+		sourcePath := resolveDataSource(suitesDir, category, sf.Suite.DataSource)
+		return loadJSONLSuite(sf.Suite, sourcePath)
+	}
+
 	return sf.Suite, nil
 }
 
