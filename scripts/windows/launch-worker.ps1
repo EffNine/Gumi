@@ -1,14 +1,14 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Windows-side launcher that waits for WSL, then starts the Cursor agent worker.
+  Wake WSL and ensure the Cursor agent systemd user service is running.
 
 .DESCRIPTION
-  Used from the Startup folder and/or Scheduled Task after auto logon.
-  Logs to %USERPROFILE%\.gumi\logs\cursor-worker-windows.log
+  The worker runs under systemd inside WSL (cursor-agent-worker.service), so it
+  survives Windows PowerShell / console teardown. This launcher only wakes WSL,
+  starts the unit, and polls so the VM stays up.
 
-  Retries forever so a transient WSL boot failure cannot leave the machine
-  without a worker.
+  Logs to %USERPROFILE%\.gumi\logs\cursor-worker-windows.log
 #>
 [CmdletBinding()]
 param(
@@ -16,16 +16,18 @@ param(
   [string]$WslUser = 'dev',
   [string]$WorkerDir = '/home/dev/Gumi',
   [string]$WorkerName = 'gumi-windows',
-  [int]$InitialDelaySec = 20,
+  [int]$InitialDelaySec = 15,
   [int]$WslReadyTimeoutSec = 180,
-  [int]$RetryDelaySec = 10
+  [int]$PollSec = 30
 )
 
 $ErrorActionPreference = 'Continue'
 $logDir = Join-Path $env:USERPROFILE '.gumi\logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir 'cursor-worker-windows.log'
-$scriptPath = "$WorkerDir/scripts/windows/start-cursor-worker.sh"
+$unit = 'cursor-agent-worker.service'
+$unitSrc = "$WorkerDir/scripts/windows/cursor-agent-worker.service"
+$unitDst = '/home/dev/.config/systemd/user/cursor-agent-worker.service'
 
 function Write-Log([string]$Message) {
   $line = '{0} {1}' -f (Get-Date -Format 'o'), $Message
@@ -44,35 +46,47 @@ function Wait-WslReady {
   return $false
 }
 
-function Start-WorkerOnce {
-  # Pass env into WSL without fragile bash -lc quoting.
-  $env:CURSOR_WORKER_DIR = $WorkerDir
-  $env:CURSOR_WORKER_NAME = $WorkerName
-  $env:WSLENV = 'CURSOR_WORKER_DIR/u:CURSOR_WORKER_NAME/u'
-
-  # Ensure executable bit (idempotent).
-  & wsl.exe -d $Distro -u $WslUser --exec /bin/chmod +x $scriptPath 2>$null
-
-  Write-Log "starting worker watchdog name=$WorkerName dir=$WorkerDir script=$scriptPath"
-  # --exec avoids login-shell PATH pollution from Windows (Program Files (x86)).
-  & wsl.exe -d $Distro -u $WslUser --exec /bin/bash $scriptPath
-  return $LASTEXITCODE
+function Ensure-WorkerService {
+  # Single-line bash -c payload (no fragile multiline / PATH quoting).
+  $cmd = "mkdir -p /home/dev/.gumi/logs /home/dev/.config/systemd/user && chmod +x '$WorkerDir/scripts/windows/start-cursor-worker.sh' && cp -f '$unitSrc' '$unitDst' && systemctl --user daemon-reload && systemctl --user enable '$unit' && systemctl --user restart '$unit' && systemctl --user is-active '$unit'"
+  $out = & wsl.exe -d $Distro -u $WslUser --exec /bin/bash -c $cmd 2>&1
+  $code = $LASTEXITCODE
+  if ($out) { Write-Log ("systemctl: " + ($out | Out-String).Trim()) }
+  return $code
 }
 
-Write-Log "launcher start distro=$Distro user=$WslUser delay=${InitialDelaySec}s"
+function Get-ServiceState {
+  $out = & wsl.exe -d $Distro -u $WslUser --exec /bin/bash -c "systemctl --user is-active $unit" 2>$null
+  return ("$out").Trim()
+}
+
+Write-Log "launcher start distro=$Distro user=$WslUser delay=${InitialDelaySec}s (systemd-backed)"
 if ($InitialDelaySec -gt 0) {
   Start-Sleep -Seconds $InitialDelaySec
 }
 
 while ($true) {
   if (-not (Wait-WslReady)) {
-    Write-Log "ERROR: WSL not ready within ${WslReadyTimeoutSec}s; retrying in ${RetryDelaySec}s"
-    Start-Sleep -Seconds $RetryDelaySec
+    Write-Log "ERROR: WSL not ready within ${WslReadyTimeoutSec}s; retrying"
+    Start-Sleep -Seconds 5
     continue
   }
-  Write-Log 'WSL ready'
 
-  $code = Start-WorkerOnce
-  Write-Log "worker/wsl exited code=$code; retrying in ${RetryDelaySec}s"
-  Start-Sleep -Seconds $RetryDelaySec
+  $code = Ensure-WorkerService
+  $state = Get-ServiceState
+  Write-Log "ensure service exit=$code state=$state"
+
+  while ($true) {
+    Start-Sleep -Seconds $PollSec
+    & wsl.exe -d $Distro -u $WslUser --exec /bin/true 2>$null
+    if ($LASTEXITCODE -ne 0) {
+      Write-Log 'WSL became unavailable; re-entering ready wait'
+      break
+    }
+    $state = Get-ServiceState
+    if ($state -ne 'active') {
+      Write-Log "service state=$state; restarting"
+      break
+    }
+  }
 }

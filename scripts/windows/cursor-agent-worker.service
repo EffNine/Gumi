@@ -1,0 +1,21 @@
+[Unit]
+Description=Cursor self-hosted agent worker (gumi-windows)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=CURSOR_WORKER_DIR=/home/dev/Gumi
+Environment=CURSOR_WORKER_NAME=gumi-windows
+Environment=PATH=/home/dev/.local/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=/home/dev/Gumi
+ExecStart=/bin/bash /home/dev/Gumi/scripts/windows/start-cursor-worker.sh
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+KillMode=mixed
+StandardOutput=append:/home/dev/.gumi/logs/cursor-worker.log
+StandardError=append:/home/dev/.gumi/logs/cursor-worker.log
+
+[Install]
+WantedBy=default.target
