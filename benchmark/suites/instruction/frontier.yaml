@@ -59,7 +59,10 @@ suite:
       variance_metric: levenshtein
       timeout_seconds: 30
       max_tokens: 50
-      constraints: []
+      constraints:
+        - field: self_consistency
+          operator: self_consistency
+          value: []
 
     - id: inst-frontier-03
       difficulty: frontier

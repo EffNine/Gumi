@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/EffNine/gumi/runtime/internal/config"
@@ -23,14 +24,20 @@ import (
 
 // Server wraps the Gumi HTTP gateway.
 type Server struct {
-	cfg       *config.Config
-	log       *logger.Logger
-	manager   *provider.Manager
-	pipeline  *pipeline.Engine
-	telemetry *telemetry.Writer
-	profiles  []*profiles.Profile
-	server    *http.Server
-	addr      string
+	cfg        *config.Config
+	log        *logger.Logger
+	manager    *provider.Manager
+	pipeline   *pipeline.Engine
+	telemetry  *telemetry.Writer
+	profiles   []*profiles.Profile
+	server     *http.Server
+	addrMu     sync.RWMutex
+	addr       string
+	configPath string
+	modelsMu   sync.RWMutex
+
+	// ConfigPath overrides configPath for model registry persistence in tests.
+	ConfigPath string
 }
 
 // New creates a gateway server from configuration and logger.
@@ -55,6 +62,7 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 	}
 
 	mgr.Telemetry = tw
+	mgr.SetRegistry(cfg.Models)
 
 	loadedProfiles, _ := profiles.NewDefaultLoader().Load()
 	pipe := pipeline.New(cfg, mgr, log)
@@ -73,13 +81,14 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 	})
 
 	s := &Server{
-		cfg:       cfg,
-		log:       log,
-		manager:   mgr,
-		pipeline:  pipe,
-		telemetry: tw,
-		profiles:  loadedProfiles.Profiles,
-		addr:      net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
+		cfg:        cfg,
+		log:        log,
+		manager:    mgr,
+		pipeline:   pipe,
+		telemetry:  tw,
+		profiles:   loadedProfiles.Profiles,
+		configPath: config.ResolveConfigPath(""),
+		addr:       net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
 		server: &http.Server{
 			Addr:              net.JoinHostPort(cfg.Runtime.Host, fmt.Sprintf("%d", cfg.Runtime.Port)),
 			Handler:           mux,
@@ -99,16 +108,23 @@ func New(cfg *config.Config, log *logger.Logger) *Server {
 func (s *Server) Start() <-chan error {
 	errCh := make(chan error, 1)
 
-	s.log.Info("gateway starting", "addr", s.server.Addr)
+	s.addrMu.RLock()
+	listenAddr := s.addr
+	s.addrMu.RUnlock()
+	s.log.Info("gateway starting", "addr", listenAddr)
 	go func() {
-		ln, err := net.Listen("tcp", s.server.Addr)
+		ln, err := net.Listen("tcp", listenAddr)
 		if err != nil {
 			errCh <- err
 			return
 		}
 		// Update Addr to the actual bound address so callers can discover
 		// dynamically assigned ports in tests.
-		s.server.Addr = ln.Addr().String()
+		bound := ln.Addr().String()
+		s.addrMu.Lock()
+		s.addr = bound
+		s.server.Addr = bound
+		s.addrMu.Unlock()
 		if err := s.server.Serve(ln); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 			return
@@ -121,7 +137,9 @@ func (s *Server) Start() <-chan error {
 
 // Addr returns the bound address once the server has started.
 func (s *Server) Addr() string {
-	return s.server.Addr
+	s.addrMu.RLock()
+	defer s.addrMu.RUnlock()
+	return s.addr
 }
 
 // Shutdown gracefully stops the HTTP server and closes telemetry storage.

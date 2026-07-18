@@ -19,17 +19,17 @@ type CheckResult struct {
 
 // CheckRegistry maps check operator names to their implementations.
 var CheckRegistry = map[string]CheckFunc{
-	"eq":           checkEQ,
-	"gte":          checkGTE,
-	"lte":          checkLTE,
-	"valid":        checkValid,
-	"superset":     checkSuperset,
-	"not_contains": checkNotContains,
-	"starts_with":  checkStartsWith,
-	"ends_with":    checkEndsWith,
-	"no_markdown":       checkNoMarkdown,
-	"no_commas":         checkNoCommas,
-	"self_consistency":  checkSelfConsistency,
+	"eq":               checkEQ,
+	"gte":              checkGTE,
+	"lte":              checkLTE,
+	"valid":            checkValid,
+	"superset":         checkSuperset,
+	"not_contains":     checkNotContains,
+	"starts_with":      checkStartsWith,
+	"ends_with":        checkEndsWith,
+	"no_markdown":      checkNoMarkdown,
+	"no_commas":        checkNoCommas,
+	"self_consistency": checkSelfConsistency,
 }
 
 // checkEQ verifies numeric or string equality, or boolean field checks.
@@ -281,9 +281,45 @@ func checkNoCommas(response string, _ benchmark.Constraint) CheckResult {
 }
 
 // checkSelfConsistency checks response consistency across multiple prompt variants.
-// TODO: implement multi-variant self-consistency check
+// When constraint.Value is a []string (the accumulated variant responses), it
+// appends the current response and scores consistency.  For other value types
+// it passes with an informational message.
 func checkSelfConsistency(response string, constraint benchmark.Constraint) CheckResult {
-	return CheckResult{Passed: true, Details: "self_consistency check not implemented"}
+	variants, ok := constraint.Value.([]string)
+	if !ok {
+		return CheckResult{Passed: true, Details: "self_consistency check requires variant responses"}
+	}
+
+	// Append the current response to the variants slice.
+	all := append(variants, response)
+	score := ScoreSelfConsistency(all)
+	passed := score == 1.0
+	return CheckResult{
+		Passed:  passed,
+		Details: fmt.Sprintf("self_consistency: %d variants, score=%.2f", len(all), score),
+	}
+}
+
+// ScoreSelfConsistency returns 1.0 if all normalized responses are identical,
+// 0.0 otherwise.  Returns 1.0 for 0 or 1 responses.
+func ScoreSelfConsistency(responses []string) float64 {
+	if len(responses) < 2 {
+		return 1.0
+	}
+
+	// Normalize each response: split into fields, rejoin with single spaces.
+	normalized := make([]string, len(responses))
+	for i, r := range responses {
+		normalized[i] = strings.Join(strings.Fields(r), " ")
+	}
+
+	first := normalized[0]
+	for _, n := range normalized[1:] {
+		if n != first {
+			return 0.0
+		}
+	}
+	return 1.0
 }
 
 // ---- helpers ----

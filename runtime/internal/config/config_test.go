@@ -128,6 +128,41 @@ providers:
 	}
 }
 
+func TestSaveModelsPreservesUnrelatedKeys(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "gumi.yaml")
+
+	initial := []byte(`runtime:
+  mode: lightweight
+provider:
+  default: ollama
+`)
+	if err := os.WriteFile(path, initial, 0o644); err != nil {
+		t.Fatalf("failed to write initial config: %v", err)
+	}
+
+	models := []ModelRegistryEntry{
+		{Alias: "my-alias", Provider: "ollama", ModelID: "llama3", Enabled: true},
+	}
+	if err := SaveModels(path, models); err != nil {
+		t.Fatalf("SaveModels returned error: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if len(cfg.Models) != 1 || cfg.Models[0].Alias != "my-alias" {
+		t.Fatalf("expected persisted model alias my-alias, got %+v", cfg.Models)
+	}
+	if cfg.Runtime.Mode != "lightweight" {
+		t.Fatalf("expected runtime.mode preserved, got %q", cfg.Runtime.Mode)
+	}
+	if cfg.Provider.Default != "ollama" {
+		t.Fatalf("expected provider.default preserved, got %q", cfg.Provider.Default)
+	}
+}
+
 func TestLoadYAMLWithHomeDirExpansion(t *testing.T) {
 	// The config should expand ~/ in database_path.
 	yamlContent := []byte(`

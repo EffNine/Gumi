@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
 	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
@@ -53,6 +54,41 @@ func (f *fakeStreamingAdapter) NormalizeError(err error) ProviderError {
 		return pe
 	}
 	return ProviderError{Code: ProviderUnknownError, Message: err.Error()}
+}
+
+func TestManagerResolveRegistryAlias(t *testing.T) {
+	adapter := &fakeStreamingAdapter{name: "ollama"}
+	mgr := NewManager(map[string]ProviderAdapter{"ollama": adapter}, logger.New("error"))
+	mgr.SetRegistry([]config.ModelRegistryEntry{
+		{Alias: "my-alias", Provider: "ollama", ModelID: "fake-stream-model", Enabled: true},
+	})
+
+	res, perr := mgr.ResolveModel(context.Background(), "my-alias")
+	if perr.Code != "" {
+		t.Fatalf("unexpected error resolving alias: %v", perr)
+	}
+	if res.ProviderKey != "ollama" {
+		t.Fatalf("expected provider ollama, got %s", res.ProviderKey)
+	}
+	if res.ModelName != "fake-stream-model" {
+		t.Fatalf("expected model fake-stream-model, got %s", res.ModelName)
+	}
+}
+
+func TestManagerResolveRegistryDefault(t *testing.T) {
+	adapter := &fakeStreamingAdapter{name: "ollama"}
+	mgr := NewManager(map[string]ProviderAdapter{"ollama": adapter}, logger.New("error"))
+	mgr.SetRegistry([]config.ModelRegistryEntry{
+		{Alias: "default-model", Provider: "ollama", ModelID: "fake-stream-model", Enabled: true, Default: true},
+	})
+
+	res, perr := mgr.ResolveModel(context.Background(), "")
+	if perr.Code != "" {
+		t.Fatalf("unexpected error resolving default: %v", perr)
+	}
+	if res.ModelName != "fake-stream-model" {
+		t.Fatalf("expected default model fake-stream-model, got %s", res.ModelName)
+	}
 }
 
 func TestManagerHealthCheckUnknownProvider(t *testing.T) {

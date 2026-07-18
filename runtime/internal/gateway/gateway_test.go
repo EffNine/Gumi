@@ -40,6 +40,7 @@ func testServer(t *testing.T, mode string) (*Server, *config.Config, *logger.Log
 	}
 	log := logger.New("error")
 	srv := New(cfg, log)
+	srv.ConfigPath = filepath.Join(t.TempDir(), "gumi.yaml")
 	return srv, cfg, log
 }
 
@@ -48,7 +49,9 @@ func testServer(t *testing.T, mode string) (*Server, *config.Config, *logger.Log
 func testServerWithConfig(t *testing.T, cfg *config.Config) *Server {
 	t.Helper()
 	log := logger.New("error")
-	return New(cfg, log)
+	srv := New(cfg, log)
+	srv.ConfigPath = filepath.Join(t.TempDir(), "gumi.yaml")
+	return srv
 }
 
 func TestHealthEndpoint(t *testing.T) {

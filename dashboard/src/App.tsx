@@ -28,6 +28,7 @@ type Profile = { id: string; name: string; family: string; size: string; context
 type Page = 'overview' | 'requests' | 'providers' | 'profiles' | 'playground' | 'models' | 'logs' | 'config' | 'doctor' | 'memory' | 'analytics'
 
 type Model = { id: string; object: string; created: number; owned_by: string }
+type ModelRegistryEntry = { alias: string; provider: string; model_id: string; context_length: number; enabled: boolean; default: boolean }
 type LMStudioModelEntry = { model: string; type: string; path: string; size: string }
 type LMStudioLoadResponse = { type: string; instance_id: string; load_time_seconds: number; status: string; load_config?: any }
 
@@ -36,6 +37,20 @@ type LogEntry = { timestamp: string; level: string; message: string; fields?: st
 type MemoryFact = { id: string; key: string; value: string; source: string; confidence: number; session_id: string; created_at: string; updated_at: string; accessed_at: string; access_count: number; ttl_seconds: number }
 type MemoryStatus = { enabled: boolean; database_path: string; facts_count?: number; model_fit_entries?: number; injection_budget?: number }
 type ModelFitEntry = { model_id: string; difficulty: number; task_type: string; attempts: number; successes: number; avg_latency_ms: number; avg_retries: number; last_updated: string }
+type SelfTuningSnapshot = {
+  generated_at?: string
+  total_attempts?: number
+  rule_overrides?: Array<{ rule_name: string; reason?: string; prefer?: string; min_coding?: string; min_context?: number }>
+  model_boosts?: Record<string, number>
+  model_demotes?: Record<string, number>
+  adjustments?: Array<{ kind: string; target: string; from: string; to: string; reason?: string }>
+}
+type SelfTuningResponse = {
+  enabled: boolean
+  reason?: string
+  snapshot?: SelfTuningSnapshot
+  config?: { enabled?: boolean; persist_snapshot?: boolean; warmup_attempts?: number; epsilon?: number }
+}
 
 type AnalyticsData = {
   requests_over_time: { date: string; count: number; avg_latency: number; success_rate: number }[]
@@ -76,6 +91,39 @@ async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, init)
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
   return response.json() as Promise<T>
+}
+
+/* ─── Model Registry API helpers ─── */
+async function getModelRegistry(): Promise<{ enabled: boolean; models: ModelRegistryEntry[] }> {
+  return getJSON('/v1/gumi/models')
+}
+
+async function createRegistryModel(entry: Omit<ModelRegistryEntry, 'default'> & { default?: boolean }): Promise<{ enabled: boolean; models: ModelRegistryEntry[] }> {
+  return getJSON('/v1/gumi/models', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  })
+}
+
+async function updateRegistryModel(alias: string, entry: ModelRegistryEntry): Promise<{ enabled: boolean; models: ModelRegistryEntry[] }> {
+  return getJSON(`/v1/gumi/models/${encodeURIComponent(alias)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  })
+}
+
+async function deleteRegistryModel(alias: string): Promise<{ enabled: boolean; models: ModelRegistryEntry[] }> {
+  return getJSON(`/v1/gumi/models/${encodeURIComponent(alias)}`, {
+    method: 'DELETE',
+  })
+}
+
+async function setDefaultRegistryModel(alias: string): Promise<{ enabled: boolean; models: ModelRegistryEntry[] }> {
+  return getJSON(`/v1/gumi/models/${encodeURIComponent(alias)}/default`, {
+    method: 'POST',
+  })
 }
 
 /* ─── Status descriptions ─── */
@@ -734,29 +782,114 @@ function Playground({ status }: { status: Status | null }) {
 }
 
 /* ═══════════════════════════════════════════════
-   MODEL MANAGEMENT (LM Studio)
+   MODEL MANAGEMENT — Registry + LM Studio
    ═══════════════════════════════════════════════ */
 function ModelManagement() {
-  const [models, setModels] = useState<LMStudioModelEntry[]>([])
+  // ── Registry state ──
+  const [registryModels, setRegistryModels] = useState<ModelRegistryEntry[]>([])
+  const [registryLoading, setRegistryLoading] = useState(false)
+  const [registryError, setRegistryError] = useState('')
+  const [editingAlias, setEditingAlias] = useState<string | null>(null)
+  const [form, setForm] = useState<ModelRegistryEntry>({
+    alias: '', provider: '', model_id: '', context_length: 4096, enabled: true, default: false,
+  })
+  const [formError, setFormError] = useState('')
+
+  // ── LM Studio state ──
+  const [lmStudioModels, setLmStudioModels] = useState<LMStudioModelEntry[]>([])
   const [loadedID, setLoadedID] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadStatus, setLoadStatus] = useState<{ type: string; msg: string } | null>(null)
   const [loadModelId, setLoadModelId] = useState('')
   const [contextLen, setContextLen] = useState(4096)
 
-  const fetchModels = useCallback(async () => {
+  const fetchRegistry = useCallback(async () => {
+    setRegistryLoading(true)
+    setRegistryError('')
+    try {
+      const resp = await getModelRegistry()
+      setRegistryModels(resp.models ?? [])
+    } catch (e: any) {
+      setRegistryError(e instanceof Error ? e.message : 'Failed to fetch registry')
+    } finally {
+      setRegistryLoading(false)
+    }
+  }, [])
+
+  const fetchLmStudio = useCallback(async () => {
     try {
       const [list, loaded] = await Promise.all([
         getJSON<{ data: LMStudioModelEntry[] }>('/v1/gumi/providers/lmstudio/models'),
         getJSON<{ loaded_instance_id: string }>('/v1/gumi/providers/lmstudio/loaded'),
       ])
-      setModels(list.data ?? [])
+      setLmStudioModels(list.data ?? [])
       setLoadedID(loaded.loaded_instance_id ?? '')
     } catch { /* LM Studio may not be available */ }
   }, [])
 
-  useEffect(() => { void fetchModels() }, [fetchModels])
+  useEffect(() => { void fetchRegistry(); void fetchLmStudio() }, [fetchRegistry, fetchLmStudio])
 
+  // ── Registry CRUD ──
+  const resetForm = () => {
+    setForm({ alias: '', provider: '', model_id: '', context_length: 4096, enabled: true, default: false })
+    setEditingAlias(null)
+    setFormError('')
+  }
+
+  const startEdit = (entry: ModelRegistryEntry) => {
+    setForm({ ...entry })
+    setEditingAlias(entry.alias)
+    setFormError('')
+  }
+
+  const handleSubmit = async () => {
+    setFormError('')
+    if (!form.alias.trim()) { setFormError('Alias is required'); return }
+    if (!form.provider.trim()) { setFormError('Provider is required'); return }
+    if (!form.model_id.trim()) { setFormError('Model ID is required'); return }
+
+    try {
+      if (editingAlias) {
+        await updateRegistryModel(editingAlias, form)
+      } else {
+        await createRegistryModel(form)
+      }
+      resetForm()
+      await fetchRegistry()
+    } catch (e: any) {
+      setFormError(e instanceof Error ? e.message : 'Operation failed')
+    }
+  }
+
+  const handleDelete = async (alias: string) => {
+    try {
+      await deleteRegistryModel(alias)
+      await fetchRegistry()
+    } catch (e: any) {
+      setRegistryError(e instanceof Error ? e.message : 'Delete failed')
+    }
+  }
+
+  const handleSetDefault = async (alias: string) => {
+    try {
+      await setDefaultRegistryModel(alias)
+      await fetchRegistry()
+    } catch (e: any) {
+      setRegistryError(e instanceof Error ? e.message : 'Set default failed')
+    }
+  }
+
+  const handleToggleEnabled = async (entry: ModelRegistryEntry) => {
+    const updated = { ...entry, enabled: !entry.enabled }
+    try {
+      await updateRegistryModel(entry.alias, updated)
+      await fetchRegistry()
+    } catch (e: any) {
+      setRegistryError(e instanceof Error ? e.message : 'Toggle failed')
+    }
+  }
+
+  // ── LM Studio handlers ──
   const handleLoad = async (modelId: string) => {
     setLoading(true)
     setLoadStatus({ type: 'loading', msg: `Loading ${modelId}...` })
@@ -795,9 +928,10 @@ function ModelManagement() {
   }
 
   return <div className="page-stack">
-    <section style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <Tooltip text="Refresh available models">
-        <button className="icon-button" onClick={fetchModels}><RefreshCw size={16} /></button>
+    {/* ── Toolbar ── */}
+    <section style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <Tooltip text="Refresh registry and LM Studio models">
+        <button className="icon-button" onClick={() => { void fetchRegistry(); void fetchLmStudio() }}><RefreshCw size={16} /></button>
       </Tooltip>
       {loadedID && (
         <span className="loaded-model-badge"><i />Loaded: {loadedID.slice(0, 24)}...</span>
@@ -805,41 +939,187 @@ function ModelManagement() {
       {loadedID && (
         <button className="unload-btn" onClick={handleUnload} disabled={loading}>Unload</button>
       )}
+      {registryError && <span style={{ color: 'var(--red)', fontSize: 12 }}>{registryError}</span>}
     </section>
 
-    <div className="model-mgmt-grid">
+    {/* ── Two-column layout ── */}
+    <div className="model-mgmt-grid" style={{ marginTop: 16 }}>
+      {/* ── Left: Registered Models ── */}
       <div className="model-mgmt-card">
-        <h3><Box size={18} /> Available Models</h3>
+        <h3><Box size={18} /> Registered Models</h3>
         <div className="model-list">
-          {models.length === 0 && <Empty text="No models found. Is LM Studio running?" />}
-          {models.map((m) => (
-            <div className="model-item" key={m.model}>
-              <div>
-                <div className="model-name">{m.model}</div>
-                <div className="model-size">{m.size || 'unknown size'}{m.type ? ` · ${m.type}` : ''}</div>
+          {registryLoading && registryModels.length === 0 && (
+            <div style={{ padding: 12, color: 'var(--muted)', fontSize: 12 }}>Loading...</div>
+          )}
+          {!registryLoading && registryModels.length === 0 && (
+            <Empty text="No models registered. Use the form on the right to add one." />
+          )}
+          {registryModels.map((entry) => (
+            <div className="model-item" key={entry.alias}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="model-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {entry.alias}
+                  {entry.default && <span className="provider-default-badge" style={{ fontSize: 9 }}>Default</span>}
+                </div>
+                <div className="model-size">
+                  {entry.provider} / {entry.model_id}
+                  {entry.context_length > 0 && ` · ${entry.context_length.toLocaleString()} ctx`}
+                </div>
               </div>
-              <button
-                className="load-btn"
-                onClick={() => handleLoad(m.model)}
-                disabled={loading}
-              >{loading && loadModelId === m.model ? 'Loading...' : 'Load'}</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Tooltip text={entry.enabled ? 'Disable model' : 'Enable model'}>
+                  <button
+                    className="icon-button"
+                    style={{ width: 28, height: 28 }}
+                    onClick={() => handleToggleEnabled(entry)}
+                  >
+                    {entry.enabled ? <Check size={13} style={{ color: 'var(--green)' }} /> : <X size={13} style={{ color: 'var(--muted)' }} />}
+                  </button>
+                </Tooltip>
+                {!entry.default && (
+                  <Tooltip text="Set as default">
+                    <button className="icon-button" style={{ width: 28, height: 28 }} onClick={() => handleSetDefault(entry.alias)}>
+                      <Target size={13} />
+                    </button>
+                  </Tooltip>
+                )}
+                <Tooltip text="Edit model">
+                  <button className="icon-button" style={{ width: 28, height: 28 }} onClick={() => startEdit(entry)}>
+                    <Pencil size={13} />
+                  </button>
+                </Tooltip>
+                <Tooltip text="Delete model">
+                  <button className="icon-button" style={{ width: 28, height: 28 }} onClick={() => handleDelete(entry.alias)}>
+                    <Trash2 size={13} style={{ color: 'var(--red)' }} />
+                  </button>
+                </Tooltip>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
+      {/* ── Right: Add / Edit Model Form ── */}
       <div className="model-mgmt-card">
-        <h3><Cpu size={18} /> Load Configuration</h3>
-        <div className="model-params">
-          <label>Context length
-            <input type="number" value={contextLen} onChange={e => setContextLen(Number(e.target.value))} min={1024} max={131072} step={1024} />
+        <h3><Cpu size={18} /> {editingAlias ? `Edit: ${editingAlias}` : 'Add Model'}</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <label style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            Alias
+            <input
+              type="text"
+              value={form.alias}
+              onChange={e => setForm(f => ({ ...f, alias: e.target.value }))}
+              placeholder="e.g. my-model"
+              style={{ padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--surface)', fontSize: 12 }}
+              disabled={!!editingAlias}
+            />
           </label>
+          <label style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            Provider
+            <input
+              type="text"
+              value={form.provider}
+              onChange={e => setForm(f => ({ ...f, provider: e.target.value }))}
+              placeholder="e.g. ollama, lmstudio"
+              style={{ padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--surface)', fontSize: 12 }}
+            />
+          </label>
+          <label style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            Model ID
+            <input
+              type="text"
+              value={form.model_id}
+              onChange={e => setForm(f => ({ ...f, model_id: e.target.value }))}
+              placeholder="e.g. llama3, qwen3-8b"
+              style={{ padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--surface)', fontSize: 12 }}
+            />
+          </label>
+          <label style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            Context Length
+            <input
+              type="number"
+              value={form.context_length}
+              onChange={e => setForm(f => ({ ...f, context_length: Number(e.target.value) }))}
+              min={1024} max={131072} step={1024}
+              style={{ padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--surface)', fontSize: 12 }}
+            />
+          </label>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={form.enabled}
+                onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
+              />
+              Enabled
+            </label>
+            <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={form.default}
+                onChange={e => setForm(f => ({ ...f, default: e.target.checked }))}
+              />
+              Default
+            </label>
+          </div>
+          {formError && <div style={{ color: 'var(--red)', fontSize: 12 }}>{formError}</div>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="send-btn" onClick={handleSubmit} style={{ fontSize: 12, padding: '7px 16px' }}>
+              {editingAlias ? 'Update' : 'Create'}
+            </button>
+            {editingAlias && (
+              <button className="unload-btn" onClick={resetForm} style={{ fontSize: 12, padding: '7px 16px' }}>
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
-        {loadStatus && (
-          <div className={`model-load-status ${loadStatus.type}`}>{loadStatus.msg}</div>
-        )}
       </div>
     </div>
+
+    {/* ── LM Studio Native Models section ── */}
+    <section style={{ marginTop: 24 }}>
+      <div className="section-heading">
+        <div><p className="eyebrow">Local inference</p><h2>LM Studio Native Models</h2></div>
+        <Tooltip text="Refresh available models">
+          <button className="icon-button" onClick={fetchLmStudio}><RefreshCw size={16} /></button>
+        </Tooltip>
+      </div>
+      <div className="model-mgmt-grid">
+        <div className="model-mgmt-card">
+          <h3><Box size={18} /> Available Models</h3>
+          <div className="model-list">
+            {lmStudioModels.length === 0 && <Empty text="No models found. Is LM Studio running?" />}
+            {lmStudioModels.map((m) => (
+              <div className="model-item" key={m.model}>
+                <div>
+                  <div className="model-name">{m.model}</div>
+                  <div className="model-size">{m.size || 'unknown size'}{m.type ? ` · ${m.type}` : ''}</div>
+                </div>
+                <button
+                  className="load-btn"
+                  onClick={() => handleLoad(m.model)}
+                  disabled={loading}
+                >{loading && loadModelId === m.model ? 'Loading...' : 'Load'}</button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="model-mgmt-card">
+          <h3><Cpu size={18} /> Load Configuration</h3>
+          <div className="model-params">
+            <label style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              Context length
+              <input type="number" value={contextLen} onChange={e => setContextLen(Number(e.target.value))} min={1024} max={131072} step={1024}
+                style={{ padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--surface)', fontSize: 12 }} />
+            </label>
+          </div>
+          {loadStatus && (
+            <div className={`model-load-status ${loadStatus.type}`}>{loadStatus.msg}</div>
+          )}
+        </div>
+      </div>
+    </section>
   </div>
 }
 
@@ -1489,8 +1769,9 @@ function MemoryView() {
   const [facts, setFacts] = useState<MemoryFact[]>([])
   const [status, setStatus] = useState<MemoryStatus | null>(null)
   const [modelFit, setModelFit] = useState<ModelFitEntry[]>([])
+  const [selfTuning, setSelfTuning] = useState<SelfTuningResponse | null>(null)
   const [loading, setLoading] = useState(false)
-  const [tab, setTab] = useState<'facts' | 'model-fit' | 'status'>('facts')
+  const [tab, setTab] = useState<'facts' | 'model-fit' | 'self-tuning' | 'status'>('facts')
   const [newKey, setNewKey] = useState('')
   const [newValue, setNewValue] = useState('')
   const [actionMsg, setActionMsg] = useState<{ type: string; msg: string } | null>(null)
@@ -1498,14 +1779,16 @@ function MemoryView() {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [factsRes, statusRes, fitRes] = await Promise.all([
+      const [factsRes, statusRes, fitRes, tuningRes] = await Promise.all([
         getJSON<{ enabled: boolean; facts: MemoryFact[] }>('/v1/gumi/memory/facts').catch(() => ({ enabled: false, facts: [] })),
         getJSON<MemoryStatus>('/v1/gumi/memory/status').catch(() => null),
         getJSON<{ enabled: boolean; entries: ModelFitEntry[] }>('/v1/gumi/memory/model-fit').catch(() => ({ enabled: false, entries: [] })),
+        getJSON<SelfTuningResponse>('/v1/gumi/self-tuning').catch(() => ({ enabled: false, reason: 'unavailable' })),
       ])
       setFacts(factsRes.facts ?? [])
       setStatus(statusRes)
       setModelFit(fitRes.entries ?? [])
+      setSelfTuning(tuningRes)
     } catch { /* memory may be unavailable */ }
     finally { setLoading(false) }
   }, [])
@@ -1582,10 +1865,10 @@ function MemoryView() {
     </div>
 
     <div className="tabs" style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--line)', marginBottom: 16 }}>
-      {(['facts', 'model-fit', 'status'] as const).map(t => (
+      {(['facts', 'model-fit', 'self-tuning', 'status'] as const).map(t => (
         <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}
           style={{ padding: '8px 16px', border: 0, borderBottom: tab === t ? '2px solid var(--blue)' : '2px solid transparent', background: 'transparent', cursor: 'pointer', fontSize: 12, fontWeight: tab === t ? 600 : 400, color: tab === t ? 'var(--blue)' : 'var(--muted)' }}>
-          {t === 'facts' ? 'Facts' : t === 'model-fit' ? 'Model Fit' : 'Status'}
+          {t === 'facts' ? 'Facts' : t === 'model-fit' ? 'Model Fit' : t === 'self-tuning' ? 'Self-Tuning' : 'Status'}
         </button>
       ))}
     </div>
@@ -1676,6 +1959,111 @@ function MemoryView() {
           </tbody>
         </table>
       </div>
+    </section>}
+
+    {tab === 'self-tuning' && <section>
+      {!selfTuning?.enabled ? (
+        <Empty text={selfTuning?.reason || 'Self-tuning is not enabled.'} icon={Activity} />
+      ) : (
+        <div className="page-stack">
+          <div className="memory-status-cards">
+            <div className="memory-status-card">
+              <div className="memory-status-info">
+                <span className="memory-status-label">Status</span>
+                <strong className="text-green">Enabled</strong>
+              </div>
+            </div>
+            <div className="memory-status-card">
+              <div className="memory-status-info">
+                <span className="memory-status-label">Total attempts</span>
+                <strong>{selfTuning.snapshot?.total_attempts ?? 0}</strong>
+              </div>
+            </div>
+            <div className="memory-status-card">
+              <div className="memory-status-info">
+                <span className="memory-status-label">Persist snapshot</span>
+                <strong>{selfTuning.config?.persist_snapshot ? 'On' : 'Off'}</strong>
+              </div>
+            </div>
+            <div className="memory-status-card">
+              <div className="memory-status-info">
+                <span className="memory-status-label">Epsilon</span>
+                <strong>{selfTuning.config?.epsilon ?? '—'}</strong>
+              </div>
+            </div>
+          </div>
+
+          <h4 style={{ fontSize: 13, margin: '12px 0 8px' }}>Rule overrides</h4>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Rule</th><th>Prefer</th><th>Min coding</th><th>Min context</th><th>Reason</th></tr></thead>
+              <tbody>
+                {(selfTuning.snapshot?.rule_overrides ?? []).length === 0 && (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--muted)', padding: 24 }}>No rule overrides yet.</td></tr>
+                )}
+                {(selfTuning.snapshot?.rule_overrides ?? []).map((o, i) => (
+                  <tr key={i}>
+                    <td><code>{o.rule_name}</code></td>
+                    <td>{o.prefer || '—'}</td>
+                    <td>{o.min_coding || '—'}</td>
+                    <td>{o.min_context ?? '—'}</td>
+                    <td>{o.reason || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="split-section" style={{ marginTop: 16 }}>
+            <div>
+              <h4 style={{ fontSize: 13, margin: '0 0 8px' }}>Model boosts</h4>
+              <div className="provider-list">
+                {Object.keys(selfTuning.snapshot?.model_boosts ?? {}).length === 0 && <Empty text="No boosts." icon={Zap} />}
+                {Object.entries(selfTuning.snapshot?.model_boosts ?? {}).map(([model, score]) => (
+                  <div className="memory-fact-row" key={model}>
+                    <strong><code>{model}</code></strong>
+                    <span className="text-green">+{score.toFixed(3)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h4 style={{ fontSize: 13, margin: '0 0 8px' }}>Model demotes</h4>
+              <div className="provider-list">
+                {Object.keys(selfTuning.snapshot?.model_demotes ?? {}).length === 0 && <Empty text="No demotes." icon={Activity} />}
+                {Object.entries(selfTuning.snapshot?.model_demotes ?? {}).map(([model, score]) => (
+                  <div className="memory-fact-row" key={model}>
+                    <strong><code>{model}</code></strong>
+                    <span style={{ color: 'var(--red)' }}>-{Math.abs(score).toFixed(3)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <h4 style={{ fontSize: 13, margin: '16px 0 8px' }}>Recent adjustments</h4>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Kind</th><th>Target</th><th>From</th><th>To</th><th>Reason</th></tr></thead>
+              <tbody>
+                {(selfTuning.snapshot?.adjustments ?? []).length === 0 && (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--muted)', padding: 24 }}>No adjustments recorded.</td></tr>
+                )}
+                {(selfTuning.snapshot?.adjustments ?? []).map((a, i) => (
+                  <tr key={i}>
+                    <td>{a.kind}</td>
+                    <td><code>{a.target}</code></td>
+                    <td>{a.from}</td>
+                    <td>{a.to}</td>
+                    <td>{a.reason || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {loading && <p style={{ color: 'var(--muted)', fontSize: 12 }}>Refreshing…</p>}
+        </div>
+      )}
     </section>}
 
     {tab === 'status' && <section>

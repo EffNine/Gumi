@@ -279,16 +279,25 @@ func startServers(cfg *config.Config, log *logger.Logger) {
 		dashboardErr = dashboardSrv.Start()
 	}
 
-	select {
-	case <-ctx.Done():
-	case err := <-srvErr:
-		if err != nil {
-			log.Error("gateway failed to start", err)
-			os.Exit(1)
-		}
-	case err := <-dashboardErr:
-		if err != nil {
-			log.Error("dashboard failed to start", err)
+waitLoop:
+	for {
+		select {
+		case <-ctx.Done():
+			break waitLoop
+		case err := <-srvErr:
+			if err != nil {
+				log.Error("gateway failed to start", err)
+				os.Exit(1)
+			}
+			// Serve returned unexpectedly.
+			break waitLoop
+		case err := <-dashboardErr:
+			if err != nil {
+				log.Error("dashboard failed to start; continuing without dashboard", err)
+			}
+			// Do not shut down the API gateway if only the dashboard dies.
+			dashboardErr = nil
+			dashboardSrv = nil
 		}
 	}
 

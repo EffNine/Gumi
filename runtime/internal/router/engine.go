@@ -69,6 +69,8 @@ type RouteResult struct {
 	Reason       string                  `json:"reason"`
 	Alternatives []AlternativeConsidered `json:"alternatives,omitempty"`
 	FallbackUsed bool                    `json:"fallback_used"`
+	SelfTuned    bool                    `json:"self_tuned,omitempty"`
+	Explored     bool                    `json:"explored,omitempty"`
 }
 
 // AlternativeConsidered records a candidate that was considered but rejected.
@@ -88,12 +90,22 @@ type CodingRuleEngine struct {
 	rules     []CodingRule
 	registry  *CodingModelRegistry
 	memoryFit ModelFitLookup
+	selfTuner *SelfTuner
 }
 
-// ModelFitLookup is the interface the router uses to query the memory engine
-// for model performance data. Implemented by memory.MemoryEngine.
-type ModelFitLookup interface {
-	GetBestModelForRouter(difficulty int, taskType string) (modelID string, successRate float64, ok bool)
+// SetRegistry replaces the coding model registry used for routing.
+func (e *CodingRuleEngine) SetRegistry(registry *CodingModelRegistry) {
+	e.registry = registry
+}
+
+// SetSelfTuner attaches a self-tuning overlay to the rule engine.
+func (e *CodingRuleEngine) SetSelfTuner(tuner *SelfTuner) {
+	e.selfTuner = tuner
+}
+
+// SelfTuner returns the attached self-tuner, if any.
+func (e *CodingRuleEngine) SelfTuner() *SelfTuner {
+	return e.selfTuner
 }
 
 // DefaultCodingRules returns the built-in default routing rules for coding agents.
@@ -290,6 +302,11 @@ func (e *CodingRuleEngine) Route(
 			continue
 		}
 
+		// Apply any runtime self-tuning overrides to this rule.
+		if e.selfTuner != nil {
+			rule = e.selfTuner.ApplyToRule(rule)
+		}
+
 		// Determine effective MinContext: rule's value floored by hint.
 		effectiveMinContext := rule.RouteAction.MinContext
 		if hints != nil && hints.MinContext > effectiveMinContext {
@@ -386,8 +403,32 @@ func (e *CodingRuleEngine) selectFromRegistry(rule CodingRule, p *CodingTaskProf
 	)
 
 	if best != nil {
-		// Check if memory engine has a better model for this task.
-		if e.memoryFit != nil {
+		var selfTuned bool
+		var explored bool
+
+		// If a self-tuner is present, let it apply boost/demote offsets and
+		// exploration. Otherwise, fall back to the simple memory-fit boost.
+		if e.selfTuner != nil {
+			if e.selfTuner.HasRuleOverride(rule.Name) {
+				selfTuned = true
+			}
+			baselineKey := registryEntryKey(best)
+			tuned, didExplore := e.selfTuner.SelectWithBoost(
+				e.registry.FindBest,
+				p,
+				rule,
+				availableModels,
+				effectiveMinContext,
+			)
+			if tuned != nil {
+				if didExplore {
+					explored = true
+				} else if registryEntryKey(tuned) != baselineKey {
+					selfTuned = true
+				}
+				best = tuned
+			}
+		} else if e.memoryFit != nil {
 			if memModelID, memRate, memOk := e.memoryFit.GetBestModelForRouter(p.Difficulty, string(p.TaskType)); memOk && memRate > 0.7 {
 				// Check if the memory-recommended model is in availableModels
 				// and meets the rule's minimum coding strength requirement.
@@ -450,6 +491,8 @@ func (e *CodingRuleEngine) selectFromRegistry(rule CodingRule, p *CodingTaskProf
 			Strategy:     action.Prefer,
 			Reason:       fmt.Sprintf("rule %q selected %s (coding:%s, context:%d)", rule.Name, best.ProfileID, best.CodingStrength, best.ContextLimit),
 			Alternatives: alternatives,
+			SelfTuned:    selfTuned,
+			Explored:     explored,
 		}
 	}
 
@@ -499,3 +542,10 @@ func stringInSlice(s string, slice []string) bool {
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+func registryEntryKey(e *CodingModelRegistryEntry) string {
+	if e == nil {
+		return ""
+	}
+	return e.Provider + ":" + e.ModelName
+}

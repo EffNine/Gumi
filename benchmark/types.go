@@ -46,9 +46,14 @@ type Capability struct {
 
 // MetricSet is a statistical summary of scores for a group of test runs.
 type MetricSet struct {
-	Mean float64 `json:"mean"`
-	Std  float64 `json:"std"`
-	N    int     `json:"n"`
+	Mean   float64 `json:"mean"`
+	Std    float64 `json:"std"`
+	N      int     `json:"n"`
+	Min    float64 `json:"min,omitempty"`
+	Max    float64 `json:"max,omitempty"`
+	Median float64 `json:"median,omitempty"`
+	P25    float64 `json:"p25,omitempty"`
+	P75    float64 `json:"p75,omitempty"`
 }
 
 // TestResult records the outcome of a single test attempt under a specific condition.

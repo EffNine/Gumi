@@ -254,10 +254,11 @@ gumi/
 ├── benchmarks/               # benchmark scripts + reports archive
 ├── scripts/                  # release, install, benchmark, profile-doctor shell scripts
 ├── plugins/                  # reserved (not implemented in V1)
-├── examples/                 # reserved (not yet created)
-│   ├── python-openai-client/
-│   ├── node-openai-client/
-│   └── curl/
+├── docs/
+│   └── examples/             # client integration examples
+│       ├── python-openai/
+│       ├── curl/
+│       └── README.md
 │
 ├── Dockerfile
 ├── Makefile
@@ -966,7 +967,8 @@ session boundaries — using zero VRAM.
   [x] GetBestModel(difficulty, taskType) → modelID
   [x] GetModelProfile(modelID) → stats
   [x] Exponential weighted moving average for latency/retries
-  [-] integrate with CodingRuleEngine for preference strategy selection
+  [x] integrate with CodingRuleEngine for preference strategy selection
+  [x] implement Phase 3 self-tuning (rule overrides, model boost/demote, exploration)
 [x] implement EpisodeStore (compressed step history)
   [x] StoreEpisode(episode)
   [x] GetRecentEpisodes(sessionID, n) → episodes
@@ -988,7 +990,7 @@ session boundaries — using zero VRAM.
 [x] add CLI commands: gumi memory status, gumi memory facts, gumi memory clear
 [x] wire into pipeline: prepareMemory() pre-generation, extractMemory() post-generation
 [x] add memory events to telemetry (memory_injected, facts_extracted, model_fit_updated)
-[ ] add memory dashboard page (facts count, model fit table)
+[x] add memory dashboard page (facts count, model fit table, self-tuning snapshot)
 ```
 
 ## Deliverables
@@ -997,22 +999,22 @@ session boundaries — using zero VRAM.
 [x] runtime/internal/memory/ package
 [x] FactStore, ModelFitStore, EpisodeStore
 [x] InjectionEngine, ExtractionEngine
-[x] Memory API endpoints (facts, model-fit, clear, status)
+[x] Memory API endpoints (facts, model-fit, clear, status, self-tuning)
 [x] CLI commands (status, facts, clear)
 [x] Config section (MemoryConfig)
-[ ] Dashboard page
+[x] Dashboard page (facts count, model fit table, self-tuning snapshot via GET /v1/gumi/self-tuning)
 [x] Zero VRAM (SQLite + Go map, no GPU)
 ```
 
 ## Exit Criteria
 
-Status: **9/10 complete** ✅
+Status: **10/10 complete** ✅
 
 - [x] After an agent session, facts are persisted and retrievable via API
 - [x] A follow-up session can retrieve relevant facts from previous sessions
-- [x] Model fit data is recorded and queryable via API/CLI (router integration pending)
+- [x] Model fit data is recorded and queryable via API/CLI (router integration + self-tuning complete)
 - [x] Memory injection stays within configurable token budget (default 1200)
-- [ ] Dashboard shows memory statistics (facts count, model fit table)
+- [x] Dashboard shows memory statistics (facts count, model fit table, self-tuning tab)
 - [x] `gumi memory status` works
 - [x] `gumi memory facts` works
 - [x] `gumi memory clear` works
@@ -1063,7 +1065,7 @@ configuring GPU/context settings.
 [x] add ModelManagementConfig to LM Studio provider settings
 [x] integrate into resolveProviderAndProfile
 [x] add model lifecycle events to telemetry
-[ ] add model management dashboard view
+[x] add model management dashboard view
 [x] add CLI commands: gumi lmstudio status, load, unload, models
 [x] extend with ModelManager interface (optional, LMStudio-only)
 ```
@@ -1075,13 +1077,13 @@ configuring GPU/context settings.
 [x] ModelManagementConfig in provider settings (LMStudioMgmtConfig)
 [x] Pipeline integration for auto-load/unload on route change (applyModelManagement)
 [x] Telemetry events for model lifecycle (model_load_started/succeeded/failed)
-[ ] Dashboard model management view
+[x] Dashboard model management view
 [x] CLI commands for manual model control (status, load, unload, models)
 ```
 
 ## Exit Criteria
 
-Status: **6/7 complete** ✅
+Status: **7/7 complete** ✅
 
 - [x] Gumi can load a model on a remote LM Studio with custom config
 - [x] Router selects a different model → Gumi unloads current, loads target
@@ -1089,7 +1091,7 @@ Status: **6/7 complete** ✅
 - [x] Model lifecycle events appear in telemetry and pipeline events
 - [x] `gumi lmstudio status` shows loaded model and available models
 - [x] Manual load/unload via CLI works
-- [ ] Dashboard model management view (pending — requires dashboard integration)
+- [x] Dashboard model management view (shipped with dashboard overhaul; see Memory/Models pages)
 
 See the LM Studio REST API docs at:
 [https://lmstudio.ai/docs/developer/rest](https://lmstudio.ai/docs/developer/rest)
@@ -1671,23 +1673,16 @@ docs/telemetry-and-privacy.md
 
 # 39. Examples
 
-Create examples:
+Examples directory created under `docs/examples/` with starter snippets:
 
 ```text
-examples/curl
-examples/python-openai
-examples/node-openai
-examples/continue-config
-examples/cline-config
-examples/open-webui-config
+docs/examples/curl/
+docs/examples/python-openai/
 ```
 
-Each example should include:
+Each example includes setup, request, expected output, and troubleshooting notes. Additional client configs (Continue, Cline, Open WebUI) can be added incrementally.
 
-- setup
-- request
-- expected output
-- troubleshooting notes
+**Status: partially shipped.** Core cURL and Python examples delivered.
 
 ---
 

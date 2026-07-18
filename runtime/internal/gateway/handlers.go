@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
@@ -43,12 +44,29 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleModels returns the local:auto alias merged with provider-discovered models.
+// handleModels returns the local:auto alias merged with provider-discovered models
+// and registry models.
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	list := api.NewModelsList()
 
 	providerModels := s.manager.ListModels(r.Context())
 	list.Data = append(list.Data, providerModels...)
+
+	s.modelsMu.RLock()
+	registryModels := slices.Clone(s.cfg.Models)
+	s.modelsMu.RUnlock()
+
+	for _, m := range registryModels {
+		if !m.Enabled {
+			continue
+		}
+		list.Data = append(list.Data, api.Model{
+			ID:      m.Alias,
+			Object:  "model",
+			Created: 0,
+			OwnedBy: "gumi-registry",
+		})
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(list)

@@ -29,6 +29,17 @@ type Config struct {
 	Telemetry TelemetryConfig             `json:"telemetry" yaml:"telemetry"`
 	Routing   RoutingConfig               `json:"routing" yaml:"routing"`
 	Memory    MemoryConfig                `json:"memory" yaml:"memory"`
+	Models    []ModelRegistryEntry        `json:"models" yaml:"models"`
+}
+
+// ModelRegistryEntry is a user-defined model registered in the runtime config.
+type ModelRegistryEntry struct {
+	Alias         string `json:"alias" yaml:"alias"`
+	Provider      string `json:"provider" yaml:"provider"`
+	ModelID       string `json:"model_id" yaml:"model_id"`
+	ContextLength int    `json:"context_length" yaml:"context_length"`
+	Enabled       bool   `json:"enabled" yaml:"enabled"`
+	Default       bool   `json:"default" yaml:"default"`
 }
 
 // DefaultHotCacheMaxSize is the default maximum number of entries in the hot
@@ -71,11 +82,30 @@ type RoutingConfig struct {
 	Mode        string               `json:"mode" yaml:"mode"`
 	Classifier  ClassifierConfig     `json:"classifier,omitempty" yaml:"classifier,omitempty"`
 	CodingRules []CodingRuleOverride `json:"coding_rules,omitempty" yaml:"coding_rules,omitempty"`
+	SelfTuning  SelfTuningConfig     `json:"self_tuning,omitempty" yaml:"self_tuning,omitempty"`
 }
 
 // ClassifierConfig controls the coding task classifier thresholds.
 type ClassifierConfig struct {
 	EscalationThreshold EscalationThreshold `json:"escalation_threshold,omitempty" yaml:"escalation_threshold,omitempty"`
+}
+
+// SelfTuningConfig controls Phase 3 observation-driven router adjustments.
+type SelfTuningConfig struct {
+	Enabled                 bool    `json:"enabled" yaml:"enabled"`
+	MinAttempts             int     `json:"min_attempts" yaml:"min_attempts"`
+	MinSuccessRate          float64 `json:"min_success_rate" yaml:"min_success_rate"`
+	PromoteThreshold        float64 `json:"promote_threshold" yaml:"promote_threshold"`
+	DemoteThreshold         float64 `json:"demote_threshold" yaml:"demote_threshold"`
+	BoostWeight             float64 `json:"boost_weight" yaml:"boost_weight"`
+	DemoteWeight            float64 `json:"demote_weight" yaml:"demote_weight"`
+	FallbackTriggerRate     float64 `json:"fallback_trigger_rate" yaml:"fallback_trigger_rate"`
+	StrategyFlipMargin      float64 `json:"strategy_flip_margin" yaml:"strategy_flip_margin"`
+	Epsilon                 float64 `json:"epsilon" yaml:"epsilon"`
+	EpsilonDecayAt          int     `json:"epsilon_decay_at" yaml:"epsilon_decay_at"`
+	WarmupAttempts          int     `json:"warmup_attempts" yaml:"warmup_attempts"`
+	MinOutcomesBetweenTunes int     `json:"min_outcomes_between_tunes" yaml:"min_outcomes_between_tunes"`
+	PersistSnapshot         bool    `json:"persist_snapshot" yaml:"persist_snapshot"`
 }
 
 // EscalationThreshold defines the thresholds for agent-state escalation.
@@ -236,6 +266,22 @@ func DefaultConfig() *Config {
 					Repetitions: 3,
 				},
 			},
+			SelfTuning: SelfTuningConfig{
+				Enabled:                 false, // Opt-in in V1
+				MinAttempts:             5,
+				MinSuccessRate:          0.5,
+				PromoteThreshold:        0.8,
+				DemoteThreshold:         0.3,
+				BoostWeight:             0.2,
+				DemoteWeight:            0.3,
+				FallbackTriggerRate:     0.3,
+				StrategyFlipMargin:      0.15,
+				Epsilon:                 0.1,
+				EpsilonDecayAt:          200,
+				WarmupAttempts:          10,
+				MinOutcomesBetweenTunes: 10,
+				PersistSnapshot:         false,
+			},
 		},
 		Memory: MemoryConfig{
 			Enabled:               false, // Opt-in in V1
@@ -345,4 +391,59 @@ func updateProvider(cfg *Config, key string, update func(*ProviderSettings)) {
 	}
 	update(&settings)
 	cfg.Providers[key] = settings
+}
+
+// ResolveConfigPath returns the YAML path used for durable config writes.
+// It prefers the first existing file from configSearchPaths, otherwise
+// defaults to ~/.gumi/gumi.yaml (or ./gumi.yaml when home is unavailable).
+func ResolveConfigPath(configPath string) string {
+	paths := configSearchPaths(configPath)
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	home, _ := os.UserHomeDir()
+	if home != "" {
+		return filepath.Join(home, ".gumi", "gumi.yaml")
+	}
+	return "gumi.yaml"
+}
+
+// SaveModels merges model registry entries into the YAML file at path without
+// removing unrelated top-level keys.
+func SaveModels(path string, models []ModelRegistryEntry) error {
+	existingData := map[string]any{}
+	if data, err := os.ReadFile(path); err == nil {
+		_ = yaml.Unmarshal(data, &existingData)
+	}
+
+	modelEntries := make([]map[string]any, 0, len(models))
+	for _, m := range models {
+		entry := map[string]any{
+			"alias":    m.Alias,
+			"provider": m.Provider,
+			"model_id": m.ModelID,
+			"enabled":  m.Enabled,
+			"default":  m.Default,
+		}
+		if m.ContextLength > 0 {
+			entry["context_length"] = m.ContextLength
+		}
+		modelEntries = append(modelEntries, entry)
+	}
+	existingData["models"] = modelEntries
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
+	out, err := yaml.Marshal(existingData)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, out, 0o644)
 }

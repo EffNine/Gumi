@@ -92,16 +92,16 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 
 	// Initialize memory engine if enabled.
 	var memEngine *memory.MemoryEngine
-	if cfg.Memory.Enabled {
-		dbPath := cfg.Memory.DBPath
-		if dbPath == "" {
-			home, err := os.UserHomeDir()
-			if err == nil {
-				dbPath = filepath.Join(home, ".gumi", "memory.db")
-			}
+	memoryDBPath := cfg.Memory.DBPath
+	if memoryDBPath == "" {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			memoryDBPath = filepath.Join(home, ".gumi", "memory.db")
 		}
+	}
+	if cfg.Memory.Enabled {
 		var err error
-		memEngine, err = memory.New(&cfg.Memory, dbPath)
+		memEngine, err = memory.New(&cfg.Memory, memoryDBPath)
 		if err != nil {
 			log.Info("memory engine initialization skipped", "error", err)
 			memEngine = nil
@@ -113,10 +113,24 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 		codingRouter = router.NewCodingRuleEngine(router.DefaultCodingRules(), codingRegistry, cfg.Routing.CodingRules, memEngine)
 	}
 
+	// Wire self-tuner into the router if routing + self-tuning are enabled.
+	var selfTuner *router.SelfTuner
+	if cfg.Routing.Enabled && cfg.Routing.SelfTuning.Enabled && memEngine != nil {
+		selfTuner = router.NewSelfTuner(cfg.Routing.SelfTuning, memEngine, router.SelfTuningSnapshotPath(memoryDBPath))
+		codingRouter.SetSelfTuner(selfTuner)
+	}
+
 	// Set memory engine telemetry hook.
 	if memEngine != nil {
 		memEngine.SetTelemetryHook(func(ev string, md map[string]string) {
 			log.Info("memory_event", "event", ev, "metadata", md)
+		})
+	}
+
+	// Set self-tuner telemetry hook.
+	if selfTuner != nil {
+		selfTuner.SetTelemetryHook(func(ev string, md map[string]string) {
+			log.Info("self_tuning_event", "event", ev, "metadata", md)
 		})
 	}
 
@@ -137,6 +151,38 @@ func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Eng
 		codingRegistry:    codingRegistry,
 		codingClassifier:  codingClassifier,
 	}
+}
+
+// RefreshProviderModels rebuilds the coding model registry from live provider
+// models and durable registry entries.
+func (e *Engine) RefreshProviderModels(registry []config.ModelRegistryEntry) {
+	if e.codingRegistry == nil {
+		return
+	}
+
+	providerModels := buildProviderModelMap(e.manager)
+	for _, entry := range registry {
+		if !entry.Enabled || entry.Provider == "" || entry.ModelID == "" {
+			continue
+		}
+		providerModels[entry.Provider] = appendUniqueModel(providerModels[entry.Provider], entry.ModelID)
+	}
+
+	loader := profiles.NewDefaultLoader()
+	loaded, _ := loader.Load()
+	e.codingRegistry = router.NewCodingModelRegistry(loaded.Profiles, providerModels)
+	if e.codingRouter != nil {
+		e.codingRouter.SetRegistry(e.codingRegistry)
+	}
+}
+
+func appendUniqueModel(models []string, modelName string) []string {
+	for _, existing := range models {
+		if existing == modelName {
+			return models
+		}
+	}
+	return append(models, modelName)
 }
 
 // buildProviderModelMap extracts provider → model name mappings from the
@@ -170,6 +216,11 @@ func (e *Engine) SetTelemetry(t *telemetry.Writer) {
 // MemoryEngine returns the memory engine, or nil if memory is disabled.
 func (e *Engine) MemoryEngine() *memory.MemoryEngine {
 	return e.memoryEngine
+}
+
+// CodingRouter returns the agentic coding router engine, or nil if routing is disabled.
+func (e *Engine) CodingRouter() *router.CodingRuleEngine {
+	return e.codingRouter
 }
 
 // RunChatCompletion executes a normalized chat completion request.
@@ -1401,6 +1452,22 @@ func (e *Engine) extractMemory(pc *Context) {
 			"task_type":  pc.CodingRoute.Profile.TaskType,
 			"success":    fmt.Sprintf("%t", success),
 		})
+
+		// Feed the self-tuner so it can adjust rules/strategies over time.
+		if e.codingRouter != nil && e.codingRouter.SelfTuner() != nil {
+			e.codingRouter.SelfTuner().ObserveOutcome(
+				pc.SelectedModel,
+				pc.CodingRoute.Profile.Difficulty,
+				pc.CodingRoute.Profile.TaskType,
+				success,
+			)
+			pc.AddEvent("routing", "self_tuning_observed", SeverityInfo, "recorded outcome for self-tuner", map[string]string{
+				"model":      pc.SelectedModel,
+				"difficulty": fmt.Sprintf("%d", pc.CodingRoute.Profile.Difficulty),
+				"task_type":  pc.CodingRoute.Profile.TaskType,
+				"success":    fmt.Sprintf("%t", success),
+			})
+		}
 	}
 
 	// Store the current step as an episode.

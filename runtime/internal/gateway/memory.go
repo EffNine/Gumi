@@ -124,6 +124,35 @@ func (s *Server) handleMemoryStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleSelfTuning returns the current self-tuning snapshot for the dashboard.
+func (s *Server) handleSelfTuning(w http.ResponseWriter, r *http.Request) {
+	pipe := s.pipeline
+	if pipe == nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"enabled": false,
+			"reason":  "pipeline not available",
+		})
+		return
+	}
+
+	routerEngine := pipe.CodingRouter()
+	if routerEngine == nil || routerEngine.SelfTuner() == nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"enabled": false,
+			"reason":  "self-tuning not configured",
+		})
+		return
+	}
+
+	snapshot := routerEngine.SelfTuner().Snapshot()
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"enabled":   true,
+		"snapshot":  snapshot,
+		"config":    s.cfg.Routing.SelfTuning,
+		"generated": snapshot.GeneratedAt,
+	})
+}
+
 // handleMemoryCreateFact creates a new memory fact via POST.
 func (s *Server) handleMemoryCreateFact(w http.ResponseWriter, r *http.Request) {
 	mem := s.pipeline.MemoryEngine()

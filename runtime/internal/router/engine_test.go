@@ -5,7 +5,6 @@ import (
 
 	"github.com/EffNine/gumi/runtime/internal/api"
 	"github.com/EffNine/gumi/runtime/internal/config"
-	"github.com/EffNine/gumi/runtime/internal/profiles"
 )
 
 // ---------------------------------------------------------------------------
@@ -23,41 +22,67 @@ func (f *fakeModelFitLookup) GetBestModelForRouter(difficulty int, taskType stri
 	return f.modelID, f.successRate, f.ok
 }
 
+func (f *fakeModelFitLookup) GetFitStats(difficulty int, taskType string, minAttempts int) ([]ModelFitStats, bool) {
+	if !f.ok {
+		return nil, false
+	}
+	return []ModelFitStats{
+		{
+			ModelID:     f.modelID,
+			Attempts:    max(minAttempts, 5),
+			Successes:   int(float64(max(minAttempts, 5)) * f.successRate),
+			SuccessRate: f.successRate,
+		},
+	}, true
+}
+
+func (f *fakeModelFitLookup) GetModelFit(modelID string, difficulty int, taskType string) (ModelFitStats, bool) {
+	if !f.ok || modelID != f.modelID {
+		return ModelFitStats{}, false
+	}
+	return ModelFitStats{
+		ModelID:     f.modelID,
+		Attempts:    5,
+		Successes:   int(5 * f.successRate),
+		SuccessRate: f.successRate,
+	}, true
+}
+
+func (f *fakeModelFitLookup) TotalAttempts() int {
+	if !f.ok {
+		return 0
+	}
+	return 10
+}
+
 // newTestRegistry creates a registry with a few test profiles.
-// The registry iterates profiles first, then all provider models per profile.
-// The first profile claims all model names. We use separate providers so
-// each profile gets its own entry.
+// It constructs entries directly to avoid the constructor's profile/model
+// dedup behaviour, so that weak-model actually has weak coding strength.
 func newTestRegistry() *CodingModelRegistry {
-	profilesList := []*profiles.Profile{
-		{
-			ID:           "strong-model",
-			Name:         "Strong Model",
-			Size:         "8b",
-			ContextLimit: 65536,
-			Capabilities: profiles.Capabilities{
-				Coding:      "strong",
-				ToolCalling: "strong",
-				Reasoning:   "strong",
+	return &CodingModelRegistry{
+		entries: []CodingModelRegistryEntry{
+			{
+				ProfileID:      "strong-model",
+				Provider:       "ollama",
+				ModelName:      "strong-model:v1",
+				CodingStrength: CodingStrengthStrong,
+				ToolCalling:    "strong",
+				Reasoning:      "strong",
+				ContextLimit:   65536,
+				SizeCategory:   SizeMedium,
 			},
-		},
-		{
-			ID:           "weak-model",
-			Name:         "Weak Model",
-			Size:         "2b",
-			ContextLimit: 32000,
-			Capabilities: profiles.Capabilities{
-				Coding:      "weak",
-				ToolCalling: "weak",
-				Reasoning:   "weak",
+			{
+				ProfileID:      "weak-model",
+				Provider:       "lmstudio",
+				ModelName:      "weak-model:v1",
+				CodingStrength: CodingStrengthWeak,
+				ToolCalling:    "weak",
+				Reasoning:      "weak",
+				ContextLimit:   32000,
+				SizeCategory:   SizeTiny,
 			},
 		},
 	}
-	// Use separate providers so each profile gets its own entry.
-	providerModels := map[string][]string{
-		"ollama":   {"strong-model:v1"},
-		"lmstudio": {"weak-model:v1"},
-	}
-	return NewCodingModelRegistry(profilesList, providerModels)
 }
 
 // newRichTestRegistry creates a registry with more varied profiles for

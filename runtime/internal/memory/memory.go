@@ -21,6 +21,7 @@ import (
 
 	"github.com/EffNine/gumi/runtime/internal/api"
 	"github.com/EffNine/gumi/runtime/internal/config"
+	"github.com/EffNine/gumi/runtime/internal/router"
 )
 
 // ---------------------------------------------------------------------------
@@ -669,6 +670,81 @@ func (m *MemoryEngine) GetBestModelForRouter(difficulty int, taskType string) (m
 	}
 	rate := float64(successes) / float64(attempts)
 	return id, rate, true
+}
+
+// GetFitStats returns all observed models for a (difficulty, task_type) bucket,
+// sorted by success rate descending. minAttempts filters out under-sampled models.
+func (m *MemoryEngine) GetFitStats(difficulty int, taskType string, minAttempts int) ([]router.ModelFitStats, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if taskType == "" {
+		taskType = "general"
+	}
+	if minAttempts <= 0 {
+		minAttempts = 3
+	}
+
+	rows, err := m.db.Query(
+		`SELECT model_id, attempts, successes, avg_latency_ms, avg_retries, last_updated
+		 FROM model_fit
+		 WHERE difficulty = ? AND task_type = ? AND attempts >= ?
+		 ORDER BY CAST(successes AS REAL) / MAX(attempts, 1) DESC, avg_latency_ms ASC`,
+		difficulty, taskType, minAttempts,
+	)
+	if err != nil {
+		return nil, false
+	}
+	defer rows.Close()
+
+	var stats []router.ModelFitStats
+	for rows.Next() {
+		var st router.ModelFitStats
+		if err := rows.Scan(&st.ModelID, &st.Attempts, &st.Successes, &st.AvgLatencyMs, &st.AvgRetries, &st.LastUpdated); err != nil {
+			continue
+		}
+		st.SuccessRate = float64(st.Successes) / float64(st.Attempts)
+		stats = append(stats, st)
+	}
+	return stats, len(stats) > 0 && rows.Err() == nil
+}
+
+// GetModelFit returns the stats for a single model in a bucket.
+func (m *MemoryEngine) GetModelFit(modelID string, difficulty int, taskType string) (router.ModelFitStats, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if taskType == "" {
+		taskType = "general"
+	}
+
+	var st router.ModelFitStats
+	err := m.db.QueryRow(
+		`SELECT model_id, attempts, successes, avg_latency_ms, avg_retries, last_updated
+		 FROM model_fit
+		 WHERE model_id = ? AND difficulty = ? AND task_type = ?`,
+		modelID, difficulty, taskType,
+	).Scan(&st.ModelID, &st.Attempts, &st.Successes, &st.AvgLatencyMs, &st.AvgRetries, &st.LastUpdated)
+	if err != nil {
+		return router.ModelFitStats{}, false
+	}
+	st.SuccessRate = float64(st.Successes) / float64(st.Attempts)
+	return st, true
+}
+
+// TotalAttempts returns the total number of observations across all buckets.
+func (m *MemoryEngine) TotalAttempts() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var total int
+	err := m.db.QueryRow(
+		`SELECT COALESCE(SUM(attempts), 0) FROM model_fit`,
+	).Scan(&total)
+	if err != nil {
+		return 0
+	}
+	return total
 }
 
 // GetModelProfile returns the aggregated stats for a model across all

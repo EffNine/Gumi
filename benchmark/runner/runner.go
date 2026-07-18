@@ -144,8 +144,16 @@ func (o *Orchestrator) Execute() (*report.Report, error) {
 	benchmarkCaps := make(map[string]benchmark.Capability)
 	for k, v := range caps {
 		benchmarkCaps[k] = benchmark.Capability{
-			Direct:     benchmark.MetricSet{Mean: v.Direct.Mean, Std: v.Direct.Std, N: v.Direct.N},
-			Gumi:     benchmark.MetricSet{Mean: v.Gumi.Mean, Std: v.Gumi.Std, N: v.Gumi.N},
+			Direct: benchmark.MetricSet{
+				Mean: v.Direct.Mean, Std: v.Direct.Std, N: v.Direct.N,
+				Min: v.Direct.Min, Max: v.Direct.Max, Median: v.Direct.Median,
+				P25: v.Direct.P25, P75: v.Direct.P75,
+			},
+			Gumi: benchmark.MetricSet{
+				Mean: v.Gumi.Mean, Std: v.Gumi.Std, N: v.Gumi.N,
+				Min: v.Gumi.Min, Max: v.Gumi.Max, Median: v.Gumi.Median,
+				P25: v.Gumi.P25, P75: v.Gumi.P75,
+			},
 			Delta:      v.Delta,
 			EffectSize: v.EffectSize,
 		}
@@ -204,6 +212,10 @@ func (o *Orchestrator) runSingleAttempt(
 	attempt int,
 	runID string,
 ) benchmark.TestResult {
+	if len(test.Variants) > 0 || test.Type == "self_consistency" {
+		return o.runSelfConsistencyAttempt(ctx, client, condMgr, cond, test, attempt, runID)
+	}
+
 	req := condMgr.BuildRequest(cond, test)
 
 	// Apply per-test timeout
@@ -241,6 +253,9 @@ func (o *Orchestrator) runSingleAttempt(
 	scored := scorer.New().Score(test, responseText)
 	result.Passed = scored.Passed
 	result.Subscores = scored.Subscores
+	if scored.Error != "" {
+		result.Error = scored.Error
+	}
 
 	// Store raw output as artifact
 	if responseText != "" {
@@ -248,6 +263,152 @@ func (o *Orchestrator) runSingleAttempt(
 	}
 
 	return result
+}
+
+// runSelfConsistencyAttempt executes every prompt variant, then scores consistency.
+func (o *Orchestrator) runSelfConsistencyAttempt(
+	ctx context.Context,
+	client *ProviderClient,
+	condMgr *ConditionManager,
+	cond Condition,
+	test benchmark.SuiteTest,
+	attempt int,
+	runID string,
+) benchmark.TestResult {
+	prompts := make([]string, 0, len(test.Variants)+1)
+	if test.Prompt != "" {
+		prompts = append(prompts, test.Prompt)
+	}
+	prompts = append(prompts, test.Variants...)
+	if len(prompts) == 0 {
+		return benchmark.TestResult{
+			TestID:    test.ID,
+			Condition: string(cond),
+			Attempt:   attempt,
+			Passed:    false,
+			Subscores: map[string]float64{"self_consistency": 0},
+			Error:     "self_consistency test has no prompt variants",
+		}
+	}
+
+	timeout := time.Duration(test.TimeoutSeconds) * time.Second
+	if timeout == 0 {
+		timeout = 120 * time.Second
+	}
+
+	responses := make([]string, 0, len(prompts))
+	var totalLatency float64
+	var firstErr string
+
+	for i, prompt := range prompts {
+		variant := test
+		variant.Prompt = prompt
+		req := condMgr.BuildRequest(cond, variant)
+
+		testCtx, cancel := context.WithTimeout(ctx, timeout)
+		start := time.Now()
+		resp, err := client.ChatCompletion(testCtx, req)
+		totalLatency += time.Since(start).Seconds() * 1000
+		cancel()
+
+		if err != nil {
+			if firstErr == "" {
+				firstErr = err.Error()
+			}
+			responses = append(responses, "")
+			continue
+		}
+		text := ""
+		if len(resp.Choices) > 0 {
+			text = resp.Choices[0].Message.Content
+		}
+		responses = append(responses, text)
+		if text != "" {
+			_ = report.StoreArtifact(runID, fmt.Sprintf("%s-v%d", test.ID, i), string(cond), attempt, text)
+		}
+	}
+
+	result := benchmark.TestResult{
+		TestID:    test.ID,
+		Condition: string(cond),
+		Attempt:   attempt,
+		Passed:    false,
+		Subscores: make(map[string]float64),
+		LatencyMs: totalLatency,
+		Output:    strings.Join(responses, "\n---\n"),
+	}
+	if firstErr != "" {
+		result.Error = firstErr
+	}
+
+	// Inject self_consistency constraint with prior variant responses for the scorer API.
+	scoringTest := test
+	prior := []string{}
+	if len(responses) > 1 {
+		prior = responses[:len(responses)-1]
+	}
+	if !hasSelfConsistencyConstraint(scoringTest.Constraints) {
+		scoringTest.Constraints = append(append([]benchmark.Constraint{}, scoringTest.Constraints...), benchmark.Constraint{
+			Field:    "self_consistency",
+			Operator: "self_consistency",
+			Value:    prior,
+		})
+	} else {
+		scoringTest.Constraints = append([]benchmark.Constraint{}, scoringTest.Constraints...)
+		for i := range scoringTest.Constraints {
+			if scoringTest.Constraints[i].Operator == "self_consistency" {
+				scoringTest.Constraints[i].Value = prior
+			}
+		}
+	}
+
+	last := ""
+	if len(responses) > 0 {
+		last = responses[len(responses)-1]
+	}
+	scored := scorer.New().Score(scoringTest, last)
+	result.Passed = scored.Passed && firstErr == ""
+	result.Subscores = scored.Subscores
+	if scored.Error != "" {
+		if result.Error != "" {
+			result.Error = result.Error + "; " + scored.Error
+		} else {
+			result.Error = scored.Error
+		}
+	}
+	// Drop exact-match expected_answer subscore from scorer if present; handled below.
+	delete(result.Subscores, "expected_answer")
+	consistency := scorer.ScoreSelfConsistency(responses)
+	result.Subscores["self_consistency"] = consistency
+	if consistency != 1.0 {
+		result.Passed = false
+	}
+	if test.ExpectedAnswer != "" {
+		needle := strings.ToLower(strings.TrimSpace(test.ExpectedAnswer))
+		matched := false
+		for _, resp := range responses {
+			if strings.Contains(strings.ToLower(resp), needle) {
+				matched = true
+				break
+			}
+		}
+		if matched {
+			result.Subscores["expected_answer"] = 1.0
+		} else {
+			result.Subscores["expected_answer"] = 0.0
+			result.Passed = false
+		}
+	}
+	return result
+}
+
+func hasSelfConsistencyConstraint(constraints []benchmark.Constraint) bool {
+	for _, c := range constraints {
+		if c.Operator == "self_consistency" {
+			return true
+		}
+	}
+	return false
 }
 
 // clientForCondition selects the appropriate provider client based on the condition.

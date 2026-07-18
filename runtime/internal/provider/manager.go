@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/EffNine/gumi/runtime/internal/api"
+	"github.com/EffNine/gumi/runtime/internal/config"
 	"github.com/EffNine/gumi/runtime/internal/logger"
 )
 
@@ -33,6 +35,9 @@ type Manager struct {
 
 	mu          sync.RWMutex
 	healthCache map[string]healthEntry
+
+	registryMu sync.RWMutex
+	registry   []config.ModelRegistryEntry
 
 	// Telemetry receives health check results. It may be nil.
 	Telemetry TelemetryWriter
@@ -147,16 +152,58 @@ type ModelResolution struct {
 	Adapter     ProviderAdapter
 }
 
+// SetRegistry updates the in-memory model registry used for alias resolution.
+func (m *Manager) SetRegistry(entries []config.ModelRegistryEntry) {
+	m.registryMu.Lock()
+	defer m.registryMu.Unlock()
+	m.registry = slices.Clone(entries)
+}
+
+func (m *Manager) registrySnapshot() []config.ModelRegistryEntry {
+	m.registryMu.RLock()
+	defer m.registryMu.RUnlock()
+	return slices.Clone(m.registry)
+}
+
+func lookupRegistryAlias(entries []config.ModelRegistryEntry, modelID string) (config.ModelRegistryEntry, bool) {
+	for _, entry := range entries {
+		if entry.Enabled && strings.EqualFold(entry.Alias, modelID) {
+			return entry, true
+		}
+	}
+	return config.ModelRegistryEntry{}, false
+}
+
+func defaultRegistryEntry(entries []config.ModelRegistryEntry) (config.ModelRegistryEntry, bool) {
+	for _, entry := range entries {
+		if entry.Enabled && entry.Default {
+			return entry, true
+		}
+	}
+	return config.ModelRegistryEntry{}, false
+}
+
 // ResolveModel picks a provider and model name for a Gumi model ID.
+// - empty model ID selects the registry default when configured.
+// - registry aliases resolve to provider:model_id.
 // - "local:auto" selects the first online provider/model.
 // - "ollama:llama3" selects the ollama adapter and model "llama3".
 func (m *Manager) ResolveModel(ctx context.Context, modelID string) (*ModelResolution, ProviderError) {
+	registry := m.registrySnapshot()
+
 	if modelID == "" {
+		if entry, ok := defaultRegistryEntry(registry); ok {
+			return m.resolveProviderModel(ctx, entry.Provider, entry.ModelID)
+		}
 		return nil, ProviderError{
 			Code:       ProviderMisconfigured,
 			Message:    "model ID is empty",
 			Suggestion: "Provide a model ID such as 'local:auto' or 'ollama:llama3'.",
 		}
+	}
+
+	if entry, ok := lookupRegistryAlias(registry, modelID); ok {
+		return m.resolveProviderModel(ctx, entry.Provider, entry.ModelID)
 	}
 
 	if modelID == "local:auto" {
@@ -172,31 +219,33 @@ func (m *Manager) ResolveModel(ctx context.Context, modelID string) (*ModelResol
 		}
 	}
 
-	adapter, ok := m.adapters[key]
+	parts := strings.SplitN(modelID, ":", 2)
+	return m.resolveProviderModel(ctx, key, parts[1])
+}
+
+func (m *Manager) resolveProviderModel(ctx context.Context, providerKey, modelName string) (*ModelResolution, ProviderError) {
+	adapter, ok := m.adapters[providerKey]
 	if !ok {
 		return nil, ProviderError{
 			Code:       ProviderUnavailable,
-			Message:    fmt.Sprintf("provider %q is not configured", key),
-			Suggestion: fmt.Sprintf("Enable %s in the Gumi configuration or use 'local:auto'.", modelIDPrefix(key)),
+			Message:    fmt.Sprintf("provider %q is not configured", providerKey),
+			Suggestion: fmt.Sprintf("Enable %s in the Gumi configuration or use 'local:auto'.", modelIDPrefix(providerKey)),
 		}
 	}
 
-	parts := strings.SplitN(modelID, ":", 2)
-	modelName := parts[1]
-
-	status, err := m.HealthCheck(ctx, key)
+	status, err := m.HealthCheck(ctx, providerKey)
 	if err != nil {
 		return nil, adapter.NormalizeError(err)
 	}
 	if status != StatusOK && status != StatusDegraded {
 		return nil, ProviderError{
 			Code:       ProviderUnavailable,
-			Message:    fmt.Sprintf("provider %s is %s", modelIDPrefix(key), status),
-			Suggestion: fmt.Sprintf("Start %s or choose 'local:auto'.", modelIDPrefix(key)),
+			Message:    fmt.Sprintf("provider %s is %s", modelIDPrefix(providerKey), status),
+			Suggestion: fmt.Sprintf("Start %s or choose 'local:auto'.", modelIDPrefix(providerKey)),
 		}
 	}
 
-	return &ModelResolution{ProviderKey: key, ModelName: modelName, Adapter: adapter}, ProviderError{}
+	return &ModelResolution{ProviderKey: providerKey, ModelName: modelName, Adapter: adapter}, ProviderError{}
 }
 
 // resolveAuto returns the first reachable provider and one of its models.

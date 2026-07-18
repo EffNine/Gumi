@@ -94,7 +94,7 @@ func TestCheckEQ_String(t *testing.T) {
 		wantPass bool
 	}{
 		{`"hello" eq "hello"`, "hello", "hello", true},
-	{`"hello world" contains "hello" → false (strict eq)`, "hello world", "hello", false},
+		{`"hello world" contains "hello" → false (strict eq)`, "hello world", "hello", false},
 		{`"hi" eq "hello" → false`, "hi", "hello", false},
 		{`"Paris" eq "paris" → false (case-sensitive)`, "Paris", "paris", false},
 		{`exact match with trailing spaces`, "  hello  ", "hello", true},
@@ -505,6 +505,87 @@ func TestCondStr(t *testing.T) {
 	}
 	if got := condStr(false, "yes", "no"); got != "no" {
 		t.Errorf("condStr(false) = %q, want %q", got, "no")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ScoreSelfConsistency
+// ---------------------------------------------------------------------------
+
+func TestScoreSelfConsistency_AllIdentical(t *testing.T) {
+	responses := []string{"The answer is 42", "The answer is 42", "The answer is 42"}
+	score := ScoreSelfConsistency(responses)
+	if score != 1.0 {
+		t.Errorf("ScoreSelfConsistency(all identical) = %v, want 1.0", score)
+	}
+}
+
+func TestScoreSelfConsistency_DifferAfterNormalization(t *testing.T) {
+	responses := []string{"The answer is 42", "The answer is 43"}
+	score := ScoreSelfConsistency(responses)
+	if score != 0.0 {
+		t.Errorf("ScoreSelfConsistency(different) = %v, want 0.0", score)
+	}
+}
+
+func TestScoreSelfConsistency_WhitespaceOnlyDifference(t *testing.T) {
+	responses := []string{"The   answer  is 42", "The answer is   42"}
+	score := ScoreSelfConsistency(responses)
+	if score != 1.0 {
+		t.Errorf("ScoreSelfConsistency(whitespace diff) = %v, want 1.0", score)
+	}
+}
+
+func TestScoreSelfConsistency_ZeroOrOneResponses(t *testing.T) {
+	if got := ScoreSelfConsistency(nil); got != 1.0 {
+		t.Errorf("ScoreSelfConsistency(nil) = %v, want 1.0", got)
+	}
+	if got := ScoreSelfConsistency([]string{"only one"}); got != 1.0 {
+		t.Errorf("ScoreSelfConsistency(one) = %v, want 1.0", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// checkSelfConsistency
+// ---------------------------------------------------------------------------
+
+func TestCheckSelfConsistency_AllIdentical(t *testing.T) {
+	got := CheckRegistry["self_consistency"]("same response", benchmark.Constraint{
+		Value: []string{"same response", "same response"},
+	})
+	if !got.Passed {
+		t.Errorf("self_consistency with identical variants: Passed=%v, want true. Details: %s", got.Passed, got.Details)
+	}
+}
+
+func TestCheckSelfConsistency_VariantsDiffer(t *testing.T) {
+	got := CheckRegistry["self_consistency"]("different answer", benchmark.Constraint{
+		Value: []string{"first answer", "second answer"},
+	})
+	if got.Passed {
+		t.Errorf("self_consistency with differing variants: Passed=%v, want false. Details: %s", got.Passed, got.Details)
+	}
+}
+
+func TestCheckSelfConsistency_WhitespaceOnlyDifference(t *testing.T) {
+	got := CheckRegistry["self_consistency"]("same   content", benchmark.Constraint{
+		Value: []string{"same content", "same  content"},
+	})
+	if !got.Passed {
+		t.Errorf("self_consistency with whitespace-only diff: Passed=%v, want true. Details: %s", got.Passed, got.Details)
+	}
+}
+
+func TestCheckSelfConsistency_NonSliceValue(t *testing.T) {
+	got := CheckRegistry["self_consistency"]("any response", benchmark.Constraint{
+		Value: "not a slice",
+	})
+	if !got.Passed {
+		t.Errorf("self_consistency with non-[]string value: Passed=%v, want true", got.Passed)
+	}
+	if got.Details != "self_consistency check requires variant responses" {
+		t.Errorf("self_consistency with non-[]string value: Details=%q, want %q",
+			got.Details, "self_consistency check requires variant responses")
 	}
 }
 

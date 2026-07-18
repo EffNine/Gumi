@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -298,5 +299,270 @@ func TestStorageStatusUnavailableForNoop(t *testing.T) {
 	w := NewNoop(config.DefaultConfig(), nil)
 	if w.StorageStatus() != "unavailable" {
 		t.Errorf("expected unavailable, got %s", w.StorageStatus())
+	}
+}
+
+func seedTestData(t *testing.T, w *Writer) {
+	t.Helper()
+	now := time.Now()
+	for i := 0; i < 10; i++ {
+		status := "success"
+		errorCode := ""
+		if i%3 == 0 {
+			status = "error"
+			errorCode = "PROVIDER_UNAVAILABLE"
+		}
+		repair := i%5 == 0
+		w.RecordRequest(context.Background(), RequestRecord{
+			RequestID:     fmt.Sprintf("req_query_%d", i),
+			CreatedAt:     now.Add(-time.Duration(i) * time.Hour),
+			WorkspaceID:   "default",
+			RuntimeMode:   "stabilized",
+			Provider:      "ollama",
+			Model:         "llama3",
+			Status:        status,
+			LatencyMs:     int64(100 + i*50),
+			ErrorCode:     errorCode,
+			RepairApplied: repair,
+			RetryCount:    i % 3,
+		})
+	}
+	// Add a few with different provider/model
+	w.RecordRequest(context.Background(), RequestRecord{
+		RequestID:   "req_lmstudio",
+		CreatedAt:   now.Add(-30 * time.Minute),
+		WorkspaceID: "default",
+		RuntimeMode: "direct",
+		Provider:    "lmstudio",
+		Model:       "qwen3-8b",
+		Status:      "success",
+		LatencyMs:   200,
+	})
+	w.RecordRequest(context.Background(), RequestRecord{
+		RequestID:   "req_failed",
+		CreatedAt:   now.Add(-2 * time.Hour),
+		WorkspaceID: "default",
+		RuntimeMode: "stabilized",
+		Provider:    "ollama",
+		Model:       "llama3",
+		Status:      "failed",
+		LatencyMs:   5000,
+		ErrorCode:   "CONTEXT_LIMIT_EXCEEDED",
+	})
+}
+
+func TestQueryRequestsWithProviderFilter(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+	seedTestData(t, w)
+
+	results, err := w.QueryRequests(context.Background(), TelemetryFilter{Provider: "lmstudio"}, 10, 0)
+	if err != nil {
+		t.Fatalf("QueryRequests failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result for lmstudio, got %d", len(results))
+	}
+	if results[0].ID != "req_lmstudio" {
+		t.Errorf("expected req_lmstudio, got %s", results[0].ID)
+	}
+}
+
+func TestQueryRequestsWithModelFilter(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+	seedTestData(t, w)
+
+	results, err := w.QueryRequests(context.Background(), TelemetryFilter{Model: "qwen3-8b"}, 10, 0)
+	if err != nil {
+		t.Fatalf("QueryRequests failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result for qwen3-8b, got %d", len(results))
+	}
+	if results[0].Provider != "lmstudio" {
+		t.Errorf("expected lmstudio provider, got %s", results[0].Provider)
+	}
+}
+
+func TestQueryRequestsWithStatusFilter(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+	seedTestData(t, w)
+
+	results, err := w.QueryRequests(context.Background(), TelemetryFilter{Status: "error"}, 10, 0)
+	if err != nil {
+		t.Fatalf("QueryRequests failed: %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatal("expected at least 1 error result")
+	}
+	for _, r := range results {
+		if r.Status != "error" {
+			t.Errorf("expected status error, got %s", r.Status)
+		}
+	}
+}
+
+func TestQueryRequestsWithTimeRange(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+	seedTestData(t, w)
+
+	now := time.Now()
+	start := now.Add(-1 * time.Hour)
+	end := now.Add(1 * time.Hour)
+	results, err := w.QueryRequests(context.Background(), TelemetryFilter{Start: &start, End: &end}, 10, 0)
+	if err != nil {
+		t.Fatalf("QueryRequests failed: %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatal("expected at least 1 result in time range")
+	}
+}
+
+func TestQueryRequestsWithLimitOffset(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+	seedTestData(t, w)
+
+	results, err := w.QueryRequests(context.Background(), TelemetryFilter{}, 3, 0)
+	if err != nil {
+		t.Fatalf("QueryRequests failed: %v", err)
+	}
+	if len(results) > 3 {
+		t.Errorf("expected at most 3 results, got %d", len(results))
+	}
+}
+
+func TestAggregateRequestsHourBucket(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+	seedTestData(t, w)
+
+	buckets, err := w.AggregateRequests(context.Background(), TelemetryFilter{}, "hour")
+	if err != nil {
+		t.Fatalf("AggregateRequests failed: %v", err)
+	}
+	if len(buckets) == 0 {
+		t.Fatal("expected at least 1 bucket")
+	}
+	// Check that buckets have valid data
+	for _, b := range buckets {
+		if b.Count <= 0 {
+			t.Errorf("expected positive count, got %d", b.Count)
+		}
+	}
+}
+
+func TestAggregateRequestsDayBucket(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+	seedTestData(t, w)
+
+	buckets, err := w.AggregateRequests(context.Background(), TelemetryFilter{}, "day")
+	if err != nil {
+		t.Fatalf("AggregateRequests failed: %v", err)
+	}
+	if len(buckets) == 0 {
+		t.Fatal("expected at least 1 bucket")
+	}
+}
+
+func TestAggregateRequestsFilteredPercentiles(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+	now := time.Now().UTC().Truncate(time.Hour)
+	// Same hour bucket, different providers/latencies.
+	w.RecordRequest(context.Background(), RequestRecord{
+		RequestID: "agg_ollama_fast", CreatedAt: now, Provider: "ollama", Model: "llama3",
+		Status: "success", LatencyMs: 100, RuntimeMode: "stabilized",
+	})
+	w.RecordRequest(context.Background(), RequestRecord{
+		RequestID: "agg_ollama_slow", CreatedAt: now.Add(time.Minute), Provider: "ollama", Model: "llama3",
+		Status: "success", LatencyMs: 300, RuntimeMode: "stabilized",
+	})
+	w.RecordRequest(context.Background(), RequestRecord{
+		RequestID: "agg_lms_outlier", CreatedAt: now.Add(2 * time.Minute), Provider: "lmstudio", Model: "qwen",
+		Status: "success", LatencyMs: 9000, RuntimeMode: "direct",
+	})
+
+	buckets, err := w.AggregateRequests(context.Background(), TelemetryFilter{Provider: "ollama"}, "hour")
+	if err != nil {
+		t.Fatalf("AggregateRequests failed: %v", err)
+	}
+	if len(buckets) != 1 {
+		t.Fatalf("expected 1 bucket, got %d", len(buckets))
+	}
+	b := buckets[0]
+	if b.Count != 2 {
+		t.Fatalf("expected count 2 for ollama filter, got %d", b.Count)
+	}
+	if b.P50Latency < 100 || b.P50Latency > 300 {
+		t.Fatalf("expected p50 within ollama latencies, got %v", b.P50Latency)
+	}
+	if b.P95Latency > 300.1 {
+		t.Fatalf("filtered p95 should ignore lmstudio outlier, got %v", b.P95Latency)
+	}
+}
+
+func TestCountRequestsMatchesFilter(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+	seedTestData(t, w)
+
+	total, err := w.CountRequests(context.Background(), TelemetryFilter{Provider: "lmstudio"})
+	if err != nil {
+		t.Fatalf("CountRequests failed: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected total 1 for lmstudio, got %d", total)
+	}
+}
+
+func TestListPipelineEventsByRequestID(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+
+	w.RecordPipelineEvents(context.Background(), []PipelineEventRecord{
+		{RequestID: "req_pipe_1", Timestamp: time.Now(), Engine: "pipeline", Event: "start", Severity: "info", Message: "started"},
+		{RequestID: "req_pipe_1", Timestamp: time.Now(), Engine: "pipeline", Event: "end", Severity: "info", Message: "ended"},
+		{RequestID: "req_pipe_2", Timestamp: time.Now(), Engine: "pipeline", Event: "start", Severity: "info", Message: "other"},
+	})
+
+	events, err := w.ListPipelineEvents(context.Background(), "req_pipe_1", 10)
+	if err != nil {
+		t.Fatalf("ListPipelineEvents failed: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events for req_pipe_1, got %d", len(events))
+	}
+}
+
+func TestListProviderHealth(t *testing.T) {
+	w, store := newTestWriter(t)
+	defer store.Close()
+
+	w.RecordProviderHealth(context.Background(), "ollama", provider.StatusOK, 15*time.Millisecond, provider.ProviderError{})
+	w.RecordProviderHealth(context.Background(), "lmstudio", provider.StatusOffline, 0, provider.ProviderError{Code: provider.ProviderUnavailable})
+
+	records, err := w.ListProviderHealth(context.Background(), TelemetryFilter{}, 10)
+	if err != nil {
+		t.Fatalf("ListProviderHealth failed: %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("expected 2 health records, got %d", len(records))
+	}
+
+	// Filter by provider
+	ollamaRecords, err := w.ListProviderHealth(context.Background(), TelemetryFilter{Provider: "ollama"}, 10)
+	if err != nil {
+		t.Fatalf("ListProviderHealth with filter failed: %v", err)
+	}
+	if len(ollamaRecords) != 1 {
+		t.Fatalf("expected 1 ollama record, got %d", len(ollamaRecords))
+	}
+	if ollamaRecords[0].Status != "ok" {
+		t.Errorf("expected status ok, got %s", ollamaRecords[0].Status)
 	}
 }
