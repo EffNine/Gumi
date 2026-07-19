@@ -17,7 +17,7 @@ if [ -z "${VERSION}" ]; then
   if printf '%s' "${RAW_VERSION}" | grep -q '^v'; then
     VERSION="${RAW_VERSION}"
   else
-    VERSION="0.2.0-alpha"
+    VERSION="v1.0.0-rc1"
   fi
 fi
 RELEASE_DIR="dist/releases"

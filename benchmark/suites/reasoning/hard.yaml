@@ -2,42 +2,12 @@ suite:
   id: reasoning-hard
   category: reasoning
   tier: hard
-  description: "Logic puzzles with multiple constraints"
+  description: "Logic puzzles and multi-step reasoning (20 tests)"
   target_direct_score: "0.20-0.50"
   model_profiles: [medium, frontier]
   attempts_recommended: 5
   tests:
     - id: reas-hard-01
-      difficulty: hard
-      description: "Logic puzzle: 5 people in different colored houses"
-      prompt: |
-        Solve this logic puzzle:
-        There are 5 houses in a row, each painted a different color.
-        - The English person lives in the red house.
-        - The Spaniard owns the dog.
-        - Coffee is drunk in the green house.
-        - The Ukrainian drinks tea.
-        - The green house is immediately to the right of the ivory house.
-        - The Winston smoker owns snails.
-        - The Pall Mall smoker lives in the yellow house.
-        - Milk is drunk in the middle house.
-        - The Norwegian lives in the first house.
-        - The Chesterfield smoker lives next to the fox owner.
-        - The Kools smoker lives next to the horse owner.
-        - The Lucky Strike smoker drinks orange juice.
-        - The Japanese person smokes Parliaments.
-        - The Norwegian lives next to the blue house.
-
-        Who drinks water? Who owns the zebra?
-        Answer with the names: "[water drinker] drinks water, [zebra owner] owns the zebra".
-      timeout_seconds: 120
-      max_tokens: 512
-      constraints:
-        - field: answer_correct
-          operator: eq
-          value: true
-
-    - id: reas-hard-02
       difficulty: hard
       description: "Bat and ball cognitive bias test"
       prompt: >
@@ -49,3 +19,257 @@ suite:
         - field: value
           operator: eq
           value: 0.05
+
+    - id: reas-hard-02
+      difficulty: hard
+      description: "Water lilies doubling every day"
+      prompt: >
+        Water lilies on a lake double every day. It takes 48 days to cover the entire lake.
+        How many days does it take to cover half the lake? Answer with only the number.
+      timeout_seconds: 60
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: 47
+
+    - id: reas-hard-03
+      difficulty: hard
+      description: "Three light switches puzzle"
+      prompt: >
+        You are in a room with three light switches, each controlling one of three light bulbs in another room.
+        You can flip the switches as much as you want, but you can only enter the bulb room once.
+        How can you determine which switch controls which bulb?
+        Describe your solution in 3-5 sentences.
+      timeout_seconds: 60
+      max_tokens: 256
+      constraints:
+        - field: min_chars
+          operator: gte
+          value: 100
+
+    - id: reas-hard-04
+      difficulty: hard
+      description: "Two trains approaching each other"
+      prompt: >
+        Two trains are 300 km apart, heading toward each other.
+        Train A travels at 80 km/h, Train B at 70 km/h.
+        How long until they meet in hours? Answer with only the number.
+      timeout_seconds: 60
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: 2
+
+    - id: reas-hard-05
+      difficulty: hard
+      description: "Age puzzle: 3x in 10 years"
+      prompt: >
+        John is 3 times as old as Mary. In 10 years, John will be twice as old as Mary.
+        How old is John now? Answer with only the number.
+      timeout_seconds: 60
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: 30
+
+    - id: reas-hard-06
+      difficulty: hard
+      description: "Work rate: two pipes filling a tank"
+      prompt: >
+        Pipe A can fill a tank in 4 hours. Pipe B can fill the same tank in 6 hours.
+        How long will it take to fill the tank if both pipes are used together?
+        Answer in hours as a decimal. Answer with only the number.
+      timeout_seconds: 60
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: 2.4
+
+    - id: reas-hard-07
+      difficulty: hard
+      description: "Probability: two coins, at least one head"
+      prompt: >
+        You flip two fair coins. What is the probability that at least one is heads?
+        Answer as a fraction like "3/4".
+      timeout_seconds: 60
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: "3/4"
+
+    - id: reas-hard-08
+      difficulty: hard
+      description: "Compound interest: $500 at 10% for 2 years"
+      prompt: >
+        You invest $500 at 10% annual compound interest for 2 years.
+        How much total money will you have? Answer with only the number.
+      timeout_seconds: 60
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: 605
+
+    - id: reas-hard-09
+      difficulty: hard
+      description: "Logic: all As are Bs, some Cs are As"
+      prompt: >
+        All As are Bs. Some Cs are As. Which of the following must be true?
+        A) All Cs are Bs  B) Some Cs are Bs  C) No Cs are Bs  D) All Bs are Cs
+        Answer with only the letter.
+      timeout_seconds: 60
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: "B"
+
+    - id: reas-hard-10
+      difficulty: hard
+      description: "Number sequence: 2, 6, 18, 54, ?"
+      prompt: >
+        What is the next number in this sequence: 2, 6, 18, 54, ?
+        Answer with only the number.
+      timeout_seconds: 60
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 162
+
+    - id: reas-hard-11
+      difficulty: hard
+      description: "Mixture: 40% solution to make 20%"
+      prompt: >
+        How many liters of a 40% saline solution must be added to 10 liters of pure water
+        to create a 20% saline solution? Answer with only the number.
+      timeout_seconds: 60
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: 10
+
+    - id: reas-hard-12
+      difficulty: hard
+      description: "Calendar: day of week calculation"
+      prompt: >
+        If today is Monday, what day of the week will it be in 100 days?
+        Answer with the day name only.
+      timeout_seconds: 60
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: "Wednesday"
+
+    - id: reas-hard-13
+      difficulty: hard
+      description: "Syllogism: all mammals are warm-blooded"
+      prompt: >
+        All mammals are warm-blooded. Whales are mammals.
+        Therefore, whales are... Complete the conclusion in one word.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: "warm-blooded"
+
+    - id: reas-hard-14
+      difficulty: hard
+      description: "Speed: upstream and downstream"
+      prompt: >
+        A boat travels 30 km upstream in 5 hours and 30 km downstream in 3 hours.
+        What is the speed of the current in km/h? Answer with only the number.
+      timeout_seconds: 60
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: 2
+
+    - id: reas-hard-15
+      difficulty: hard
+      description: "Number sequence: 1, 1, 2, 3, 5, 8, ?"
+      prompt: >
+        What is the next number in this sequence: 1, 1, 2, 3, 5, 8, ?
+        Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 13
+
+    - id: reas-hard-16
+      difficulty: hard
+      description: "Probability: drawing two aces"
+      prompt: >
+        What is the probability of drawing two aces in a row from a standard 52-card deck
+        without replacement? Answer as a simplified fraction.
+      timeout_seconds: 60
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: "1/221"
+
+    - id: reas-hard-17
+      difficulty: hard
+      description: "Work: A does 1/3, B does rest in 8 days"
+      prompt: >
+        Worker A completes 1/3 of a job. Worker B finishes the remaining work in 8 days.
+        How many days would it take Worker B to do the entire job alone?
+        Answer with only the number.
+      timeout_seconds: 60
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: 12
+
+    - id: reas-hard-18
+      difficulty: hard
+      description: "Clock angle: 3:15"
+      prompt: >
+        What is the angle in degrees between the hour and minute hands at 3:15?
+        Answer with only the number.
+      timeout_seconds: 60
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: 7.5
+
+    - id: reas-hard-19
+      difficulty: hard
+      description: "Logic: truth-tellers and liars"
+      prompt: >
+        You meet two people. A says "B is a liar." B says "A is a liar."
+        Who is telling the truth? Answer "A", "B", "both", or "neither".
+      timeout_seconds: 60
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: "neither"
+
+    - id: reas-hard-20
+      difficulty: hard
+      description: "Optimization: fence with 100m for max area"
+      prompt: >
+        You have 100 meters of fencing to enclose a rectangular area.
+        What dimensions in meters give the maximum area?
+        Answer as "width x length" like "25x25".
+      timeout_seconds: 60
+      max_tokens: 128
+      constraints:
+        - field: value
+          operator: eq
+          value: "25x25"

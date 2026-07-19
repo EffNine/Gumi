@@ -5,7 +5,7 @@
 # the exact release it was built from without editing source files.
 
 VERSION_GIT ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "")
-VERSION     ?= $(if $(filter v%,$(VERSION_GIT)),$(VERSION_GIT),0.2.0-alpha)
+VERSION     ?= $(if $(filter v%,$(VERSION_GIT)),$(VERSION_GIT),v1.0.0-rc1)
 # ^ fallback dev version; keep in sync with runtime/internal/version/version.go
 COMMIT     ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)

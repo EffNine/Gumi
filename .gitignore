@@ -10,17 +10,21 @@ Thumbs.db
 .claude/
 .remember/
 
+# Internal agent planning documents (not for public release)
+.agents/
+
 # Virtual environments
 .venv-terminal/
 
-# Internal spec/architecture docs (not for public repo)
-docs/specs/
+# Internal working documents (agent prompts, handoffs, private architecture notes)
+docs/working/
+
+# Posts (drafts, not part of public docs)
 docs/posts/
+
+# Release checklist (internal process doc)
 docs/guides/release-checklist.md
 
-# Playwright / browser test artifacts
-test-results/
-playwright-report/
 *.webm
 
 # Environment

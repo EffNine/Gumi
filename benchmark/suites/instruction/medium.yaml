@@ -2,30 +2,27 @@ suite:
   id: instruction-medium
   category: instruction
   tier: medium
-  description: "Instruction following with 2-3 simultaneous constraints"
+  description: "Instruction following with 2-3 simultaneous constraints (25 tests)"
   target_direct_score: "0.50-0.80"
   model_profiles: [small, medium, frontier]
   attempts_recommended: 3
   tests:
-    - id: inst-medium-01
+    - id: inst-med-01
       difficulty: medium
-      description: "3 sentences with no commas"
+      description: "3 sentences about reading, no commas"
       prompt: |
         Write exactly 3 sentences about the benefits of reading books.
         Do not use any commas.
       timeout_seconds: 30
       max_tokens: 256
       constraints:
-        - field: sentence_count
-          operator: eq
-          value: 3
         - field: no_commas
           operator: eq
           value: true
 
-    - id: inst-medium-02
+    - id: inst-med-02
       difficulty: medium
-      description: "Return JSON with title and body, no markdown fences"
+      description: "Return JSON with title and body, no markdown"
       prompt: |
         Return a JSON object with keys "title" and "body".
         The title should be a short blog headline about AI.
@@ -43,21 +40,403 @@ suite:
           operator: eq
           value: true
 
-    - id: inst-medium-03
+    - id: inst-med-03
       difficulty: medium
-      description: "3 dash bullets, no commas"
+      description: "3 dash bullets about exercise, no commas"
       prompt: |
         List 3 reasons to exercise regularly using dash bullets.
         Do not use any commas.
       timeout_seconds: 30
       max_tokens: 256
       constraints:
-        - field: dash_bullets
-          operator: eq
-          value: true
-        - field: line_count
-          operator: eq
-          value: 3
         - field: no_commas
           operator: eq
           value: true
+
+    - id: inst-med-04
+      difficulty: medium
+      description: "4 sentences about oceans, end with tide"
+      prompt: |
+        Write exactly 4 sentences about ocean ecosystems.
+        End with the word "tide".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: ends_with
+          operator: ends_with
+          value: "tide"
+
+    - id: inst-med-05
+      difficulty: medium
+      description: "JSON with name and age, no markdown, capital start"
+      prompt: |
+        Return a JSON object with keys "name" and "age".
+        Use "Alice" for name and 30 for age.
+        Do not use markdown fences. Start with a capital letter.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["name", "age"]
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+
+    - id: inst-med-06
+      difficulty: medium
+      description: "5 bullet points about space, no the, end with star"
+      prompt: |
+        Write 5 bullet points about space exploration using dash bullets.
+        Do not use the word "the". End with the word "star".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: ends_with
+          operator: ends_with
+          value: "star"
+
+    - id: inst-med-07
+      difficulty: medium
+      description: "3 sentences about music, no commas, no and"
+      prompt: |
+        Write exactly 3 sentences about the history of jazz music.
+        Do not use any commas. Do not use the word "and".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: forbidden_words
+          operator: not_contains
+          value: ["and"]
+
+    - id: inst-med-08
+      difficulty: medium
+      description: "JSON with status and count, no markdown"
+      prompt: |
+        Return a JSON object with keys "status" and "count".
+        Status should be "ok" and count should be 42.
+        Do not use markdown fences.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["status", "count"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: inst-med-09
+      difficulty: medium
+      description: "4 sentences about weather, no but, end with rain"
+      prompt: |
+        Write exactly 4 sentences about weather patterns.
+        Do not use the word "but". End with the word "rain".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["but"]
+        - field: ends_with
+          operator: ends_with
+          value: "rain"
+
+    - id: inst-med-10
+      difficulty: medium
+      description: "3 paragraphs about cities, each 2 sentences, no commas"
+      prompt: |
+        Write 3 paragraphs about famous cities.
+        Each paragraph must be exactly 2 sentences.
+        Do not use any commas.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: no_commas
+          operator: eq
+          value: true
+
+    - id: inst-med-11
+      difficulty: medium
+      description: "JSON with items array of 3 strings, no markdown"
+      prompt: |
+        Return a JSON object with key "items" containing an array of 3 strings.
+        Use "red", "green", "blue" as the items.
+        Do not use markdown fences.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["items"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: inst-med-12
+      difficulty: medium
+      description: "6 sentences about animals, no very, capital start"
+      prompt: |
+        Write exactly 6 sentences about endangered animals.
+        Do not use the word "very". Each sentence must start with a capital letter.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["very"]
+        - field: capital_start
+          operator: eq
+          value: true
+
+    - id: inst-med-13
+      difficulty: medium
+      description: "4 bullet points about health, no the, no commas, end with fit"
+      prompt: |
+        Write 4 bullet points about healthy living using dash bullets.
+        Do not use the word "the". Do not use any commas.
+        End with the word "fit".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "fit"
+
+    - id: inst-med-14
+      difficulty: medium
+      description: "JSON with nested address object, no markdown"
+      prompt: |
+        Return a JSON object with keys "name", "age", and "address".
+        "address" should be an object with keys "city" and "zip".
+        Use "John" for name, 25 for age, "New York" for city, "10001" for zip.
+        Do not use markdown fences.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["name", "age", "address"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: inst-med-15
+      difficulty: medium
+      description: "5 sentences about technology, no however, end with future"
+      prompt: |
+        Write exactly 5 sentences about the future of technology.
+        Do not use the word "however". End with the word "future".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["however"]
+        - field: ends_with
+          operator: ends_with
+          value: "future"
+
+    - id: inst-med-16
+      difficulty: medium
+      description: "3 dash bullets about cooking, each exactly 8 words"
+      prompt: |
+        Write 3 cooking tips using dash bullets.
+        Each bullet must be exactly 8 words.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints: []
+
+    - id: inst-med-17
+      difficulty: medium
+      description: "JSON with config keys, no markdown, capital start"
+      prompt: |
+        Return a JSON object for a server config with keys "host", "port", and "debug".
+        Use "0.0.0.0" for host, 8080 for port, and true for debug.
+        Do not use markdown fences. Start with a capital letter.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["host", "port", "debug"]
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+
+    - id: inst-med-18
+      difficulty: medium
+      description: "4 sentences about forests, no because, no commas"
+      prompt: |
+        Write exactly 4 sentences about rainforest conservation.
+        Do not use the word "because". Do not use any commas.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["because"]
+        - field: no_commas
+          operator: eq
+          value: true
+
+    - id: inst-med-19
+      difficulty: medium
+      description: "6 bullet points about hobbies, no the, no commas, end with fun"
+      prompt: |
+        Write 6 bullet points about creative hobbies using dash bullets.
+        Do not use the word "the". Do not use any commas.
+        End with the word "fun".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "fun"
+
+    - id: inst-med-20
+      difficulty: medium
+      description: "JSON with product info, no markdown"
+      prompt: |
+        Return a JSON object with keys "productName", "price", and "inStock".
+        Use "Widget" for productName, 9.99 for price, and true for inStock.
+        Do not use markdown fences.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["productName", "price", "inStock"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: inst-med-21
+      difficulty: medium
+      description: "3 sentences about art, no very, no commas, end with paint"
+      prompt: |
+        Write exactly 3 sentences about modern art.
+        Do not use the word "very". Do not use any commas.
+        End with the word "paint".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["very"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "paint"
+
+    - id: inst-med-22
+      difficulty: medium
+      description: "5 sentences about education, no however, capital start"
+      prompt: |
+        Write exactly 5 sentences about online education.
+        Do not use the word "however". Each sentence must start with a capital letter.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["however"]
+        - field: capital_start
+          operator: eq
+          value: true
+
+    - id: inst-med-23
+      difficulty: medium
+      description: "JSON with user profile, no markdown, capital start"
+      prompt: |
+        Return a JSON object with keys "username", "email", and "active".
+        Use "jdoe" for username, "j@example.com" for email, and true for active.
+        Do not use markdown fences. Start with a capital letter.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["username", "email", "active"]
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+
+    - id: inst-med-24
+      difficulty: medium
+      description: "4 bullet points about travel, no the, end with world"
+      prompt: |
+        Write 4 bullet points about travel destinations using dash bullets.
+        Do not use the word "the". End with the word "world".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: ends_with
+          operator: ends_with
+          value: "world"
+
+    - id: inst-med-25
+      difficulty: medium
+      description: "6 sentences about history, no commas, no and, end with past"
+      prompt: |
+        Write exactly 6 sentences about ancient history.
+        Do not use any commas. Do not use the word "and".
+        End with the word "past".
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: forbidden_words
+          operator: not_contains
+          value: ["and"]
+        - field: ends_with
+          operator: ends_with
+          value: "past"

@@ -24,7 +24,7 @@ While Gumi is in alpha/beta (v0.x), the convention is:
 
 ### Current Version
 
-`0.2.0-alpha`
+`v1.0.0-rc1`
 
 ### When to Increment
 
@@ -70,8 +70,8 @@ Before tagging a release, verify:
 
 ```bash
 # For a new version:
-git tag -a v0.2.0-alpha -m "v0.2.0-alpha: Agent mode, Memory Engine, LM Studio management"
-git push origin v0.2.0-alpha
+git tag -a v1.0.0-rc1 -m "v1.0.0-rc1: First release candidate for v1.0"
+git push origin v1.0.0-rc1
 ```
 
 The GitHub Actions workflow will:

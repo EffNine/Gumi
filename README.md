@@ -12,8 +12,13 @@ reliable, and production-ready.**
 [![Release](https://img.shields.io/github/v/release/EffNine/Gumi?include_prereleases&label=release)](https://github.com/EffNine/Gumi/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/EffNine/Gumi?style=social)](https://github.com/EffNine/Gumi/stargazers)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue)](#)
+[![Last Release](https://img.shields.io/github/release-date/EffNine/Gumi?label=last%20release)](./CHANGELOG.md)
+[![Go Reference](https://pkg.go.dev/badge/github.com/EffNine/gumi/runtime.svg)](https://pkg.go.dev/github.com/EffNine/gumi/runtime)
 
-[Quick start](#get-started) · [Benchmarks](#benchmarks) · [Docs](./docs/) · [Integrations](./docs/integrations/) · [Changelog](./CHANGELOG.md)
+> 💡 **System Requirements:** Gumi runs on macOS, Linux, and Windows. See [System Requirements](./docs/guides/system-requirements.md) for hardware and software prerequisites.
+
+[Quick start](#get-started) · [Benchmarks](#benchmarks) · [Docs](./docs/) · [Integrations](./docs/guides/integrations/) · [Changelog](./CHANGELOG.md)
 
 </div>
 
@@ -214,16 +219,16 @@ Or download a pre-built archive from
 ### Docker
 
 ```bash
-docker build -t gumi:0.2.0-alpha .
+docker build -t gumi:v1.0.0-rc1 .
 docker run -d --name gumi \
   -p 127.0.0.1:8787:8787 \
   -p 127.0.0.1:8788:8788 \
   -v gumi-data:/data \
-  gumi:0.2.0-alpha
+  gumi:v1.0.0-rc1
 ```
 
 The runtime stores telemetry at `/data/.gumi/gumi.db` on a persistent Docker
-volume. See [Installation → Docker](./docs/installation.md#docker) for details.
+volume. See [Installation → Docker](./docs/guides/installation.md#docker) for details.
 
 Default endpoints:
 
@@ -235,10 +240,10 @@ API key:   gumi-local
 
 See:
 
-- [Installation](./docs/installation.md)
-- [Quickstart](./docs/quickstart.md)
-- [Troubleshooting](./docs/troubleshooting.md)
-- [Integration guides](./docs/integrations/)
+- [Installation](./docs/guides/installation.md)
+- [Quickstart](./docs/guides/quickstart.md)
+- [Troubleshooting](./docs/guides/troubleshooting.md)
+- [Integration guides](./docs/guides/integrations/)
 
 ---
 
@@ -391,12 +396,12 @@ Cline.
 
 Current guides:
 
-- [OpenCode](./docs/integrations/opencode.md)
-- [Continue](./docs/integrations/continue.md)
-- [Cline](./docs/integrations/cline.md)
-- [Open WebUI](./docs/integrations/open-webui.md)
-- [OpenAI SDK clients](./docs/integrations/openai-sdk.md)
-- [LM Studio setup](./docs/integrations/lmstudio.md) — including management API capabilities
+- [OpenCode](./docs/guides/integrations/opencode.md)
+- [Continue](./docs/guides/integrations/continue.md)
+- [Cline](./docs/guides/integrations/cline.md)
+- [Open WebUI](./docs/guides/integrations/open-webui.md)
+- [OpenAI SDK clients](./docs/guides/integrations/openai-sdk.md)
+- [LM Studio setup](./docs/guides/integrations/lmstudio.md) — including management API capabilities
 
 All guides use the same basic pattern: point the client at Gumi's
 OpenAI-compatible API, then let Gumi handle provider and model behavior.
@@ -794,7 +799,7 @@ responses unless explicitly configured. It does not send external telemetry.
 
 ## Alpha Limitations
 
-Gumi `0.2.0-alpha` is usable, but not feature-complete:
+Gumi `v1.0.0-rc1` is usable, but not feature-complete:
 
 - Continue tab autocomplete should use LM Studio directly for now.
 - Dockerfile exists, but Docker image verification may vary by host.

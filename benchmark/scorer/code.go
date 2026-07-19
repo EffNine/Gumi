@@ -93,27 +93,40 @@ func pythonExecCheck(response string, constraint benchmark.Constraint) CheckResu
 	}
 }
 
-// extractPythonCode strips markdown fences and returns the code body.
+// extractPythonCode extracts Python code from a model response. It first looks
+// for a fenced code block (```python ... ```) and returns only its content. If
+// no fence is found, it returns the entire response (the model may have been
+// prompted to emit raw code).
 func extractPythonCode(response string) string {
 	trimmed := strings.TrimSpace(response)
 
-	// Strip ```python or ``` fences.
-	if strings.HasPrefix(trimmed, "```") {
+	// Look for a ```python or ``` fence and extract only the code inside it.
+	// This handles models that wrap code in explanations.
+	if strings.Contains(trimmed, "```") {
 		lines := strings.Split(trimmed, "\n")
+		var inBlock bool
 		var body []string
-		for i, line := range lines {
-			if i == 0 && strings.HasPrefix(line, "```") {
+		for _, line := range lines {
+			trimLine := strings.TrimSpace(line)
+			if strings.HasPrefix(trimLine, "```") {
+				if !inBlock {
+					inBlock = true
+				} else {
+					// Closing fence — stop collecting.
+					break
+				}
 				continue
 			}
-			if strings.TrimSpace(line) == "```" {
-				continue
+			if inBlock {
+				body = append(body, line)
 			}
-			body = append(body, line)
 		}
-		trimmed = strings.Join(body, "\n")
+		if len(body) > 0 {
+			return strings.TrimSpace(strings.Join(body, "\n"))
+		}
 	}
 
-	return strings.TrimSpace(trimmed)
+	return trimmed
 }
 
 // buildPythonTestSource assembles the final Python script. It tries to avoid

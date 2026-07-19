@@ -1,0 +1,268 @@
+suite:
+  id: code-medium
+  category: code
+  tier: medium
+  description: "Short function-writing tasks (20 tests)"
+  target_direct_score: "0.50-0.80"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: code-med-01
+      difficulty: medium
+      description: "Function to add two numbers"
+      prompt: |
+        Write a Python function called add that takes two numbers and returns their sum.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-02
+      difficulty: medium
+      description: "Function to check if a number is even"
+      prompt: |
+        Write a Python function called is_even that takes an integer and returns True if even, False otherwise.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-03
+      difficulty: medium
+      description: "Function to find max of three numbers"
+      prompt: |
+        Write a Python function called max_of_three that takes three numbers and returns the largest.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-04
+      difficulty: medium
+      description: "Function to reverse a string"
+      prompt: |
+        Write a Python function called reverse_string that takes a string and returns it reversed.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-05
+      difficulty: medium
+      description: "Function to count vowels in a string"
+      prompt: |
+        Write a Python function called count_vowels that takes a string and returns the number of vowels (a, e, i, o, u).
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-06
+      difficulty: medium
+      description: "Function to check palindrome"
+      prompt: |
+        Write a Python function called is_palindrome that takes a string and returns True if it's a palindrome, False otherwise.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-07
+      difficulty: medium
+      description: "Function to calculate factorial"
+      prompt: |
+        Write a Python function called factorial that takes a non-negative integer and returns its factorial.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-08
+      difficulty: medium
+      description: "Function to find the nth Fibonacci number"
+      prompt: |
+        Write a Python function called fibonacci that takes n and returns the nth Fibonacci number (0-indexed).
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-09
+      difficulty: medium
+      description: "Function to remove duplicates from a list"
+      prompt: |
+        Write a Python function called remove_duplicates that takes a list and returns a new list with duplicates removed, preserving order.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-10
+      difficulty: medium
+      description: "Function to check if a number is prime"
+      prompt: |
+        Write a Python function called is_prime that takes a positive integer and returns True if it's prime, False otherwise.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-11
+      difficulty: medium
+      description: "Function to merge two sorted lists"
+      prompt: |
+        Write a Python function called merge_sorted that takes two sorted lists and returns a single sorted list containing all elements.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-12
+      difficulty: medium
+      description: "Function to find the most common element"
+      prompt: |
+        Write a Python function called most_common that takes a list and returns the most frequently occurring element.
+        If there's a tie, return any one. Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-13
+      difficulty: medium
+      description: "Function to check anagrams"
+      prompt: |
+        Write a Python function called are_anagrams that takes two strings and returns True if they are anagrams, False otherwise.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-14
+      difficulty: medium
+      description: "Function to flatten a nested list"
+      prompt: |
+        Write a Python function called flatten that takes a list of lists and returns a single flat list.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-15
+      difficulty: medium
+      description: "Function to find the second largest number"
+      prompt: |
+        Write a Python function called second_largest that takes a list of numbers and returns the second largest number.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-16
+      difficulty: medium
+      description: "Function to convert Celsius to Fahrenheit"
+      prompt: |
+        Write a Python function called celsius_to_fahrenheit that takes a Celsius temperature and returns Fahrenheit.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-17
+      difficulty: medium
+      description: "Function to count word frequency"
+      prompt: |
+        Write a Python function called word_frequency that takes a string and returns a dictionary with word counts.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-18
+      difficulty: medium
+      description: "Function to find the missing number in a sequence"
+      prompt: |
+        Write a Python function called find_missing that takes a list of numbers from 1 to n with one missing and returns the missing number.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-19
+      difficulty: medium
+      description: "Function to implement binary search"
+      prompt: |
+        Write a Python function called binary_search that takes a sorted list and a target value, and returns the index if found, else -1.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: code-med-20
+      difficulty: medium
+      description: "Function to transpose a matrix"
+      prompt: |
+        Write a Python function called transpose that takes a 2D list (matrix) and returns its transpose.
+        Return only the function definition, no extra text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: no_markdown
+          operator: eq
+          value: true

@@ -41,8 +41,8 @@ dashboard from `dashboard/dist`.
 Example (macOS Apple Silicon):
 
 ```bash
-tar -xzf gumi-0.2.0-alpha-darwin-arm64.tar.gz
-cd gumi-0.2.0-alpha-darwin-arm64
+tar -xzf gumi-v1.0.0-rc1-darwin-arm64.tar.gz
+cd gumi-v1.0.0-rc1-darwin-arm64
 ./gumi version
 ./gumi start
 ```
@@ -76,7 +76,7 @@ symlink at `/usr/local/bin/gumi`.
 Build the image:
 
 ```bash
-docker build -t gumi:0.2.0-alpha .
+docker build -t gumi:v1.0.0-rc1 .
 ```
 
 Run with the API and dashboard published only to localhost, and persist the
@@ -88,7 +88,7 @@ docker run -d \
   -p 127.0.0.1:8787:8787 \
   -p 127.0.0.1:8788:8788 \
   -v gumi-data:/data \
-  gumi:0.2.0-alpha
+  gumi:v1.0.0-rc1
 ```
 
 The runtime stores telemetry at `/data/.gumi/gumi.db` because the container
@@ -123,31 +123,125 @@ Download the `linux-amd64` or `linux-arm64` archive, extract it, and run the
 binary. No additional dependencies are required.
 
 ```bash
-tar -xzf gumi-0.2.0-alpha-linux-amd64.tar.gz
-cd gumi-0.2.0-alpha-linux-amd64
+tar -xzf gumi-v1.0.0-rc1-linux-amd64.tar.gz
+cd gumi-v1.0.0-rc1-linux-amd64
 ./gumi start
 ```
 
 ## Windows
 
-1. Download the `windows-amd64.zip` archive.
-2. Extract it with File Explorer or PowerShell:
+### Prerequisites
 
-```powershell
-Expand-Archive -Path gumi-0.2.0-alpha-windows-amd64.zip -DestinationPath gumi
+- **PowerShell 5.1+** (included by default on Windows 10/11) or **Command Prompt**.
+- If you plan to build from source: [Go 1.25+](https://golang.org/dl/) and [Node.js 22+](https://nodejs.org/).
+- A local inference provider (Ollama, LM Studio, or any OpenAI-compatible server).
+
+### Execution policy
+
+Windows may block unsigned executables. If you see an error like
+
+```
+.\gumi.exe cannot be loaded because running scripts is disabled on this system
 ```
 
-3. Run the binary in PowerShell:
+enable script execution for your user account:
 
 ```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+This allows locally-written scripts to run while still requiring downloaded scripts to be signed.
+
+### Manual install from release ZIP
+
+1. Download `gumi-<version>-windows-amd64.zip` from the [GitHub releases](https://github.com/EffNine/Gumi/releases) page.
+2. Verify the SHA256 checksum from `SHA256SUMS.txt`.
+3. Extract the archive (double-click in File Explorer, or via PowerShell):
+
+```powershell
+Expand-Archive -Path gumi-v1.0.0-rc1-windows-amd64.zip -DestinationPath gumi
 cd gumi
+```
+
+4. Unblock the binary (bypasses SmartScreen for local use):
+
+```powershell
+Unblock-File .\gumi.exe
+```
+
+5. Run:
+
+```powershell
 .\gumi.exe version
 .\gumi.exe start
 ```
 
-Windows Defender may warn about an unrecognized binary. You can click
-"More info" and "Run anyway" for a local development tool, or build from
-source yourself.
+### Using the install script via WSL2 or Git Bash
+
+The `scripts/gumi-install.sh` script (which installs to `/usr/local/bin`) works inside **WSL2** or **Git Bash**:
+
+```bash
+# Inside WSL2 or Git Bash
+chmod +x scripts/gumi-install.sh
+./scripts/gumi-install.sh
+```
+
+After installation, `gumi` will be available on your `$PATH`.
+
+### SmartScreen and antivirus
+
+On first run, Windows SmartScreen may show a warning:
+
+> **SmartScreen prevented an unrecognized app from starting.**
+> Running this app may put your PC at risk.
+
+Since Gumi is a local development tool and not yet code-signed:
+
+1. Click **More info**.
+2. Click **Run anyway**.
+
+This is safe because you downloaded the binary from the official GitHub releases page and verified the checksum.
+
+Some antivirus programs may also flag the binary as a false positive. To mitigate:
+
+- Add the Gumi installation directory to your antivirus exclusions.
+- In Windows Security: **Virus & threat protection → Manage settings → Exclusions → Add an exclusion → Folder**, then select the Gumi directory.
+
+### Firewall and port binding
+
+When you run `gumi.exe start`, Windows Defender Firewall may prompt you to allow Gumi through the firewall:
+
+> **Allow Gumi to communicate on private/public networks?**
+
+- Select **Private** for home or office networks.
+- Select **Public** only if you explicitly need remote access (not recommended for local development).
+
+If you accidentally blocked Gumi and it won't start, allow it manually:
+
+```powershell
+New-NetFirewallRule -DisplayName "Gumi API" -Direction Inbound -Protocol TCP -LocalPort 8787 -Action Allow
+New-NetFirewallRule -DisplayName "Gumi Dashboard" -Direction Inbound -Protocol TCP -LocalPort 8788 -Action Allow
+```
+
+By default Gumi binds to `127.0.0.1` only, so it is not exposed to the network even if the firewall rule exists.
+
+### CMD vs PowerShell
+
+You can run Gumi from either **Command Prompt (CMD)** or **PowerShell**:
+
+```cmd
+:: CMD
+gumi.exe version
+gumi.exe start
+```
+
+```powershell
+# PowerShell
+.\gumi.exe version
+.\gumi.exe start
+```
+
+The `.\` prefix is required in PowerShell to invoke a local executable. In CMD, it is optional.
 
 ## Start Gumi
 

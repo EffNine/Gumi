@@ -2,6 +2,34 @@
 
 All notable changes to Gumi are documented in this file.
 
+## v1.0.0-rc1 — 2026-07-20
+
+### Summary
+
+First release candidate for v1.0. This marks the culmination of all features
+shipped in 0.2.0-alpha and represents the most stable Gumi release to date.
+
+### Stability Improvements
+
+- Comprehensive integration test harness (8 deterministic end-to-end tests)
+- Exponential backoff for LM Studio model-loading 502s (~50% → 0% HTTP errors)
+- JSON repetition detection now correctly skips structured output (113 false positives → 0)
+- Validation telemetry now records issue code, message, and location
+- Fixed `fmtInt` recursion bug causing stack overflow on negative values
+- Removed unused imports from router engine
+
+### Known Issues
+
+This is a **release candidate**, not a final release. The following known issues
+remain:
+
+- Continue tab autocomplete should use LM Studio directly
+- Dockerfile exists but Docker image verification may vary by host
+- Profile Doctor is read-only
+- ESLint v9+ flat-config not configured; `npm run lint` fails in dashboard
+
+---
+
 ## 0.2.0-alpha — 2026-07-15
 
 ### Added
@@ -31,14 +59,6 @@ All notable changes to Gumi are documented in this file.
 - **`fmtInt` recursion bug** — Removed recursive call causing stack overflow on negative values.
 - **Unused import** — Removed unused `strings` import from `router/engine.go`.
 
-## 0.2.0-alpha — 2026-07-14
-
-### Added
-
-- **Agent mode** — Dedicated runtime mode for agentic coding loops with step-budget enforcement, tool-call loop detection, tool-call JSON validation, and sliding-window context compaction.
-- **Agentic Coding Router** — Automatic per-step model selection by difficulty (trivial → novel) and task type (fix, refactor, feature, test, review, docs, search, plan). Opt-in, agent-mode only.
-- **Memory Engine** — Zero-VRAM persistent memory for coding agents. Facts, episode summaries, and model-fit data stored in SQLite. Shared across all models, survives session boundaries.
-- **LM Studio Model Management** — Load, unload, and list models via LM Studio's v1 REST API. Per-model config overrides for context length, flash attention, KV-cache offload, and more.
 ## 0.1.0-alpha — Spec Review Fix Sprint (WP7)
 
 ### Fixed

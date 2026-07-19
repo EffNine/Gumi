@@ -1,0 +1,11 @@
+suite:
+  id: gsm8k_100
+  category: math
+  tier: small
+  description: "GSM8K (100 problems): grade-school math word problems"
+  target_direct_score: "0.10-0.80"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 1
+  data_source: gsm8k_100.jsonl
+  timeout_seconds: 30
+  max_tokens: 512

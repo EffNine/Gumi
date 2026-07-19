@@ -2,20 +2,20 @@ suite:
   id: json-medium
   category: json
   tier: medium
-  description: "Multi-record JSON transformation tasks"
+  description: "Multi-record JSON transformation tasks (20 tests)"
   target_direct_score: "0.50-0.80"
   model_profiles: [small, medium, frontier]
   attempts_recommended: 3
   tests:
-    - id: json-medium-01
+    - id: json-med-01
       difficulty: medium
-      description: "Return a JSON object with a nested array"
+      description: "JSON with nested array of 3 strings"
       prompt: |
         Return a JSON object with key "items" containing an array of 3 strings:
         "apple", "banana", "cherry".
         Return ONLY valid JSON, no other text.
       timeout_seconds: 30
-      max_tokens: 256
+      max_tokens: 128
       constraints:
         - field: json
           operator: valid
@@ -23,15 +23,15 @@ suite:
           operator: superset
           value: ["items"]
 
-    - id: json-medium-02
+    - id: json-med-02
       difficulty: medium
-      description: "Generate a config JSON from a description"
+      description: "Web server config JSON"
       prompt: |
         Return a JSON object for a web server config with keys "host", "port", and "debug".
         Use "0.0.0.0" for host, 8080 for port, and true for debug.
         Return ONLY valid JSON, no other text.
       timeout_seconds: 30
-      max_tokens: 256
+      max_tokens: 128
       constraints:
         - field: json
           operator: valid
@@ -39,13 +39,59 @@ suite:
           operator: superset
           value: ["host", "port", "debug"]
 
-    - id: json-medium-03
+    - id: json-med-03
       difficulty: medium
-      description: "Return a JSON object with nested address"
+      description: "JSON with nested address object"
       prompt: |
         Return a JSON object with keys "name", "age", and "address".
         "address" should be an object with keys "city" and "zip".
         Use "John" for name, 25 for age, "New York" for city, "10001" for zip.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["name", "age", "address"]
+
+    - id: json-med-04
+      difficulty: medium
+      description: "JSON array of 3 person objects"
+      prompt: |
+        Return a JSON array of 3 person objects. Each person has "name" and "age".
+        Use "Alice", 30; "Bob", 25; "Charlie", 35.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+
+    - id: json-med-05
+      difficulty: medium
+      description: "JSON with boolean and null values"
+      prompt: |
+        Return a JSON object with keys "enabled", "config", and "notes".
+        "enabled" should be false, "config" should be null, "notes" should be an empty string.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["enabled", "config", "notes"]
+
+    - id: json-med-06
+      difficulty: medium
+      description: "JSON with nested array of objects"
+      prompt: |
+        Return a JSON object with key "employees" containing an array of objects.
+        Each object has "id" (number) and "role" (string).
+        Include 3 employees: id 1 role "engineer", id 2 role "designer", id 3 role "manager".
         Return ONLY valid JSON, no other text.
       timeout_seconds: 30
       max_tokens: 256
@@ -54,4 +100,215 @@ suite:
           operator: valid
         - field: keys_present
           operator: superset
-          value: ["name", "age", "address"]
+          value: ["employees"]
+
+    - id: json-med-07
+      difficulty: medium
+      description: "JSON with nested 2 levels deep"
+      prompt: |
+        Return a JSON object with key "company" containing an object with keys "name" and "location".
+        "location" should be an object with keys "city" and "country".
+        Use "Acme Corp" for name, "London" for city, "UK" for country.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["company"]
+
+    - id: json-med-08
+      difficulty: medium
+      description: "JSON array of mixed types"
+      prompt: |
+        Return a JSON array containing: a number (42), a string ("hello"), a boolean (true), and null.
+        In that order. Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+
+    - id: json-med-09
+      difficulty: medium
+      description: "JSON with tags array and metadata object"
+      prompt: |
+        Return a JSON object with keys "id", "tags", and "metadata".
+        "id" should be 1, "tags" should be ["urgent", "important"], "metadata" should be {"priority": "high"}.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["id", "tags", "metadata"]
+
+    - id: json-med-10
+      difficulty: medium
+      description: "JSON with decimal numbers"
+      prompt: |
+        Return a JSON object with keys "price", "tax", and "total".
+        "price" should be 29.99, "tax" should be 2.40, "total" should be 32.39.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["price", "tax", "total"]
+
+    - id: json-med-11
+      difficulty: medium
+      description: "JSON with empty array and empty object"
+      prompt: |
+        Return a JSON object with keys "items" (empty array), "config" (empty object), and "count" (0).
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["items", "config", "count"]
+
+    - id: json-med-12
+      difficulty: medium
+      description: "JSON array of 5 numbers"
+      prompt: |
+        Return a JSON array of 5 numbers: the first 5 prime numbers.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+
+    - id: json-med-13
+      difficulty: medium
+      description: "JSON with nested 3 levels deep"
+      prompt: |
+        Return a JSON object with key "a" containing an object with key "b" containing an object with key "c" with value "deep".
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["a"]
+
+    - id: json-med-14
+      difficulty: medium
+      description: "JSON with date strings"
+      prompt: |
+        Return a JSON object with keys "startDate", "endDate", and "format".
+        "startDate" should be "2024-01-01", "endDate" should be "2024-12-31", "format" should be "ISO-8601".
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["startDate", "endDate", "format"]
+
+    - id: json-med-15
+      difficulty: medium
+      description: "JSON array of objects with mixed key types"
+      prompt: |
+        Return a JSON array of 2 objects. First object: {"type": "circle", "radius": 5}.
+        Second object: {"type": "square", "side": 4}.
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+
+    - id: json-med-16
+      difficulty: medium
+      description: "JSON with nested arrays"
+      prompt: |
+        Return a JSON object with key "matrix" containing a 3x3 array of numbers.
+        Row 1: [1,2,3], Row 2: [4,5,6], Row 3: [7,8,9].
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["matrix"]
+
+    - id: json-med-17
+      difficulty: medium
+      description: "JSON with URL strings"
+      prompt: |
+        Return a JSON object with keys "homepage", "api", and "docs".
+        "homepage": "https://example.com", "api": "https://api.example.com/v1", "docs": "https://docs.example.com".
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["homepage", "api", "docs"]
+
+    - id: json-med-18
+      difficulty: medium
+      description: "JSON with color codes"
+      prompt: |
+        Return a JSON object with keys "primary", "secondary", and "background".
+        "primary": "#FF0000", "secondary": "#00FF00", "background": "#FFFFFF".
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["primary", "secondary", "background"]
+
+    - id: json-med-19
+      difficulty: medium
+      description: "JSON array of 4 different data types"
+      prompt: |
+        Return a JSON array with 4 elements: a string, a number, a boolean, and an object.
+        The object should have key "type" with value "mixed".
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 128
+      constraints:
+        - field: json
+          operator: valid
+
+    - id: json-med-20
+      difficulty: medium
+      description: "JSON with deeply nested config"
+      prompt: |
+        Return a JSON object with keys "database", "cache", and "logging".
+        "database": {"host": "localhost", "port": 5432, "name": "mydb"}
+        "cache": {"enabled": true, "ttl": 3600}
+        "logging": {"level": "info", "file": "/var/log/app.log"}
+        Return ONLY valid JSON, no other text.
+      timeout_seconds: 30
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["database", "cache", "logging"]

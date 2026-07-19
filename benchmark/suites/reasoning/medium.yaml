@@ -2,14 +2,14 @@ suite:
   id: reasoning-medium
   category: reasoning
   tier: medium
-  description: "Multi-step math word problems"
+  description: "Multi-step math word problems and logic (20 tests)"
   target_direct_score: "0.50-0.80"
   model_profiles: [small, medium, frontier]
   attempts_recommended: 3
   tests:
-    - id: reas-medium-01
+    - id: reas-med-01
       difficulty: medium
-      description: "Average speed calculation: train travels 120 km in 2 hours"
+      description: "Average speed: 120 km in 2 hours"
       prompt: >
         If a train travels 120 kilometers in 2 hours, what is its average speed in km/h?
         Answer with only the number.
@@ -20,9 +20,9 @@ suite:
           operator: eq
           value: 60
 
-    - id: reas-medium-02
+    - id: reas-med-02
       difficulty: medium
-      description: "Multi-step arithmetic: apples in a store"
+      description: "Apples: 45 - 18 + 30"
       prompt: >
         A store has 45 apples, sells 18, then gets 30 more. How many apples does the store have now?
         Answer with only the number.
@@ -32,3 +32,238 @@ suite:
         - field: value
           operator: eq
           value: 57
+
+    - id: reas-med-03
+      difficulty: medium
+      description: "Age: Tom is twice as old as 12-year-old sister"
+      prompt: >
+        Tom is twice as old as his sister. His sister is 12 years old.
+        How old is Tom? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 24
+
+    - id: reas-med-04
+      difficulty: medium
+      description: "Perimeter: rectangle 8 by 5"
+      prompt: >
+        A rectangle has length 8 meters and width 5 meters.
+        What is its perimeter in meters? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 26
+
+    - id: reas-med-05
+      difficulty: medium
+      description: "Discount: $80 item, 25% off"
+      prompt: >
+        A $80 jacket is on sale for 25% off. What is the sale price in dollars?
+        Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 60
+
+    - id: reas-med-06
+      difficulty: medium
+      description: "Area: triangle base 10 height 6"
+      prompt: >
+        A triangle has a base of 10 cm and a height of 6 cm.
+        What is its area in square cm? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 30
+
+    - id: reas-med-07
+      difficulty: medium
+      description: "Average: 85, 90, 95"
+      prompt: >
+        A student scored 85, 90, and 95 on three tests.
+        What is the average score? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 90
+
+    - id: reas-med-08
+      difficulty: medium
+      description: "Remainder: 37 cookies, 5 per box"
+      prompt: >
+        You have 37 cookies and want to put 5 cookies in each box.
+        How many boxes can you fill and how many cookies are left over?
+        Answer with only the number of leftover cookies.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 2
+
+    - id: reas-med-09
+      difficulty: medium
+      description: "Ratio: 3:1 ratio, 24 total"
+      prompt: >
+        A recipe calls for a 3:1 ratio of flour to sugar.
+        If you use 24 cups of flour, how many cups of sugar do you need?
+        Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 8
+
+    - id: reas-med-10
+      difficulty: medium
+      description: "Time: start 9:45 AM, duration 2h30m"
+      prompt: >
+        A movie starts at 9:45 AM and lasts 2 hours and 30 minutes.
+        What time does it end? Answer in 12-hour format like "12:15 PM".
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: "12:15 PM"
+
+    - id: reas-med-11
+      difficulty: medium
+      description: "Speed: 300 km in 5 hours"
+      prompt: >
+        A car travels 300 kilometers in 5 hours. What is its speed in km/h?
+        Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 60
+
+    - id: reas-med-12
+      difficulty: medium
+      description: "Money: $50, spend $12.50, then $8.75"
+      prompt: >
+        You have $50. You spend $12.50 on lunch and $8.75 on a book.
+        How much money do you have left? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 28.75
+
+    - id: reas-med-13
+      difficulty: medium
+      description: "Volume: box 10x6x4"
+      prompt: >
+        A box measures 10 cm by 6 cm by 4 cm.
+        What is its volume in cubic cm? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 240
+
+    - id: reas-med-14
+      difficulty: medium
+      description: "Percentage: 15% of 200"
+      prompt: >
+        What is 15% of 200? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 30
+
+    - id: reas-med-15
+      difficulty: medium
+      description: "Distance: 50 km/h for 3 hours"
+      prompt: >
+        A cyclist travels at 50 km/h for 3 hours.
+        How far does she travel? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 150
+
+    - id: reas-med-16
+      difficulty: medium
+      description: "Temperature: 68°F to Celsius"
+      prompt: >
+        Convert 68 degrees Fahrenheit to Celsius using the formula C = (F - 32) × 5/9.
+        Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 20
+
+    - id: reas-med-17
+      difficulty: medium
+      description: "Probability: rolling a 6 on a die"
+      prompt: >
+        What is the probability of rolling a 6 on a fair six-sided die?
+        Answer as a fraction like "1/6".
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: "1/6"
+
+    - id: reas-med-18
+      difficulty: medium
+      description: "Simple interest: $1000 at 5% for 2 years"
+      prompt: >
+        You invest $1000 at 5% simple annual interest for 2 years.
+        How much interest do you earn? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 100
+
+    - id: reas-med-19
+      difficulty: medium
+      description: "Work: 4 workers, 6 hours each"
+      prompt: >
+        Four workers each work 6 hours per day.
+        How many total person-hours do they work per day? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 24
+
+    - id: reas-med-20
+      difficulty: medium
+      description: "Mixture: 2 liters at $3 + 3 liters at $5"
+      prompt: >
+        You mix 2 liters of juice costing $3 per liter with 3 liters costing $5 per liter.
+        What is the total cost of the mixture in dollars? Answer with only the number.
+      timeout_seconds: 30
+      max_tokens: 64
+      constraints:
+        - field: value
+          operator: eq
+          value: 21

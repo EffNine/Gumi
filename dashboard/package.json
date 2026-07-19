@@ -1,7 +1,7 @@
 {
   "name": "gumi-dashboard",
   "private": true,
-  "version": "0.2.0-alpha",
+  "version": "v1.0.0-rc1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 8788",

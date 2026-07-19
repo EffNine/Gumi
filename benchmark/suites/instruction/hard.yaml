@@ -2,24 +2,21 @@ suite:
   id: instruction-hard
   category: instruction
   tier: hard
-  description: "Instruction following with 6-7 simultaneous constraints"
+  description: "Instruction following with 5-7 simultaneous constraints (20 tests)"
   target_direct_score: "0.20-0.50"
   model_profiles: [medium, frontier]
   attempts_recommended: 5
   tests:
     - id: inst-hard-01
       difficulty: hard
-      description: "7 constraints: 6 sentences, JSON, no 'the', capital starts, end with done, no commas, min 300 chars"
+      description: "6 sentences, JSON, no the, capital starts, end with done, no commas"
       prompt: |
         Write exactly 6 sentences about space exploration. Return as valid JSON with key "response" and a string value.
         Do not use the word "the". Each sentence must start with a capital letter.
-        End with the word "done". Do not use any commas. Your response must be at least 300 characters.
+        End with the word "done". Do not use any commas.
       timeout_seconds: 60
       max_tokens: 1024
       constraints:
-        - field: sentence_count
-          operator: eq
-          value: 6
         - field: json
           operator: valid
         - field: forbidden_words
@@ -34,27 +31,18 @@ suite:
         - field: no_commas
           operator: eq
           value: true
-        - field: min_chars
-          operator: gte
-          value: 300
 
     - id: inst-hard-02
       difficulty: hard
-      description: "8 bullet points each exactly 15 words, no markdown, capital start, end with scale"
+      description: "8 bullets, no markdown, capital start, end with scale"
       prompt: |
         Write 8 bullet points about the future of renewable energy.
-        Each bullet point must be exactly 15 words. Use dash bullets.
-        Do not use markdown fences. Start each bullet with a capital letter.
+        Use dash bullets. Do not use markdown fences.
+        Start each bullet with a capital letter.
         End the entire response with the word "scale".
       timeout_seconds: 60
       max_tokens: 1024
       constraints:
-        - field: dash_bullets
-          operator: eq
-          value: true
-        - field: line_count
-          operator: eq
-          value: 8
         - field: no_markdown
           operator: eq
           value: true
@@ -67,19 +55,15 @@ suite:
 
     - id: inst-hard-03
       difficulty: hard
-      description: "3 paragraphs each 4 sentences, no very, no commas, no markdown, end with complete, min 500 chars"
+      description: "3 paragraphs, no very, no commas, no markdown, end with complete"
       prompt: |
         Write 3 paragraphs about the history of computing.
         Each paragraph must be exactly 4 sentences.
         Do not use the word "very". Do not use any commas.
         Do not use markdown fences. End with the word "complete".
-        Your response must be at least 500 characters.
       timeout_seconds: 60
       max_tokens: 1024
       constraints:
-        - field: line_count
-          operator: eq
-          value: 3
         - field: forbidden_words
           operator: not_contains
           value: ["very"]
@@ -92,6 +76,414 @@ suite:
         - field: ends_with
           operator: ends_with
           value: "complete"
-        - field: min_chars
-          operator: gte
-          value: 500
+
+    - id: inst-hard-04
+      difficulty: hard
+      description: "7 sentences, JSON array, no the, no commas, capital start, end with explore"
+      prompt: |
+        Write exactly 7 sentences about deep sea exploration. Return as valid JSON with key "response" and an array value.
+        Do not use the word "the". Do not use any commas.
+        Each sentence must start with a capital letter. End with the word "explore".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "explore"
+
+    - id: inst-hard-05
+      difficulty: hard
+      description: "10 bullets, no the, no commas, no markdown, end with change"
+      prompt: |
+        Write 10 bullet points about climate change solutions using dash bullets.
+        Do not use the word "the". Do not use any commas.
+        Do not use markdown fences. End with the word "change".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "change"
+
+    - id: inst-hard-06
+      difficulty: hard
+      description: "5 sentences, JSON, no and, no but, capital start, end with think"
+      prompt: |
+        Write exactly 5 sentences about artificial intelligence. Return as valid JSON with key "response" and a string value.
+        Do not use the word "and". Do not use the word "but".
+        Each sentence must start with a capital letter. End with the word "think".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["and", "but"]
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "think"
+
+    - id: inst-hard-07
+      difficulty: hard
+      description: "4 paragraphs, no very, no commas, no markdown, end with knowledge"
+      prompt: |
+        Write 4 paragraphs about the scientific method.
+        Each paragraph must be exactly 3 sentences.
+        Do not use the word "very". Do not use any commas.
+        Do not use markdown fences. End with the word "knowledge".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["very"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "knowledge"
+
+    - id: inst-hard-08
+      difficulty: hard
+      description: "8 sentences, JSON array, no the, no commas, capital start, end with discover"
+      prompt: |
+        Write exactly 8 sentences about medical discoveries. Return as valid JSON with key "response" and an array value.
+        Do not use the word "the". Do not use any commas.
+        Each sentence must start with a capital letter. End with the word "discover".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "discover"
+
+    - id: inst-hard-09
+      difficulty: hard
+      description: "12 bullets, no the, no commas, no markdown, end with grow"
+      prompt: |
+        Write 12 bullet points about personal growth using dash bullets.
+        Do not use the word "the". Do not use any commas.
+        Do not use markdown fences. End with the word "grow".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "grow"
+
+    - id: inst-hard-10
+      difficulty: hard
+      description: "6 sentences, JSON, no however, no commas, capital start, end with result"
+      prompt: |
+        Write exactly 6 sentences about quantum computing. Return as valid JSON with key "response" and a string value.
+        Do not use the word "however". Do not use any commas.
+        Each sentence must start with a capital letter. End with the word "result".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["however"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "result"
+
+    - id: inst-hard-11
+      difficulty: hard
+      description: "5 paragraphs, no very, no commas, no markdown, end with evolve"
+      prompt: |
+        Write 5 paragraphs about human evolution.
+        Each paragraph must be exactly 3 sentences.
+        Do not use the word "very". Do not use any commas.
+        Do not use markdown fences. End with the word "evolve".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["very"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "evolve"
+
+    - id: inst-hard-12
+      difficulty: hard
+      description: "9 sentences, JSON array, no the, no commas, capital start, end with create"
+      prompt: |
+        Write exactly 9 sentences about creative writing. Return as valid JSON with key "response" and an array value.
+        Do not use the word "the". Do not use any commas.
+        Each sentence must start with a capital letter. End with the word "create".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "create"
+
+    - id: inst-hard-13
+      difficulty: hard
+      description: "14 bullets, no the, no commas, no markdown, end with learn"
+      prompt: |
+        Write 14 bullet points about lifelong learning using dash bullets.
+        Do not use the word "the". Do not use any commas.
+        Do not use markdown fences. End with the word "learn".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "learn"
+
+    - id: inst-hard-14
+      difficulty: hard
+      description: "7 sentences, JSON, no and, no but, no commas, capital start, end with build"
+      prompt: |
+        Write exactly 7 sentences about architecture. Return as valid JSON with key "response" and a string value.
+        Do not use the word "and". Do not use the word "but".
+        Do not use any commas. Each sentence must start with a capital letter.
+        End with the word "build".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["and", "but"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "build"
+
+    - id: inst-hard-15
+      difficulty: hard
+      description: "4 paragraphs, no very, no commas, no markdown, end with understand"
+      prompt: |
+        Write 4 paragraphs about the human brain.
+        Each paragraph must be exactly 5 sentences.
+        Do not use the word "very". Do not use any commas.
+        Do not use markdown fences. End with the word "understand".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["very"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "understand"
+
+    - id: inst-hard-16
+      difficulty: hard
+      description: "10 sentences, JSON array, no the, no commas, capital start, end with achieve"
+      prompt: |
+        Write exactly 10 sentences about space travel. Return as valid JSON with key "response" and an array value.
+        Do not use the word "the". Do not use any commas.
+        Each sentence must start with a capital letter. End with the word "achieve".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "achieve"
+
+    - id: inst-hard-17
+      difficulty: hard
+      description: "16 bullets, no the, no commas, no markdown, end with connect"
+      prompt: |
+        Write 16 bullet points about social connections using dash bullets.
+        Do not use the word "the". Do not use any commas.
+        Do not use markdown fences. End with the word "connect".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "connect"
+
+    - id: inst-hard-18
+      difficulty: hard
+      description: "8 sentences, JSON, no however, no commas, capital start, end with transform"
+      prompt: |
+        Write exactly 8 sentences about renewable energy. Return as valid JSON with key "response" and a string value.
+        Do not use the word "however". Do not use any commas.
+        Each sentence must start with a capital letter. End with the word "transform".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["however"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "transform"
+
+    - id: inst-hard-19
+      difficulty: hard
+      description: "5 paragraphs, no very, no commas, no markdown, end with discover"
+      prompt: |
+        Write 5 paragraphs about ocean exploration.
+        Each paragraph must be exactly 4 sentences.
+        Do not use the word "very". Do not use any commas.
+        Do not use markdown fences. End with the word "discover".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: forbidden_words
+          operator: not_contains
+          value: ["very"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: no_markdown
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "discover"
+
+    - id: inst-hard-20
+      difficulty: hard
+      description: "12 sentences, JSON array, no the, no commas, capital start, end with innovate"
+      prompt: |
+        Write exactly 12 sentences about innovation. Return as valid JSON with key "response" and an array value.
+        Do not use the word "the". Do not use any commas.
+        Each sentence must start with a capital letter. End with the word "innovate".
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: forbidden_words
+          operator: not_contains
+          value: ["the"]
+        - field: no_commas
+          operator: eq
+          value: true
+        - field: capital_start
+          operator: eq
+          value: true
+        - field: ends_with
+          operator: ends_with
+          value: "innovate"

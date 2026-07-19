@@ -298,9 +298,9 @@ for the full shipped-feature inventory and §8b onwards for per-phase status.
 
 # 7a. Shipped Features (v0.2.0-alpha)
 
-Tagged `v0.2.0-alpha` on 2026-07-14 after 13 sprints (Sprint 0 → Sprint 13).
+Tagged `v1.0.0-rc1` on 2026-07-20 after 13 sprints (Sprint 0 → Sprint 13).
 This section lists what is already complete, grouped by subsystem. Source of
-truth: `CHANGELOG.md` and `docs/release-notes-v0.2.0-alpha.md`.
+truth: `CHANGELOG.md`.
 
 ## Core runtime
 

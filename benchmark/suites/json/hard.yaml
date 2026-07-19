@@ -2,14 +2,14 @@ suite:
   id: json-hard
   category: json
   tier: hard
-  description: "Complex JSON generation from unstructured data"
+  description: "Complex JSON generation from unstructured data (20 tests)"
   target_direct_score: "0.20-0.50"
   model_profiles: [medium, frontier]
   attempts_recommended: 5
   tests:
     - id: json-hard-01
       difficulty: hard
-      description: "Generate an OpenAPI path object from a description"
+      description: "OpenAPI path object for GET /users/{userId}"
       prompt: |
         Generate a complete OpenAPI 3.0 path object for a GET /users/{userId} endpoint
         that returns a user object with fields id, name, email, and createdAt.
@@ -30,7 +30,7 @@ suite:
 
     - id: json-hard-02
       difficulty: hard
-      description: "Build a nested tree from flat parent/child data"
+      description: "Nested tree from flat parent/child data"
       prompt: |
         Convert this flat parent/child data into a nested JSON tree structure.
         Each node has an id, name, and children array.
@@ -54,7 +54,7 @@ suite:
 
     - id: json-hard-03
       difficulty: hard
-      description: "Output JSON with specific schema and required fields"
+      description: "JSON with specific schema and required fields"
       prompt: |
         Generate a JSON object conforming to this schema:
         {
@@ -79,6 +79,379 @@ suite:
         - field: keys_present
           operator: superset
           value: ["productId", "productName", "price", "inStock", "categories"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-04
+      difficulty: hard
+      description: "JSON Patch sequence from diff"
+      prompt: |
+        Given original: {"name": "Old", "price": 100, "tags": ["sale"]}
+        And desired: {"name": "New", "price": 89.99, "tags": ["sale", "featured"]}
+        Generate a JSON Patch (RFC 6902) sequence. Use "op", "path", "value" keys.
+        Return at least 2 operations. Return only valid JSON.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["op", "path", "value"]
+
+    - id: json-hard-05
+      difficulty: hard
+      description: "CSV to JSON conversion"
+      prompt: |
+        Convert this CSV data to a JSON array of objects:
+        name,age,city
+        Alice,30,New York
+        Bob,25,London
+        Charlie,35,Tokyo
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-06
+      difficulty: hard
+      description: "JSON with conditional if/then/else"
+      prompt: |
+        Generate a JSON object with key "orders" containing an array of 3 order objects.
+        Each order has "id" (number), "total" (number), and "status" (string).
+        Order 1: id=1, total=50, status="pending"
+        Order 2: id=2, total=150, status="shipped"
+        Order 3: id=3, total=200, status="delivered"
+        Also include a "summary" object with "totalOrders" (3), "totalValue" (400), and "statuses" array.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["orders", "summary"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-07
+      difficulty: hard
+      description: "JSON Schema generation from description"
+      prompt: |
+        Generate a JSON Schema for a "Book" object with:
+        - title (string, required)
+        - author (string, required)
+        - isbn (string, pattern: 13 digits)
+        - pages (integer, minimum: 1)
+        - genres (array of strings)
+        - published (boolean)
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["type", "properties", "required"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-08
+      difficulty: hard
+      description: "Nested JSON with 4 levels of depth"
+      prompt: |
+        Generate a JSON object representing a university with:
+        - name: "State University"
+        - departments: array of objects, each with name and faculty array
+        - faculty objects have name, title, and courses array
+        - course objects have code and name
+        Include 2 departments, 2 faculty per department, 2 courses per faculty.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["name", "departments"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-09
+      difficulty: hard
+      description: "JSON with computed/derived fields"
+      prompt: |
+        Generate a JSON object for a shopping cart with:
+        - items: array of {name, price, quantity}
+        - subtotal: sum of price * quantity for all items
+        - tax: 8% of subtotal
+        - total: subtotal + tax
+        Include 3 items. All numeric values must be correct.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["items", "subtotal", "tax", "total"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-10
+      difficulty: hard
+      description: "JSON with enum validation"
+      prompt: |
+        Generate a JSON object with key "tasks" containing an array of 4 task objects.
+        Each task has: id (number), title (string), priority (enum: low, medium, high, critical),
+        status (enum: todo, in_progress, done).
+        Include at least one of each priority level and each status.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["tasks"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-11
+      difficulty: hard
+      description: "JSON with nested conditional logic"
+      prompt: |
+        Generate a JSON object for a shipping calculator:
+        - baseRate: 5.00
+        - zones: array of {name, multiplier}
+        - packages: array of {weight, zone, cost}
+        cost = baseRate * weight * zone.multiplier
+        Include 3 zones (local: 1.0, national: 1.5, international: 3.0)
+        and 3 packages with correct calculated costs.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["baseRate", "zones", "packages"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-12
+      difficulty: hard
+      description: "JSON with time-based data"
+      prompt: |
+        Generate a JSON object with key "schedule" containing an array of 5 events.
+        Each event has: id, title, startTime (ISO 8601), endTime (ISO 8601), and location.
+        Events should be on the same day, each 1 hour apart starting at 09:00.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["schedule"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-13
+      difficulty: hard
+      description: "JSON with nested aggregation"
+      prompt: |
+        Generate a JSON object for a sales report:
+        - sales: array of {product, amount, region}
+        - byRegion: object grouping sales by region with total amounts
+        - topProduct: the product with highest total sales
+        Sales data: (Widget, 100, North), (Gadget, 200, South), (Widget, 150, South), (Gadget, 50, North)
+        Calculate byRegion and topProduct correctly.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["sales", "byRegion", "topProduct"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-14
+      difficulty: hard
+      description: "JSON with recursive structure"
+      prompt: |
+        Generate a JSON object representing a file system with:
+        - name: "root"
+        - type: "directory"
+        - children: array of 3 items: 2 files and 1 subdirectory
+        - files have: name, type: "file", size (number)
+        - subdirectory has: name, type: "directory", children with 2 files
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["name", "type", "children"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-15
+      difficulty: hard
+      description: "JSON with cross-referenced data"
+      prompt: |
+        Generate a JSON object for a library system:
+        - authors: array of {id, name}
+        - books: array of {id, title, authorId}
+        - borrows: array of {bookId, memberName, date}
+        Include 2 authors, 3 books (each by one author), and 2 borrows.
+        authorId in books must reference a valid author id.
+        bookId in borrows must reference a valid book id.
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["authors", "books", "borrows"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-16
+      difficulty: hard
+      description: "JSON with mathematical expressions as values"
+      prompt: |
+        Generate a JSON object with key "results" containing an array of 3 objects.
+        Each object has: "expression" (string like "2+2"), "result" (the correct numeric answer).
+        Use expressions: 2+2, 15*3, 100/4.
+        All results must be correct. Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 256
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["results"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-17
+      difficulty: hard
+      description: "JSON with nested configuration and validation"
+      prompt: |
+        Generate a JSON object for an API gateway config:
+        - version: "1.0"
+        - routes: array of {path, method, rateLimit, auth}
+        - rateLimit has: requests (number), window (string like "1m")
+        - auth has: required (boolean), roles (array of strings)
+        Include 3 routes: GET /users, POST /orders, DELETE /admin.
+        DELETE /admin should have auth.required=true and roles=["admin"].
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["version", "routes"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-18
+      difficulty: hard
+      description: "JSON with geographic coordinates"
+      prompt: |
+        Generate a JSON object with key "locations" containing an array of 4 location objects.
+        Each location has: name (string), lat (number), lng (number), type (string).
+        Include: "New York" (40.71, -74.01, "city"), "London" (51.51, -0.13, "city"),
+        "Mount Everest" (27.99, 86.93, "mountain"), "Pacific Ocean" (0, -160, "ocean").
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["locations"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-19
+      difficulty: hard
+      description: "JSON with versioned schema"
+      prompt: |
+        Generate a JSON object with keys "schemaVersion" (2), "data" (object), and "meta" (object).
+        "data" contains: users array of {id, name, email}, each with 2 users.
+        "meta" contains: generated (ISO date string), count (number of users), version ("2.0").
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 512
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["schemaVersion", "data", "meta"]
+        - field: no_markdown
+          operator: eq
+          value: true
+
+    - id: json-hard-20
+      difficulty: hard
+      description: "JSON with complex nested validation rules"
+      prompt: |
+        Generate a JSON object for a form validation schema:
+        - formId: "registration"
+        - fields: array of field objects
+        - each field has: name, type (string|number|email), required (boolean), validation (object)
+        - validation has: minLength (for strings), maxLength (for strings), min (for numbers), max (for numbers), pattern (regex string)
+        Include 4 fields: username (string, required, 3-20 chars), email (email, required),
+        age (number, required, 18-120), bio (string, optional, max 500 chars).
+        Return only valid JSON. No markdown fences.
+      timeout_seconds: 60
+      max_tokens: 1024
+      constraints:
+        - field: json
+          operator: valid
+        - field: keys_present
+          operator: superset
+          value: ["formId", "fields"]
         - field: no_markdown
           operator: eq
           value: true

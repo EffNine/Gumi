@@ -28,3 +28,15 @@ categories:
   - id: coding
     name: Code Generation
     tiers: [small, medium, frontier]
+
+  - id: math
+    name: Math Reasoning
+    tiers: [small, medium, frontier]
+
+  - id: code
+    name: Code Generation
+    tiers: [medium, hard]
+
+  - id: hallucination
+    name: Hallucination Resistance
+    tiers: [medium, hard]

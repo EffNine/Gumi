@@ -1,0 +1,11 @@
+suite:
+  id: gsm8k
+  category: math
+  tier: medium
+  description: "GSM8K: 1319 grade-school math word problems"
+  target_direct_score: "0.10-0.80"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  data_source: gsm8k.jsonl
+  timeout_seconds: 30
+  max_tokens: 512

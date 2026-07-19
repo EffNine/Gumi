@@ -1,0 +1,248 @@
+suite:
+  id: hallucination-medium
+  category: hallucination
+  tier: medium
+  description: "Factual knowledge questions to test hallucination (20 tests)"
+  target_direct_score: "0.50-0.80"
+  model_profiles: [small, medium, frontier]
+  attempts_recommended: 3
+  tests:
+    - id: hal-med-01
+      difficulty: medium
+      description: "Capital of France"
+      prompt: |
+        What is the capital of France? Answer with only the city name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Paris"
+
+    - id: hal-med-02
+      difficulty: medium
+      description: "Year World War II ended"
+      prompt: |
+        In what year did World War II end? Answer with only the year.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: 1945
+
+    - id: hal-med-03
+      difficulty: medium
+      description: "Author of Romeo and Juliet"
+      prompt: |
+        Who wrote Romeo and Juliet? Answer with only the full name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "William Shakespeare"
+
+    - id: hal-med-04
+      difficulty: medium
+      description: "Largest planet in the solar system"
+      prompt: |
+        What is the largest planet in our solar system? Answer with only the name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Jupiter"
+
+    - id: hal-med-05
+      difficulty: medium
+      description: "Chemical symbol for gold"
+      prompt: |
+        What is the chemical symbol for gold? Answer with only the symbol.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Au"
+
+    - id: hal-med-06
+      difficulty: medium
+      description: "First US President"
+      prompt: |
+        Who was the first President of the United States? Answer with only the full name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "George Washington"
+
+    - id: hal-med-07
+      difficulty: medium
+      description: "Speed of light in km/s"
+      prompt: |
+        What is the speed of light in kilometers per second? Answer with only the number.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: 299792
+
+    - id: hal-med-08
+      difficulty: medium
+      description: "Tallest mountain in the world"
+      prompt: |
+        What is the tallest mountain in the world? Answer with only the name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Mount Everest"
+
+    - id: hal-med-09
+      difficulty: medium
+      description: "Number of bones in the adult human body"
+      prompt: |
+        Approximately how many bones are in the adult human body? Answer with only the number.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: 206
+
+    - id: hal-med-10
+      difficulty: medium
+      description: "Element with atomic number 1"
+      prompt: |
+        What element has atomic number 1? Answer with only the name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Hydrogen"
+
+    - id: hal-med-11
+      difficulty: medium
+      description: "Currency of Japan"
+      prompt: |
+        What is the currency of Japan? Answer with only the name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Yen"
+
+    - id: hal-med-12
+      difficulty: medium
+      description: "Year the Titanic sank"
+      prompt: |
+        In what year did the Titanic sink? Answer with only the year.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: 1912
+
+    - id: hal-med-13
+      difficulty: medium
+      description: "Largest ocean on Earth"
+      prompt: |
+        What is the largest ocean on Earth? Answer with only the name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Pacific"
+
+    - id: hal-med-14
+      difficulty: medium
+      description: "Inventor of the light bulb"
+      prompt: |
+        Who is credited with inventing the practical light bulb? Answer with only the full name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Thomas Edison"
+
+    - id: hal-med-15
+      difficulty: medium
+      description: "Number of continents on Earth"
+      prompt: |
+        How many continents are there on Earth? Answer with only the number.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: 7
+
+    - id: hal-med-16
+      difficulty: medium
+      description: "Longest river in the world"
+      prompt: |
+        What is the longest river in the world? Answer with only the name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Nile"
+
+    - id: hal-med-17
+      difficulty: medium
+      description: "Boiling point of water in Celsius"
+      prompt: |
+        What is the boiling point of water in degrees Celsius? Answer with only the number.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: 100
+
+    - id: hal-med-18
+      difficulty: medium
+      description: "First woman in space"
+      prompt: |
+        Who was the first woman in space? Answer with only the full name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Valentina Tereshkova"
+
+    - id: hal-med-19
+      difficulty: medium
+      description: "Largest desert in the world"
+      prompt: |
+        What is the largest hot desert in the world? Answer with only the name.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: "Sahara"
+
+    - id: hal-med-20
+      difficulty: medium
+      description: "Year the Berlin Wall fell"
+      prompt: |
+        In what year did the Berlin Wall fall? Answer with only the year.
+      timeout_seconds: 15
+      max_tokens: 32
+      constraints:
+        - field: value
+          operator: eq
+          value: 1989

@@ -118,7 +118,7 @@ mkdir -p ~/.gumi
    container user:
 
 ```bash
-docker run -v gumi-data:/data gumi:0.2.0-alpha
+docker run -v gumi-data:/data gumi:v1.0.0-rc1
 ```
 
 The runtime uses `~/.gumi/gumi.db` by default. In the official Docker
@@ -269,6 +269,106 @@ mid-stream). Use `stream: false` with `response_format` for structured output.
 
 If you get a `STREAMING_UNSUPPORTED` error with structured mode:
 set `"stream": false` (or omit `stream`) and retry with `response_format` set.
+
+## Windows
+
+### Port already in use on Windows
+
+The `Get-NetTCPConnection` cmdlet finds the process holding a port:
+
+```powershell
+# Find what's using port 8787
+Get-NetTCPConnection -LocalPort 8787 | Select-Object OwningProcess
+
+# Kill the process (replace PID)
+Stop-Process -Id <PID> -Force
+```
+
+Alternatively, start Gumi on a different port:
+
+```powershell
+.\gumi.exe start --port 8790
+```
+
+### Windows Defender / firewall blocking localhost
+
+If Gumi starts but clients cannot connect, Windows Defender Firewall may be
+blocking inbound traffic.
+
+1. Open **Windows Defender Firewall → Allow an app through firewall**.
+2. Find **Gumi** in the list. If it's absent, click **Allow another app** and
+   browse to `gumi.exe`.
+3. Ensure **Private** (and **Public** if needed) is checked.
+
+To verify the API is reachable from another local process:
+
+```powershell
+curl.exe http://127.0.0.1:8787/v1/models -H "Authorization: Bearer gumi-local"
+```
+
+### PowerShell execution policy errors
+
+Error:
+
+```
+.\gumi.exe cannot be loaded because running scripts is disabled on this system.
+```
+
+Fix — allow local scripts for your user account:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Error:
+
+```
+.\gumi.exe cannot be verified directly by Windows SmartScreen.
+```
+
+Fix — unblock the file after extraction:
+
+```powershell
+Unblock-File .\gumi.exe
+```
+
+Then run again. You may also need to click **More info → Run anyway** on the
+SmartScreen dialog.
+
+### Verifying the installation
+
+Gumi works in both CMD and PowerShell. Use the appropriate syntax:
+
+```cmd
+:: CMD
+gumi version
+gumi start
+```
+
+```powershell
+# PowerShell (requires .\ prefix)
+.\gumi version
+.\gumi start
+```
+
+If you installed via `scripts/install.sh` in WSL2 or Git Bash, `gumi` should
+be on your `$PATH` in both shells:
+
+```bash
+# WSL2 / Git Bash
+gumi version
+```
+
+### Common error messages and fixes
+
+| Error | Cause | Fix |
+|---|---|---|
+| `The system cannot find the file specified` | Missing `.\` prefix in PowerShell | Use `.\gumi.exe start` |
+| `Access is denied` | Insufficient permissions | Run terminal as Administrator, or install to a user-writable directory |
+| `gumi.exe is blocked by group policy` | Enterprise policy blocks unsigned binaries | Contact IT; or build from source in a permitted environment |
+| `SmartScreen prevented an app from starting` | Unsigned binary | Click **More info → Run anyway**; or `Unblock-File .\gumi.exe` |
+| `connection refused` on 127.0.0.1:8787 | Another process uses the port | `Get-NetTCPConnection -LocalPort 8787` → kill or use `--port` |
+| Firewall prompt blocks connection | Windows Defender firewall | Allow Gumi in firewall settings (see above) |
 
 ## macOS executable quarantine warning
 

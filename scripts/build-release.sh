@@ -9,7 +9,7 @@
 #
 # The Makefile calls this script with the current git tag, short commit, and
 # UTC build date. Run manually without arguments to produce a development
-# release named "0.2.0-alpha".
+# release named "v1.0.0-rc1".
 
 set -euo pipefail
 
@@ -21,7 +21,7 @@ if [ -z "${VERSION}" ]; then
   if printf '%s' "${RAW_VERSION}" | grep -q '^v'; then
     VERSION="${RAW_VERSION}"
   else
-    VERSION="0.2.0-alpha"
+    VERSION="v1.0.0-rc1"
   fi
 fi
 COMMIT="${2:-$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")}"
