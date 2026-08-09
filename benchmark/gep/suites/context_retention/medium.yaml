@@ -1,0 +1,168 @@
+# GEP Context Retention Suite - Medium
+suite:
+  id: context-retention
+  type: context_retention
+  difficulty: medium
+  description: "Test model's ability to retain and reference information across medium conversations"
+  attempts_recommended: 3
+  timeout_seconds: 120
+  max_tokens: 1024
+
+tests:
+  - id: ctx-med-01
+    difficulty: medium
+    description: "Remember multiple facts across 4 turns"
+    prompt: |
+      Turn 1: Remember these facts: My name is John, I am 30 years old, and I live in Seattle.
+      Turn 2: Ask me what my name is.
+      Turn 3: Ask me how old I am.
+      Turn 4: Ask me where I live.
+    type: multi_turn
+    turns:
+      - role: user
+        content: "Remember these facts: My name is John, I am 30 years old, and I live in Seattle. Reply OK."
+      - role: assistant
+        content: "OK"
+      - role: user
+        content: "What is my name?"
+      - role: assistant
+        content: "Your name is John."
+      - role: user
+        content: "How old are you?"
+      - role: assistant
+        content: "I am 30 years old."
+      - role: user
+        content: "Where do I live?"
+    constraints:
+      - field: name_correct
+        operator: eq
+        value: "John"
+      - field: age_correct
+        operator: eq
+        value: 30
+      - field: location_correct
+        operator: eq
+        value: "Seattle"
+
+  - id: ctx-med-02
+    difficulty: medium
+    description: "Remember a calculation across turns"
+    prompt: |
+      Turn 1: Calculate 15 + 27. Reply with just the number.
+      Turn 2: Now add 8 to that result. Reply with just the number.
+      Turn 3: What was your first answer?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "Calculate 15 + 27. Reply with just the number."
+      - role: assistant
+        content: "42"
+      - role: user
+        content: "Now add 8 to that result. Reply with just the number."
+      - role: assistant
+        content: "50"
+      - role: user
+        content: "What was your first answer?"
+    constraints:
+      - field: first_answer
+        operator: eq
+        value: 42
+
+  - id: ctx-med-03
+    difficulty: medium
+    description: "Remember constraints from early turns"
+    prompt: |
+      Turn 1: I will ask you questions. Your rule: never use the word 'the'. Acknowledge.
+      Turn 2: What is the capital of France?
+      Turn 3: What is the capital of Germany?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "I will ask you questions. Your rule: never use the word the. Acknowledge."
+      - role: assistant
+        content: "Acknowledged."
+      - role: user
+        content: "What is the capital of France?"
+      - role: assistant
+        content: "Paris."
+      - role: user
+        content: "What is the capital of Germany?"
+    constraints:
+      - field: no_forbidden_word
+        operator: not_contains
+        value: ["the"]
+      - field: answers_correct
+        operator: eq
+        value: true
+
+  - id: ctx-med-04
+    difficulty: medium
+    description: "Remember and apply a rule across 5 turns"
+    prompt: |
+      Turn 1: From now on, every answer must end with the word 'end'. Confirm.
+      Turn 2: What is 2+2?
+      Turn 3: What is the sky color?
+      Turn 4: How many legs does a dog have?
+      Turn 5: What is 10-3?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "From now on, every answer must end with the word end. Confirm."
+      - role: assistant
+        content: "Confirmed end"
+      - role: user
+        content: "What is 2+2?"
+      - role: assistant
+        content: "4 end"
+      - role: user
+        content: "What is the sky color?"
+      - role: assistant
+        content: "Blue end"
+      - role: user
+        content: "How many legs does a dog have?"
+      - role: assistant
+        content: "4 end"
+      - role: user
+        content: "What is 10-3?"
+    constraints:
+      - field: ends_with_end
+        operator: eq
+        value: true
+      - field: all_turns_compliant
+        operator: eq
+        value: true
+
+  - id: ctx-med-05
+    difficulty: medium
+    description: "Remember a story detail across turns"
+    prompt: |
+      Turn 1: Once upon a time there was a red dragon named Ember who lived in a volcano. Remember this.
+      Turn 2: What was the dragon's name?
+      Turn 3: What color was the dragon?
+      Turn 4: Where did the dragon live?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "Once upon a time there was a red dragon named Ember who lived in a volcano. Remember this."
+      - role: assistant
+        content: "I remember."
+      - role: user
+        content: "What was the dragon's name?"
+      - role: assistant
+        content: "Ember"
+      - role: user
+        content: "What color was the dragon?"
+      - role: assistant
+        content: "Red"
+      - role: user
+        content: "Where did the dragon live?"
+    constraints:
+      - field: name_correct
+        operator: eq
+        value: "Ember"
+      - field: color_correct
+        operator: eq
+        value: "red"
+      - field: location_correct
+        operator: eq
+        value: "volcano"

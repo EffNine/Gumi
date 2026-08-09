@@ -547,3 +547,136 @@ func TestValidateOneWord(t *testing.T) {
 		t.Error("expected fail for multi-word answer")
 	}
 }
+
+// ── Optimization tests ──────────────────────────────────────────────
+
+func TestExtractPriorityOrdering(t *testing.T) {
+	result := New().Extract("Return JSON. Answer in one word. Write exactly 3 sentences.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints")
+	}
+	// JSON (priority 1) should come before one_word (priority 2) before sentences (priority 4)
+	hint := result.HintBlock
+	jsonIdx := strings.Index(hint, "Return ONLY a valid JSON")
+	oneWordIdx := strings.Index(hint, "exactly one word")
+	sentenceIdx := strings.Index(hint, "exactly 3 sentence")
+	if jsonIdx < 0 || oneWordIdx < 0 || sentenceIdx < 0 {
+		t.Fatalf("expected all hints in block: %s", hint)
+	}
+	if jsonIdx > oneWordIdx {
+		t.Error("expected JSON hint before one_word hint")
+	}
+	if oneWordIdx > sentenceIdx {
+		t.Error("expected one_word hint before sentences hint")
+	}
+}
+
+func TestExtractDeduplication(t *testing.T) {
+	// Prompt that would trigger two "no_word" constraints for the same word
+	result := New().Extract("Do not use the word 'test'. Avoid the word 'test'.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints")
+	}
+	noWordCount := 0
+	for _, c := range result.Constraints {
+		if c.Type == "no_word" {
+			noWordCount++
+		}
+	}
+	if noWordCount != 1 {
+		t.Errorf("expected 1 deduplicated no_word constraint, got %d", noWordCount)
+	}
+	if result.DeduplicatedCount != 1 {
+		t.Errorf("expected DeduplicatedCount=1, got %d", result.DeduplicatedCount)
+	}
+}
+
+func TestExtractConflictDetection(t *testing.T) {
+	result := New().Extract("Return JSON and answer in one word.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints")
+	}
+	if len(result.Conflicts) == 0 {
+		t.Error("expected conflict detected between JSON and one_word")
+	}
+	hasConflict := false
+	for _, c := range result.Conflicts {
+		if strings.Contains(c, "CONFLICT") && strings.Contains(c, "JSON") {
+			hasConflict = true
+			break
+		}
+	}
+	if !hasConflict {
+		t.Error("expected JSON/one_word conflict in conflicts list")
+	}
+}
+
+func TestExtractConflictOneWordVsWordCount(t *testing.T) {
+	result := New().Extract("Answer in exactly 5 words. Respond in one word.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints")
+	}
+	if len(result.Conflicts) == 0 {
+		t.Error("expected conflict between one_word and word_count")
+	}
+}
+
+func TestIsFormatRestrictive(t *testing.T) {
+	e := New()
+
+	// one_word is format-restrictive
+	if !e.IsFormatRestrictive([]Constraint{{Type: "one_word", Check: "one_word"}}) {
+		t.Error("expected one_word to be format-restrictive")
+	}
+
+	// digit_answer is format-restrictive
+	if !e.IsFormatRestrictive([]Constraint{{Type: "digit_answer", Check: "digit_answer"}}) {
+		t.Error("expected digit_answer to be format-restrictive")
+	}
+
+	// sentence count is format-restrictive
+	if !e.IsFormatRestrictive([]Constraint{{Type: "sentences", Check: "sentence_count", Value: "3"}}) {
+		t.Error("expected sentences to be format-restrictive")
+	}
+
+	// JSON is NOT format-restrictive (allows verbose output)
+	if e.IsFormatRestrictive([]Constraint{{Type: "json", Check: "json"}}) {
+		t.Error("expected json to NOT be format-restrictive")
+	}
+
+	// empty constraints
+	if e.IsFormatRestrictive([]Constraint{}) {
+		t.Error("expected empty constraints to not be format-restrictive")
+	}
+}
+
+func TestBuildPrioritizedHintBlockIncludesConflicts(t *testing.T) {
+	result := New().Extract("Return JSON and answer in one word.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints")
+	}
+	if !strings.Contains(result.HintBlock, "CONFLICT") {
+		t.Errorf("expected hint block to contain conflict warning: %s", result.HintBlock)
+	}
+}
+
+func TestExtractHintBlockContainsVerificationStep(t *testing.T) {
+	result := New().Extract("Answer in exactly 2 sentences.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints")
+	}
+	if !strings.Contains(result.HintBlock, "verify each rule") {
+		t.Errorf("expected hint block to contain verification step: %s", result.HintBlock)
+	}
+}
+
+func TestExtractSoftHintsAppendedSeparately(t *testing.T) {
+	result := New().Extract("Explain why the sky is blue. Answer in exactly 2 sentences.")
+	if !result.HasConstraints {
+		t.Fatal("expected constraints")
+	}
+	// Should have both hard constraint (sentences) and soft hint (complex_reasoning)
+	if !strings.Contains(result.HintBlock, "Follow ALL of these rules") {
+		t.Error("expected hard constraint header")
+	}
+}

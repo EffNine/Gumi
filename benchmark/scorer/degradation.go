@@ -35,8 +35,8 @@ type DegradationDetector struct {
 func NewDegradationDetector() *DegradationDetector {
 	return &DegradationDetector{
 		semanticPatterns: []*regexp.Regexp{
-			regexp.MustCompile(`\d+\.\d+`),  // decimal numbers
-			regexp.MustCompile(`"[^"]+":`),   // JSON keys
+			regexp.MustCompile(`\d+\.\d+`),                // decimal numbers
+			regexp.MustCompile(`"[^"]+":`),                // JSON keys
 			regexp.MustCompile(`\b(?:true|false|null)\b`), // JSON literals
 		},
 	}
@@ -235,10 +235,10 @@ func RunDegradationChecks(results []benchmark.TestResult, testCategories map[str
 
 // Condition identifiers (duplicated here to avoid import cycle with runner package).
 const (
-	ConditionDirect            = "direct"
+	ConditionDirect          = "direct"
 	ConditionGumiDirect      = "gumi-direct"
 	ConditionGumiLightweight = "gumi-lightweight"
 	ConditionGumiStabilized  = "gumi-stabilized"
 	ConditionGumiStructured  = "gumi-structured"
-	ConditionFrontier          = "frontier"
+	ConditionFrontier        = "frontier"
 )

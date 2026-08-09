@@ -18,8 +18,9 @@ import (
 const healthTTL = 30 * time.Second
 
 // providerPreferenceOrder is the order used by local:auto when selecting a
-// provider. Ollama is preferred first, then LM Studio, then OpenAI-compatible.
-var providerPreferenceOrder = []string{"ollama", "lmstudio", "openai_compatible_local"}
+// provider. Ollama is preferred first, then LM Studio, then OpenAI-compatible,
+// then Conductor (cloud aggregator, last as fallback).
+var providerPreferenceOrder = []string{"ollama", "lmstudio", "openai_compatible_local", "conductor"}
 
 // TelemetryWriter receives provider health observations. It is defined in the
 // provider package so Manager can record health without creating an import cycle.

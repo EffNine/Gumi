@@ -69,6 +69,8 @@ prompt:
   instruction_assist: true
   instructions:
     - Answer concisely and directly.
+    - Think step-by-step before answering complex or multi-part questions.
+    - Break multi-part requests into smaller subtasks and address each one.
     - For one-word or exact-format prompts, output only the requested final content.
     - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
     - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.

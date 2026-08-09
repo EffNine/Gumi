@@ -143,6 +143,7 @@ func runBenchmark(base, key string, jsonOutput bool, args []string) {
 	suite := fs.String("suite", "", "Run only the named suite (e.g. humaneval)")
 	leaderboardScore := fs.Float64("leaderboard-score", 0, "Override published leaderboard score")
 	directBaseURL := fs.String("direct-base-url", "", "Direct provider API base URL (e.g., http://localhost:11434)")
+	directAPIKey := fs.String("direct-api-key", "", "API key for direct provider")
 	frontierKey := fs.String("frontier-key", "", "API key for frontier baseline")
 	frontierModel := fs.String("frontier-model", "", "Frontier model name")
 	outputDir := fs.String("output", "benchmarks/reports/", "Output directory")
@@ -163,6 +164,7 @@ func runBenchmark(base, key string, jsonOutput bool, args []string) {
 		SuiteSelector:    *suite,
 		LeaderboardScore: *leaderboardScore,
 		DirectBaseURL:    *directBaseURL,
+		DirectAPIKey:     *directAPIKey,
 		FrontierKey:      *frontierKey,
 		FrontierModel:    *frontierModel,
 		OutputDir:        *outputDir,

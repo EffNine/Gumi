@@ -161,6 +161,8 @@ type Context struct {
 	InstructionConstraints  []instruction.Constraint `json:"instruction_constraints,omitempty"`
 	InstructionHintInjected bool                     `json:"instruction_hint_injected"`
 	InstructionRetryCount   int                      `json:"instruction_retry_count"`
+	InstructionConflicts    []string                 `json:"instruction_conflicts,omitempty"`
+	InstructionDeduplicated bool                     `json:"instruction_deduplicated"`
 
 	// Agent mode governance state.
 	StepCount              int      `json:"step_count,omitempty"`

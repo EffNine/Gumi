@@ -1,0 +1,236 @@
+# GEP Context Retention Suite - Hard
+suite:
+  id: context-retention
+  type: context_retention
+  difficulty: hard
+  description: "Test model's ability to retain complex information across long conversations"
+  attempts_recommended: 5
+  timeout_seconds: 180
+  max_tokens: 2048
+
+tests:
+  - id: ctx-hard-01
+    difficulty: hard
+    description: "Remember a shopping list across 6 turns"
+    prompt: |
+      Turn 1: Remember this shopping list: milk, eggs, bread, cheese, butter, apples, chicken, rice. Reply OK.
+      Turn 2: What was the first item?
+      Turn 3: What was the last item?
+      Turn 4: Was cheese on the list?
+      Turn 5: How many items were on the list total?
+      Turn 6: What items start with 'b'?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "Remember this shopping list: milk, eggs, bread, cheese, butter, apples, chicken, rice. Reply OK."
+      - role: assistant
+        content: "OK"
+      - role: user
+        content: "What was the first item?"
+      - role: assistant
+        content: "Milk"
+      - role: user
+        content: "What was the last item?"
+      - role: assistant
+        content: "Rice"
+      - role: user
+        content: "Was cheese on the list?"
+      - role: assistant
+        content: "Yes"
+      - role: user
+        content: "How many items were on the list total?"
+      - role: assistant
+        content: "8"
+      - role: user
+        content: "What items start with b?"
+    constraints:
+      - field: first_item
+        operator: eq
+        value: "milk"
+      - field: last_item
+        operator: eq
+        value: "rice"
+      - field: cheese_mentioned
+        operator: eq
+        value: true
+      - field: total_count
+        operator: eq
+        value: 8
+      - field: b_items
+        operator: superset
+        value: ["bread", "butter"]
+
+  - id: ctx-hard-02
+    difficulty: hard
+    description: "Remember rules and apply them across 5 turns"
+    prompt: |
+      Turn 1: Rule: Every response must be exactly 3 sentences. Confirm.
+      Turn 2: What is 5+5?
+      Turn 3: What is the capital of Japan?
+      Turn 4: Is water wet?
+      Turn 5: What is 10*10?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "Rule: Every response must be exactly 3 sentences. Confirm."
+      - role: assistant
+        content: "I understand the rule. I will write exactly three sentences each time. You can test me now."
+      - role: user
+        content: "What is 5+5?"
+      - role: assistant
+        content: "The answer is 10. I arrived at this by simple addition. You may verify this result."
+      - role: user
+        content: "What is the capital of Japan?"
+      - role: assistant
+        content: "Tokyo is the capital. It is a large city. Many people live there."
+      - role: user
+        content: "Is water wet?"
+      - role: assistant
+        content: "That is debatable. Science has opinions. The answer depends on definition."
+      - role: user
+        content: "What is 10*10?"
+    constraints:
+      - field: sentence_count_3
+        operator: eq
+        value: true
+      - field: all_turns_3_sentences
+        operator: eq
+        value: true
+
+  - id: ctx-hard-03
+    difficulty: hard
+    description: "Remember and reference data across 7 turns"
+    prompt: |
+      Turn 1: Remember these scores: Alice=85, Bob=92, Charlie=78, Diana=95. Reply confirmed.
+      Turn 2: Who has the highest score?
+      Turn 3: Who has the lowest score?
+      Turn 4: What is the average score?
+      Turn 5: Is Bob's score above average?
+      Turn 6: Who scored between 80 and 90?
+      Turn 7: If Diana gets 5 more points, what is her new score?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "Remember these scores: Alice=85, Bob=92, Charlie=78, Diana=95. Reply confirmed."
+      - role: assistant
+        content: "Confirmed."
+      - role: user
+        content: "Who has the highest score?"
+      - role: assistant
+        content: "Diana"
+      - role: user
+        content: "Who has the lowest score?"
+      - role: assistant
+        content: "Charlie"
+      - role: user
+        content: "What is the average score?"
+      - role: assistant
+        content: "90"
+      - role: user
+        content: "Is Bob's score above average?"
+      - role: assistant
+        content: "No"
+      - role: user
+        content: "Who scored between 80 and 90?"
+      - role: assistant
+        content: "Alice"
+      - role: user
+        content: "If Diana gets 5 more points, what is her new score?"
+    constraints:
+      - field: highest_correct
+        operator: eq
+        value: "Diana"
+      - field: lowest_correct
+        operator: eq
+        value: "Charlie"
+      - field: average_correct
+        operator: eq
+        value: 90
+      - field: bob_above_avg
+        operator: eq
+        value: false
+      - field: mid_range_correct
+        operator: eq
+        value: "Alice"
+
+  - id: ctx-hard-04
+    difficulty: hard
+    description: "Remember context about a coding task"
+    prompt: |
+      Turn 1: I am building a Python web app with Flask. The database is SQLite. Reply OK.
+      Turn 2: What framework am I using?
+      Turn 3: What database am I using?
+      Turn 4: What language is the app written in?
+      Turn 5: What would be a good ORM for my setup?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "I am building a Python web app with Flask. The database is SQLite. Reply OK."
+      - role: assistant
+        content: "OK"
+      - role: user
+        content: "What framework am I using?"
+      - role: assistant
+        content: "Flask"
+      - role: user
+        content: "What database am I using?"
+      - role: assistant
+        content: "SQLite"
+      - role: user
+        content: "What language is the app written in?"
+      - role: assistant
+        content: "Python"
+      - role: user
+        content: "What would be a good ORM for my setup?"
+    constraints:
+      - field: framework_correct
+        operator: eq
+        value: "Flask"
+      - field: database_correct
+        operator: eq
+        value: "SQLite"
+      - field: language_correct
+        operator: eq
+        value: "Python"
+
+  - id: ctx-hard-05
+    difficulty: hard
+    description: "Remember and track state changes"
+    prompt: |
+      Turn 1: I have 100 dollars. Reply OK.
+      Turn 2: I spend 30 dollars. What do I have now?
+      Turn 3: I earn 50 more dollars. What do I have now?
+      Turn 4: I lose half my money. What do I have now?
+      Turn 5: What was my starting amount?
+      Turn 6: What is my final amount?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "I have 100 dollars. Reply OK."
+      - role: assistant
+        content: "OK"
+      - role: user
+        content: "I spend 30 dollars. What do I have now?"
+      - role: assistant
+        content: "70 dollars"
+      - role: user
+        content: "I earn 50 more dollars. What do I have now?"
+      - role: assistant
+        content: "120 dollars"
+      - role: user
+        content: "I lose half my money. What do I have now?"
+      - role: assistant
+        content: "60 dollars"
+      - role: user
+        content: "What was my starting amount?"
+      - role: assistant
+        content: "100 dollars"
+      - role: user
+        content: "What is my final amount?"
+    constraints:
+      - field: starting_amount
+        operator: eq
+        value: 100
+      - field: final_amount
+        operator: eq
+        value: 60

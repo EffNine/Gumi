@@ -46,8 +46,9 @@ func mathAnswerCheck(response string, constraint benchmark.Constraint) CheckResu
 // extractMathAnswer extracts the final numeric answer from a model response.
 // It looks for:
 //   - The number after "####" (GSM8K convention)
+//   - A fraction like "1/6" after "####" (GSM8K fraction answers)
+//   - A fraction like "1/6" in the response text
 //   - The last number in the response (fallback)
-//   - A number on the last line (fallback)
 func extractMathAnswer(response string) *float64 {
 	trimmed := strings.TrimSpace(response)
 	if trimmed == "" {
@@ -55,7 +56,18 @@ func extractMathAnswer(response string) *float64 {
 	}
 
 	// First try: look for #### marker (GSM8K convention)
-	re := regexp.MustCompile(`####\s*([\d,]+(?:\.\d+)?)`)
+	// Check for fraction first (e.g., "#### 1/6")
+	re := regexp.MustCompile(`####\s*(-?\d+)\s*/\s*(-?\d+)`)
+	if m := re.FindStringSubmatch(trimmed); len(m) > 2 {
+		num, err1 := strconv.ParseFloat(m[1], 64)
+		den, err2 := strconv.ParseFloat(m[2], 64)
+		if err1 == nil && err2 == nil && den != 0 {
+			result := num / den
+			return &result
+		}
+	}
+	// Then check for plain number (e.g., "#### 42")
+	re = regexp.MustCompile(`####\s*([\d,]+(?:\.\d+)?)`)
 	if m := re.FindStringSubmatch(trimmed); len(m) > 1 {
 		cleaned := strings.ReplaceAll(m[1], ",", "")
 		if n, err := strconv.ParseFloat(cleaned, 64); err == nil {
@@ -63,7 +75,22 @@ func extractMathAnswer(response string) *float64 {
 		}
 	}
 
-	// Second try: find all numbers in the response, take the last one
+	// Second try: find fractions in the response text (e.g., "1/6")
+	re = regexp.MustCompile(`(-?\d+(?:,\d{3})*(?:\.\d+)?)\s*/\s*(-?\d+(?:,\d{3})*(?:\.\d+)?)`)
+	fracMatches := re.FindAllStringSubmatch(trimmed, -1)
+	if len(fracMatches) > 0 {
+		last := fracMatches[len(fracMatches)-1]
+		if len(last) >= 3 {
+			num, err1 := strconv.ParseFloat(strings.ReplaceAll(last[1], ",", ""), 64)
+			den, err2 := strconv.ParseFloat(strings.ReplaceAll(last[2], ",", ""), 64)
+			if err1 == nil && err2 == nil && den != 0 {
+				result := num / den
+				return &result
+			}
+		}
+	}
+
+	// Third try: find all numbers in the response, take the last one
 	re = regexp.MustCompile(`-?\d+(?:,\d{3})*(?:\.\d+)?`)
 	matches := re.FindAllString(trimmed, -1)
 	if len(matches) > 0 {
@@ -74,6 +101,6 @@ func extractMathAnswer(response string) *float64 {
 		}
 	}
 
-	// Third try: use the generic extractNumber as fallback
+	// Fourth try: use the generic extractNumber as fallback
 	return extractNumber(trimmed)
 }

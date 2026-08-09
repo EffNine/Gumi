@@ -3,6 +3,7 @@ package promptengine
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/EffNine/gumi/runtime/internal/api"
@@ -112,10 +113,9 @@ func (e *Engine) Build(in Input) Output {
 
 func buildSystemPrompt(in Input) string {
 	lines := []string{
-		"You are responding through Gumi Runtime, a local-first AI runtime layer.",
-		"Answer the user's current request directly and clearly.",
-		"Preserve the user's intent and do not invent facts.",
-		"If information is missing or uncertain, say so instead of guessing.",
+		"You are responding through Gumi Runtime.",
+		"You are an expert AI assistant helping with technical and general tasks.",
+		"Answer the user's current request directly and concisely.",
 	}
 	if in.ToolInstructions != "" {
 		lines = append(lines, "", in.ToolInstructions)
@@ -125,8 +125,15 @@ func buildSystemPrompt(in Input) string {
 	} else if in.ResponseFormat != nil && in.ResponseFormat.Type != "" {
 		lines = append(lines, "Return only the requested output format. Do not wrap it in markdown fences or add explanatory prose.")
 	} else {
-		lines = append(lines, "Do not convert plain-text answers into JSON, YAML, XML, or another structured format unless the user explicitly asks for that format.")
-		lines = append(lines, "If the user requests one word, one token, or an exact format, output only that requested content.")
+		lines = append(lines, "Quality guidelines: think step-by-step for complex tasks, break multi-part requests into subtasks, and verify your response before output.")
+		lines = append(lines, "Do not convert plain-text answers into JSON. If the user asks a simple question, answer in plain text unless they explicitly request JSON.")
+	}
+	// Inject format constraints from user messages into the system prompt for
+	// stabilized mode so models respect exact-format requirements.
+	if in.RuntimeMode == "stabilized" {
+		if formatHint := buildStabilizedFormatHint(in); formatHint != "" {
+			lines = append(lines, formatHint)
+		}
 	}
 	for _, existing := range in.ExistingSystem {
 		if strings.TrimSpace(existing) != "" {
@@ -134,6 +141,66 @@ func buildSystemPrompt(in Input) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// buildStabilizedFormatHint scans user messages in stabilized mode for explicit
+// format constraints (one word, exact word/sentence/line counts, etc.) and
+// returns a reminder to inject into the system prompt.
+func buildStabilizedFormatHint(in Input) string {
+	var hints []string
+	for _, msg := range in.Messages {
+		if msg.Role != "user" {
+			continue
+		}
+		content, _ := msg.Content.(string)
+		if content == "" {
+			continue
+		}
+		// "Answer in one word" / "Respond in one word"
+		if strings.Contains(strings.ToLower(content), "one word") {
+			hints = append(hints, "Your entire response must be exactly one word. No sentences, no punctuation, no extra explanation.")
+		}
+		// "exactly N sentences"
+		if idx := strings.Index(strings.ToLower(content), "exactly "); idx >= 0 {
+			rest := content[idx+8:]
+			var n string
+			for _, ch := range rest {
+				if ch >= '0' && ch <= '9' {
+					n += string(ch)
+				} else {
+					break
+				}
+			}
+			if n != "" && strings.Contains(strings.ToLower(rest), "sentence") {
+				hints = append(hints, fmt.Sprintf("Your response must contain exactly %s sentence(s). No more, no less.", n))
+			}
+		}
+		// "exactly N words"
+		if idx := strings.Index(strings.ToLower(content), "exactly "); idx >= 0 {
+			rest := content[idx+8:]
+			var n string
+			for _, ch := range rest {
+				if ch >= '0' && ch <= '9' {
+					n += string(ch)
+				} else {
+					break
+				}
+			}
+			if n != "" && strings.Contains(strings.ToLower(rest), "word") {
+				hints = append(hints, fmt.Sprintf("Your response must contain exactly %s word(s).", n))
+			}
+		}
+	}
+	if len(hints) == 0 {
+		return ""
+	}
+	var result strings.Builder
+	result.WriteString("Format requirements:")
+	for _, h := range hints {
+		result.WriteString("\n- ")
+		result.WriteString(h)
+	}
+	return result.String()
 }
 
 func buildProfileInstructions(p *profiles.Profile) []string {

@@ -1,0 +1,82 @@
+# GEP Instruction Following Suite
+# Tests a model's ability to follow explicit formatting and content constraints.
+suite:
+  id: instruction-following
+  type: instruction_following
+  difficulty: easy
+  description: "Test basic instruction following with 2-3 constraints"
+  attempts_recommended: 3
+  timeout_seconds: 60
+  max_tokens: 512
+
+tests:
+  - id: inst-easy-01
+    difficulty: easy
+    description: "2-sentence response with forbidden word"
+    prompt: |
+      Explain what Go is in exactly 2 sentences. Do not use the word "programming".
+    constraints:
+      - field: sentence_count
+        operator: eq
+        value: 2
+      - field: forbidden_words
+        operator: not_contains
+        value: ["programming"]
+      - field: non_empty
+        operator: eq
+        value: true
+
+  - id: inst-easy-02
+    difficulty: easy
+    description: "Response ending with specific word"
+    prompt: |
+      What is the capital of France? Your response must end with the word "Paris".
+    constraints:
+      - field: ends_with
+        operator: ends_with
+        value: "Paris"
+      - field: capital_content
+        operator: eq
+        value: true
+
+  - id: inst-easy-03
+    difficulty: easy
+    description: "Single word answer"
+    prompt: |
+      How many days are in a week? Answer with a single number only.
+    constraints:
+      - field: word_count
+        operator: eq
+        value: 1
+      - field: number_match
+        operator: eq
+        value: 7
+
+  - id: inst-easy-04
+    difficulty: easy
+    description: "Bullet list format"
+    prompt: |
+      List 3 benefits of local AI models. Use bullet points with dashes.
+    constraints:
+      - field: min_bullets
+        operator: gte
+        value: 3
+      - field: dash_format
+        operator: eq
+        value: true
+      - field: no_numbered
+        operator: eq
+        value: true
+
+  - id: inst-easy-05
+    difficulty: easy
+    description: "Yes or no answer"
+    prompt: |
+      Is the Earth round? Answer only yes or no, nothing else.
+    constraints:
+      - field: answer_type
+        operator: eq
+        value: "yes_no"
+      - field: contains_expected
+        operator: superset
+        value: ["yes"]

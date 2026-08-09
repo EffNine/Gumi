@@ -176,3 +176,34 @@ func TestAggregate_PercentilesPopulated(t *testing.T) {
 		t.Errorf("P75=%v, want 0.75", ms.P75)
 	}
 }
+
+func TestMeanOf_Empty(t *testing.T) {
+	if got := meanOf(nil); got != 0 {
+		t.Errorf("meanOf(nil) = %v, want 0", got)
+	}
+	if got := meanOf([]float64{}); got != 0 {
+		t.Errorf("meanOf(empty) = %v, want 0", got)
+	}
+}
+
+func TestStdOf_Empty(t *testing.T) {
+	if got := stdOf(nil, 0); got != 0 {
+		t.Errorf("stdOf(nil) = %v, want 0", got)
+	}
+	if got := stdOf([]float64{}, 0); got != 0 {
+		t.Errorf("stdOf(empty) = %v, want 0", got)
+	}
+}
+
+func TestPercentile_SingleElement(t *testing.T) {
+	sorted := []float64{42.0}
+	if got := percentile(sorted, 0.5); got != 42.0 {
+		t.Errorf("percentile(single) = %v, want 42.0", got)
+	}
+}
+
+func TestPercentile_Empty(t *testing.T) {
+	if got := percentile(nil, 0.5); got != 0 {
+		t.Errorf("percentile(nil) = %v, want 0", got)
+	}
+}

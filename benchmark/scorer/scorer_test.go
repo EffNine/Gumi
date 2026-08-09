@@ -146,9 +146,9 @@ func TestAggregateCapabilities_GroupsCorrectly(t *testing.T) {
 		{TestID: "instruction-1", Condition: "direct", Subscores: map[string]float64{"follow": 0.8}},
 	}
 	categories := map[string]string{
-		"json-1":          "json",
-		"json-2":          "json",
-		"instruction-1":   "instruction",
+		"json-1":        "json",
+		"json-2":        "json",
+		"instruction-1": "instruction",
 	}
 	caps := AggregateCapabilities(results, categories)
 	if len(caps) != 2 {

@@ -63,6 +63,8 @@ func Execute() {
 		runLMStudio(os.Args[2:])
 	case "memory":
 		runMemory(os.Args[2:])
+	case "gep":
+		runGEP(os.Args[2:])
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -89,6 +91,7 @@ func printUsage() {
 	fmt.Println("  gumi logs [--tail int]")
 	fmt.Println("  gumi lmstudio [status|load|unload|models] [flags]")
 	fmt.Println("  gumi memory [status|facts|clear] [flags]")
+	fmt.Println("  gumi gep run [flags]")
 	fmt.Println()
 	fmt.Println("Flags for start and restart:")
 	fmt.Println("  --config string         Path to configuration file")

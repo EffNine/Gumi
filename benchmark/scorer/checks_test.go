@@ -545,6 +545,96 @@ func TestScoreSelfConsistency_ZeroOrOneResponses(t *testing.T) {
 	}
 }
 
+func TestScoreSelfConsistency_CaseInsensitive(t *testing.T) {
+	responses := []string{"Uranium", "uranium", "URANIUM"}
+	score := ScoreSelfConsistency(responses)
+	if score != 1.0 {
+		t.Errorf("ScoreSelfConsistency(case diff) = %v, want 1.0", score)
+	}
+}
+
+func TestScoreSelfConsistency_MarkdownFences(t *testing.T) {
+	responses := []string{
+		"```json\n{\"answer\": \"uranium\"}\n```",
+		"```json\n{\"answer\": \"uranium\"}\n```",
+		"just uranium",
+	}
+	score := ScoreSelfConsistency(responses)
+	// After normalization: all become "{\"answer\": \"uranium\"}" or "just uranium"
+	// The first two are identical, third is different → score = 0.0
+	if score != 0.0 {
+		t.Errorf("ScoreSelfConsistency(markdown fences) = %v, want 0.0 (different content)", score)
+	}
+}
+
+func TestScoreSelfConsistency_MarkdownFencesIdentical(t *testing.T) {
+	responses := []string{
+		"```json\n{\"answer\": \"uranium\"}\n```",
+		"```json\n{\"answer\": \"uranium\"}\n```",
+		"{\"answer\": \"uranium\"}",
+	}
+	score := ScoreSelfConsistency(responses)
+	if score != 1.0 {
+		t.Errorf("ScoreSelfConsistency(markdown fences identical) = %v, want 1.0", score)
+	}
+}
+
+func TestScoreSelfConsistency_MarkdownFencesDiffer(t *testing.T) {
+	responses := []string{
+		"```json\n{\"answer\": \"uranium\"}\n```",
+		"```json\n{\"answer\": \"plutonium\"}\n```",
+	}
+	score := ScoreSelfConsistency(responses)
+	if score != 0.0 {
+		t.Errorf("ScoreSelfConsistency(markdown fences differ) = %v, want 0.0", score)
+	}
+}
+
+func TestScoreSelfConsistency_EmptyResponses(t *testing.T) {
+	responses := []string{"", "", ""}
+	score := ScoreSelfConsistency(responses)
+	if score != 1.0 {
+		t.Errorf("ScoreSelfConsistency(empty) = %v, want 1.0", score)
+	}
+}
+
+func TestScoreSelfConsistency_MixedEmptyAndNonEmpty(t *testing.T) {
+	responses := []string{"uranium", "", "uranium"}
+	score := ScoreSelfConsistency(responses)
+	if score != 0.0 {
+		t.Errorf("ScoreSelfConsistency(mixed empty) = %v, want 0.0", score)
+	}
+}
+
+func TestScoreSelfConsistency_SingleWord(t *testing.T) {
+	responses := []string{"42", "42"}
+	score := ScoreSelfConsistency(responses)
+	if score != 1.0 {
+		t.Errorf("ScoreSelfConsistency(single word) = %v, want 1.0", score)
+	}
+}
+
+func TestScoreSelfConsistency_LongResponses(t *testing.T) {
+	r1 := "The capital of France is Paris. It is known for the Eiffel Tower."
+	r2 := "Paris is the capital of France. The Eiffel Tower is there."
+	r3 := "the capital of france is paris. it is known for the eiffel tower."
+	responses := []string{r1, r2, r3}
+	score := ScoreSelfConsistency(responses)
+	if score != 0.0 {
+		t.Errorf("ScoreSelfConsistency(long different) = %v, want 0.0", score)
+	}
+
+	// Identical long responses with different formatting
+	r4 := "The capital of France is Paris."
+	r5 := "  THE CAPITAL OF FRANCE IS PARIS.  "
+	r6 := "the\ncapital\nof\nFrance\nis\nParis."
+	responses = []string{r4, r5, r6}
+	score = ScoreSelfConsistency(responses)
+	if score != 1.0 {
+		t.Errorf("ScoreSelfConsistency(long identical) = %v, want 1.0", score)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // checkSelfConsistency
 // ---------------------------------------------------------------------------
@@ -586,6 +676,74 @@ func TestCheckSelfConsistency_NonSliceValue(t *testing.T) {
 	if got.Details != "self_consistency check requires variant responses" {
 		t.Errorf("self_consistency with non-[]string value: Details=%q, want %q",
 			got.Details, "self_consistency check requires variant responses")
+	}
+}
+
+func TestCheckSelfConsistency_CaseInsensitive(t *testing.T) {
+	got := CheckRegistry["self_consistency"]("Uranium", benchmark.Constraint{
+		Value: []string{"uranium", "URANIUM"},
+	})
+	if !got.Passed {
+		t.Errorf("self_consistency case insensitive: Passed=%v, want true. Details: %s", got.Passed, got.Details)
+	}
+}
+
+func TestCheckSelfConsistency_MarkdownFences(t *testing.T) {
+	// All three normalize to the same thing after fence stripping
+	got := CheckRegistry["self_consistency"]("{\"answer\": \"uranium\"}", benchmark.Constraint{
+		Value: []string{"```json\n{\"answer\": \"uranium\"}\n```", "{\"answer\": \"uranium\"}"},
+	})
+	if !got.Passed {
+		t.Errorf("self_consistency markdown fences: Passed=%v, want true. Details: %s", got.Passed, got.Details)
+	}
+}
+
+func TestCheckSelfConsistency_EmptyVariants(t *testing.T) {
+	got := CheckRegistry["self_consistency"]("", benchmark.Constraint{
+		Value: []string{},
+	})
+	// Single empty response with no variants — should pass (vacuous)
+	if !got.Passed {
+		t.Errorf("self_consistency empty variants: Passed=%v, want true. Details: %s", got.Passed, got.Details)
+	}
+}
+
+func TestCheckSelfConsistency_AllEmpty(t *testing.T) {
+	got := CheckRegistry["self_consistency"]("", benchmark.Constraint{
+		Value: []string{"", ""},
+	})
+	if !got.Passed {
+		t.Errorf("self_consistency all empty: Passed=%v, want true. Details: %s", got.Passed, got.Details)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// normalizeForConsistency
+// ---------------------------------------------------------------------------
+
+func TestNormalizeForConsistency_CaseFold(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"Hello World", "hello world"},
+		{"HELLO WORLD", "hello world"},
+		{"hello world", "hello world"},
+		{"  Hello   World  ", "hello world"},
+		{"line1\nline2\tline3", "line1 line2 line3"},
+		{"", ""},
+		{"```json\n{\"a\": 1}\n```", "{\"a\": 1}"},
+		{"```python\ndef f(): pass\n```", "def f(): pass"},
+		{"```no-lang\ncontent\n```", "content"},
+		{"text before\n```json\n{\"x\": 1}\n```", "{\"x\": 1}"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := normalizeForConsistency(tt.input)
+			if got != tt.want {
+				t.Errorf("normalizeForConsistency(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
 	}
 }
 

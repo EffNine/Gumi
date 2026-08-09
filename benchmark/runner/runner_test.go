@@ -152,9 +152,9 @@ func TestSanitizeName(t *testing.T) {
 
 func TestDirectBaseURL(t *testing.T) {
 	tests := []struct {
-		name     string
-		cfg      Config
-		want     string
+		name string
+		cfg  Config
+		want string
 	}{
 		{"always returns LM Studio URL", Config{Provider: "lmstudio"}, "http://192.168.0.164:1234"},
 		{"ignores custom base URL", Config{Provider: "lmstudio", BaseURL: "http://custom:8080"}, "http://192.168.0.164:1234"},

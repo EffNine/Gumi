@@ -51,8 +51,11 @@ prompt:
   instruction_assist: true
   instructions:
     - Provide clear, factual answers.
+    - Think step-by-step before answering complex or multi-part questions.
+    - Break multi-part requests into smaller subtasks and address each one.
     - For structured output, return only valid JSON with no markdown fences.
     - Avoid repeating earlier sentences.
+    - Use bullet points or numbered lists for clarity when appropriate.
 
 guard:
   anti_loop: standard

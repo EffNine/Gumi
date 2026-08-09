@@ -81,7 +81,14 @@ func (e *Engine) Validate(in Input) Report {
 	}
 
 	if !hasToolCalls && (finish == "length" || hasUnclosedCodeFence(content)) {
-		report.add(IssueIncompleteResponse, "assistant response appears incomplete", "choices[0]", "warning", true, StrategyRetryGeneration)
+		// Only flag as incomplete if the response truly ends mid-sentence.
+		// Models that reach max_tokens naturally (reasoning models, verbose
+		// responses) should not be penalized for a clean length stop.
+		if finish == "length" && endsWithSentenceEnding(content) {
+			// Response ended at a natural sentence boundary — not incomplete.
+		} else {
+			report.add(IssueIncompleteResponse, "assistant response appears incomplete", "choices[0]", "warning", true, StrategyRetryGeneration)
+		}
 	}
 
 	if !hasToolCalls && hasRepetition(content, in.ResponseFormat, in.RuntimeMode) {
@@ -186,10 +193,14 @@ func requiresJSON(format *api.ResponseFormat, mode string, content string) bool 
 		return true
 	}
 	trimmed := strings.TrimSpace(content)
-	// Detect bare JSON or any language-tagged fence (```json, ```python, etc.).
-	// Models like RNJ-1 wrap JSON in ```python blocks, so we need to catch
-	// those and let ExtractJSONCandidate + repair extract the inner JSON.
-	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "```") {
+	// Detect bare JSON — the response may be a plain JSON object.
+	if strings.HasPrefix(trimmed, "{") {
+		return true
+	}
+	// Detect fenced content as potential JSON — some models (e.g. RNJ-1) wrap
+	// JSON in ```python or other language-tagged fences. ExtractJSONCandidate
+	// handles extraction regardless of fence language.
+	if strings.HasPrefix(trimmed, "```") {
 		return true
 	}
 	return false
@@ -281,3 +292,20 @@ func hasRepetition(content string, format *api.ResponseFormat, mode string) bool
 	}
 	return false
 }
+
+// endsWithSentenceEnding checks whether the last non-whitespace character of
+// content is sentence-ending punctuation (., !, ?, ), ", ], }) or a closing
+// code fence. Responses that end cleanly at a sentence boundary are likely
+// complete even when finish_reason is "length".
+func endsWithSentenceEnding(content string) bool {
+	trimmed := strings.TrimRight(content, " 	\n\r")
+	if trimmed == "" {
+		return false
+	}
+	last := trimmed[len(trimmed)-1]
+	return last == '.' || last == '!' || last == '?' ||
+		last == ')' || last == ']' || last == '}' ||
+		last == '"' || last == '\'' || last == '`'
+}
+
+// hasRepetition checks whether the content contains repeated lines or sentences.

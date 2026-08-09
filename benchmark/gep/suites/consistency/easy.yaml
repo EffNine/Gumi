@@ -1,0 +1,104 @@
+# GEP Consistency Suite - Easy
+suite:
+  id: consistency
+  type: consistency
+  difficulty: easy
+  description: "Test self-consistency across multiple phrasings of the same question"
+  attempts_recommended: 3
+  timeout_seconds: 60
+  max_tokens: 256
+
+tests:
+  - id: cons-easy-01
+    difficulty: easy
+    description: "Math fact consistency"
+    prompt: "What is 12 * 12?"
+    type: self_consistency
+    variants:
+      - "Calculate twelve times twelve."
+      - "12 multiplied by 12 equals what?"
+      - "Find the product of 12 and 12."
+      - "Twelve squared is?"
+    expected_answer: "144"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: numeric_correct
+        operator: eq
+        value: 144
+
+  - id: cons-easy-02
+    difficulty: easy
+    description: "Factual consistency"
+    prompt: "What is the largest ocean on Earth?"
+    type: self_consistency
+    variants:
+      - "Which ocean is the biggest?"
+      - "Name the largest ocean."
+      - "What ocean covers the most area?"
+      - "Identify the world's largest ocean."
+    expected_answer: "pacific"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: expected_answer_match
+        operator: eq
+        value: true
+
+  - id: cons-easy-03
+    difficulty: easy
+    description: "Simple logic consistency"
+    prompt: "If all Bloops are Razzies and all Razzies are Lazzies, are all Bloops Lazzies?"
+    type: self_consistency
+    variants:
+      - "Given: Bloops ⊂ Razzies, Razzies ⊂ Lazzies. Is Bools ⊂ Lazzies?"
+      - "Logic puzzle: All Bloops are Razzies. All Razzies are Lazzies. Conclude?"
+      - "If Bools are Razzies and Razzies are Lazzies, what follows?"
+    expected_answer: "yes"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: logic_correct
+        operator: eq
+        value: true
+
+  - id: cons-easy-04
+    difficulty: easy
+    description: "Definition consistency"
+    prompt: "What does 'photosynthesis' mean?"
+    type: self_consistency
+    variants:
+      - "Define photosynthesis."
+      - "Explain the process of photosynthesis."
+      - "What is the scientific term for how plants make food from sunlight?"
+      - "Give me the meaning of photosynthesis."
+    expected_answer: "process"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: key_concept_present
+        operator: superset
+        value: ["sunlight", "plants", "food", "energy"]
+
+  - id: cons-easy-05
+    difficulty: easy
+    description: "Number consistency"
+    prompt: "How many continents are there?"
+    type: self_consistency
+    variants:
+      - "What is the total count of continents?"
+      - "Enumerate all continents and tell me how many."
+      - "Count the continents on Earth."
+      - "How many land masses are called continents?"
+    expected_answer: "7"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: numeric_correct
+        operator: eq
+        value: 7

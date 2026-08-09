@@ -1,0 +1,104 @@
+# GEP Consistency Suite - Medium
+suite:
+  id: consistency
+  type: consistency
+  difficulty: medium
+  description: "Test consistency with more complex reasoning across variants"
+  attempts_recommended: 3
+  timeout_seconds: 90
+  max_tokens: 512
+
+tests:
+  - id: cons-med-01
+    difficulty: medium
+    description: "Multi-step math consistency"
+    prompt: "What is (23 * 17) - (45 / 9)?"
+    type: self_consistency
+    variants:
+      - "Calculate twenty-three times seventeen, then subtract forty-five divided by nine."
+      - "Solve: 23 × 17 − 45 ÷ 9"
+      - "Do the math: (23 times 17) minus (45 over 9)"
+      - "Evaluate this expression: 23*17 - 45/9"
+    expected_answer: "378"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: numeric_correct
+        operator: eq
+        value: 378
+
+  - id: cons-med-02
+    difficulty: medium
+    description: "Coding logic consistency"
+    prompt: "What does this Python code output: print(sum([1,2,3]))"
+    type: self_consistency
+    variants:
+      - "Run this in your head: sum([1, 2, 3]) printed to stdout"
+      - "What is the result of print(1+2+3) in Python?"
+      - "Evaluate: sum of list [1,2,3] printed"
+      - "Code output: print(sum([1,2,3])) — what appears?"
+    expected_answer: "6"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: numeric_correct
+        operator: eq
+        value: 6
+
+  - id: cons-med-03
+    difficulty: medium
+    description: "Temporal reasoning consistency"
+    prompt: "If today is Wednesday, what day will it be in 72 hours?"
+    type: self_consistency
+    variants:
+      - "Starting from Wednesday, add 72 hours. What day is it?"
+      - "72 hours from Wednesday falls on which day of the week?"
+      - "Count forward 72 hours from Wednesday. Which day?"
+      - "Wednesday + 72h = ?"
+    expected_answer: "friday"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: day_correct
+        operator: eq
+        value: true
+
+  - id: cons-med-04
+    difficulty: medium
+    description: "Proportional reasoning consistency"
+    prompt: "If 3 workers take 12 days to build a wall, how many days will 4 workers take?"
+    type: self_consistency
+    variants:
+      - "Work rate problem: 3 men, 12 days → 4 men, ? days"
+      - "Inverse proportion: 3 workers need 12 days. 4 workers need how long?"
+      - "If 3 people take 12 days, how long for 4 people doing the same work?"
+    expected_answer: "9"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: numeric_correct
+        operator: eq
+        value: 9
+
+  - id: cons-med-05
+    difficulty: medium
+    description: "Scientific fact consistency"
+    prompt: "What is the chemical symbol for gold?"
+    type: self_consistency
+    variants:
+      - "Give me the element symbol for gold."
+      - "What abbreviation represents the element gold?"
+      - "Gold's chemical symbol is?"
+      - "In the periodic table, what symbol is gold?"
+    expected_answer: "au"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: expected_answer_match
+        operator: eq
+        value: true

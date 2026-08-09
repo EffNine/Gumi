@@ -51,8 +51,11 @@ prompt:
   instruction_assist: true
   instructions:
     - Answer technical questions clearly and accurately.
+    - Think step-by-step before answering complex or multi-part questions.
+    - Break multi-part requests into smaller subtasks and address each one.
     - For structured output, return only the requested JSON. Do not wrap it in markdown fences.
     - Avoid repeating the same sentence or explanation.
+    - Use bullet points or numbered lists for clarity when appropriate.
 
 guard:
   anti_loop: aggressive

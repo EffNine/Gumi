@@ -1,0 +1,120 @@
+# GEP Structured Output Suite - Easy
+suite:
+  id: structured-output
+  type: structured_output
+  difficulty: easy
+  description: "Test basic JSON and structured output generation"
+  attempts_recommended: 3
+  timeout_seconds: 60
+  max_tokens: 512
+
+tests:
+  - id: struct-easy-01
+    difficulty: easy
+    description: "Simple JSON object"
+    prompt: |
+      Return a JSON object with keys "name" and "age" where name is "Test" and age is 42.
+      Do not include any explanation or markdown fences.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["name", "age"]
+      - field: name_value
+        operator: eq
+        value: "Test"
+      - field: age_value
+        operator: eq
+        value: 42
+      - field: no_markdown
+        operator: eq
+        value: true
+      - field: no_explanation
+        operator: eq
+        value: true
+
+  - id: struct-easy-02
+    difficulty: easy
+    description: "JSON array of primitives"
+    prompt: |
+      Return a JSON array of exactly 5 integers: 10, 20, 30, 40, 50. No other text.
+    constraints:
+      - field: json
+        operator: valid
+      - field: array_length
+        operator: eq
+        value: 5
+      - field: first_element
+        operator: eq
+        value: 10
+      - field: last_element
+        operator: eq
+        value: 50
+      - field: no_text_around
+        operator: eq
+        value: true
+
+  - id: struct-easy-03
+    difficulty: easy
+    description: "JSON with nested object"
+    prompt: |
+      Return a JSON object representing a person with fields: first_name, last_name, and address.
+      address must be an object with street and city fields.
+      Do not use markdown fences.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["first_name", "last_name", "address"]
+      - field: nested_keys
+        operator: superset
+        value: ["street", "city"]
+      - field: no_markdown
+        operator: eq
+        value: true
+
+  - id: struct-easy-04
+    difficulty: easy
+    description: "Tabular data as JSON"
+    prompt: |
+      Convert this data to JSON:
+      Row 1: ID=1, Name=Alice, Score=95
+      Row 2: ID=2, Name=Bob, Score=87
+      Row 3: ID=3, Name=Charlie, Score=92
+      Return as a JSON array of objects. No markdown.
+    constraints:
+      - field: json
+        operator: valid
+      - field: array_length
+        operator: eq
+        value: 3
+      - field: keys_present
+        operator: superset
+        value: ["ID", "Name", "Score"]
+      - field: no_markdown
+        operator: eq
+        value: true
+
+  - id: struct-easy-05
+    difficulty: easy
+    description: "Enum-constrained output"
+    prompt: |
+      Return a JSON object with key "status" that must be one of: "pending", "approved", "rejected".
+      Set it to "approved". No other fields. No markdown fences.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["status"]
+      - field: enum_valid
+        operator: eq
+        value: "approved"
+      - field: no_markdown
+        operator: eq
+        value: true
+      - field: exact_keys
+        operator: eq
+        value: true

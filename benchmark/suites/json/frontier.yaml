@@ -98,8 +98,8 @@ suite:
         Use "op", "path", and "value" keys for each patch operation.
         Return at least 3 operations. Return only valid JSON.
       timeout_seconds: 60
-    max_tokens: 1024
-    constraints:
+      max_tokens: 1024
+      constraints:
       - field: json
         operator: valid
       - field: keys_present

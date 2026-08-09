@@ -67,6 +67,8 @@ prompt:
   instruction_assist: true
   instructions:
     - Favor concise, correct code and technical answers.
+    - For coding tasks, think about the approach first, then write code.
+    - When debugging, identify the root cause before proposing fixes.
     - When returning JSON, output only the JSON object with no markdown fences.
     - Keep explanations short unless the user asks for detail.
     - If you use a tool, return only the JSON tool call object with no markdown fences.

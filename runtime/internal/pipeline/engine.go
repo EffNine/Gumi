@@ -2265,6 +2265,39 @@ func (e *Engine) applyInstructionAssist(pc *Context) {
 
 	pc.InstructionConstraints = result.Constraints
 	pc.InstructionHintInjected = true
+	pc.InstructionConflicts = result.Conflicts
+	pc.InstructionDeduplicated = result.DeduplicatedCount > 0
+
+	// ── Optimization: Remove conflicting "think step-by-step" guidance
+	// when format-restrictive constraints (one_word, digit_answer, exact counts)
+	// are present. Verbose guidance conflicts with short-response constraints.
+	if e.instructionEngine.IsFormatRestrictive(result.Constraints) {
+		messages := pc.NormalizedRequest.Messages
+		for i, msg := range messages {
+			if msg.Role == "system" {
+				if s, ok := msg.Content.(string); ok {
+					// Remove the quality guidelines line that encourages verbosity
+					lines := strings.Split(s, "\n")
+					var filtered []string
+					for _, line := range lines {
+						trimmed := strings.TrimSpace(line)
+						if strings.Contains(trimmed, "Quality guidelines: think step-by-step") {
+							pc.AddEvent("instruction", "conflicting_guidance_removed", SeverityInfo, "removed verbose quality guideline that conflicts with format-restrictive constraints", nil)
+							continue
+						}
+						if strings.Contains(trimmed, "Do not convert plain-text answers into JSON") && result.Constraints[0].Type == "json" {
+							// Keep this line — it's compatible with JSON constraints
+							filtered = append(filtered, line)
+							continue
+						}
+						filtered = append(filtered, line)
+					}
+					messages[i].Content = strings.Join(filtered, "\n")
+					break
+				}
+			}
+		}
+	}
 
 	// Inject constraint hints into the system prompt.
 	messages := pc.NormalizedRequest.Messages
@@ -2278,7 +2311,10 @@ func (e *Engine) applyInstructionAssist(pc *Context) {
 	}
 
 	pc.AddEvent("instruction", "instruction_assist_applied", SeverityInfo, "instruction-following assist activated", map[string]string{
-		"constraint_count": fmt.Sprintf("%d", len(result.Constraints)),
+		"constraint_count":   fmt.Sprintf("%d", len(result.Constraints)),
+		"deduplicated":       fmt.Sprintf("%d", result.DeduplicatedCount),
+		"conflicts":          fmt.Sprintf("%d", len(result.Conflicts)),
+		"format_restrictive": fmt.Sprintf("%t", e.instructionEngine.IsFormatRestrictive(result.Constraints)),
 	})
 }
 

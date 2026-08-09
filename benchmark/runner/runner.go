@@ -32,6 +32,7 @@ type Config struct {
 	SuiteSelector    string
 	LeaderboardScore float64
 	DirectBaseURL    string
+	DirectAPIKey     string
 }
 
 // Run is the main entry point for the benchmark subsystem.
@@ -102,7 +103,7 @@ func (o *Orchestrator) Execute() (*report.Report, error) {
 	}
 
 	// 4. Create provider clients
-	directClient := NewProviderClient(o.directBaseURL(), "")
+	directClient := NewProviderClient(o.directBaseURL(), o.config.DirectAPIKey)
 	gumiClient := NewProviderClient(o.gumiBaseURL(), o.config.APIKey)
 
 	var frontierClient *ProviderClient
@@ -446,9 +447,11 @@ func (o *Orchestrator) clientForCondition(cond Condition, direct, gumi, frontier
 // This always goes to the raw provider, never through Gumi. If the user
 // provided --direct-base-url, use it; otherwise fall back to the legacy
 // LM Studio default for backward compatibility.
+// NOTE: The ProviderClient appends /v1/chat/completions, so the base URL
+// should NOT include /v1.
 func (o *Orchestrator) directBaseURL() string {
 	if o.config.DirectBaseURL != "" {
-		return o.config.DirectBaseURL
+		return strings.TrimSuffix(o.config.DirectBaseURL, "/v1")
 	}
 	return "http://192.168.0.164:1234"
 }

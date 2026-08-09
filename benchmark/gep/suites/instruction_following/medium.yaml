@@ -1,0 +1,122 @@
+# GEP Instruction Following Suite - Medium
+suite:
+  id: instruction-following
+  type: instruction_following
+  difficulty: medium
+  description: "Test instruction following with 4-5 simultaneous constraints"
+  attempts_recommended: 3
+  timeout_seconds: 90
+  max_tokens: 512
+
+tests:
+  - id: inst-med-01
+    difficulty: medium
+    description: "Multiple format constraints"
+    prompt: |
+      Write a short paragraph about artificial intelligence. Requirements:
+      - Exactly 3 sentences
+      - Do not use the word "technology"
+      - Each sentence must start with a capital letter
+      - End with the word "future"
+    constraints:
+      - field: sentence_count
+        operator: eq
+        value: 3
+      - field: forbidden_words
+        operator: not_contains
+        value: ["technology"]
+      - field: capital_start
+        operator: eq
+        value: true
+      - field: ends_with
+        operator: ends_with
+        value: "future"
+
+  - id: inst-med-02
+    difficulty: medium
+    description: "Structured list with constraints"
+    prompt: |
+      List 5 programming languages. For each:
+      - Use a dash bullet
+      - Include the year it was created
+      - Do not use the word "popular"
+      - Keep each entry under 30 characters
+    constraints:
+      - field: min_bullets
+        operator: gte
+        value: 5
+      - field: forbidden_words
+        operator: not_contains
+        value: ["popular"]
+      - field: max_chars_per_line
+        operator: lte
+        value: 30
+      - field: year_mentioned
+        operator: eq
+        value: true
+
+  - id: inst-med-03
+    difficulty: medium
+    description: "JSON output with constraints"
+    prompt: |
+      Return a JSON object with keys "name", "age", and "city".
+      - name must be "Alice"
+      - age must be a number between 25 and 35
+      - city must contain "York"
+      - No markdown fences
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["name", "age", "city"]
+      - field: no_markdown
+        operator: eq
+        value: true
+      - field: name_value
+        operator: eq
+        value: "Alice"
+
+  - id: inst-med-04
+    difficulty: medium
+    description: "Negative constraint with content requirement"
+    prompt: |
+      Describe the process of photosynthesis in 100-200 words.
+      Do not use the words "plant", "green", or "chlorophyll".
+      Must mention "sunlight" and "energy".
+    constraints:
+      - field: min_chars
+        operator: gte
+        value: 100
+      - field: max_chars
+        operator: lte
+        value: 200
+      - field: forbidden_words
+        operator: not_contains
+        value: ["plant", "green", "chlorophyll"]
+      - field: required_words
+        operator: superset
+        value: ["sunlight", "energy"]
+
+  - id: inst-med-05
+    difficulty: medium
+    description: "Multi-format constraint"
+    prompt: |
+      Write exactly 4 lines. Each line must:
+      - Start with a different letter of "GUMI"
+      - Contain exactly one number
+      - Be under 40 characters
+      - Not contain any commas
+    constraints:
+      - field: line_count
+        operator: eq
+        value: 4
+      - field: no_commas
+        operator: eq
+        value: true
+      - field: max_chars_per_line
+        operator: lte
+        value: 40
+      - field: number_per_line
+        operator: gte
+        value: 1

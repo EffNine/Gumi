@@ -1,0 +1,153 @@
+# GEP Latency Suite
+# Measures response latency characteristics across different input sizes.
+suite:
+  id: latency
+  type: latency
+  difficulty: easy
+  description: "Measure latency across different prompt lengths and response types"
+  attempts_recommended: 5
+  timeout_seconds: 120
+  max_tokens: 512
+
+tests:
+  - id: lat-short-01
+    difficulty: easy
+    description: "Short prompt, short response latency"
+    prompt: "Say hello."
+    constraints:
+      - field: latency_ms
+        operator: lt
+        value: 5000
+      - field: response_not_empty
+        operator: eq
+        value: true
+
+  - id: lat-short-02
+    difficulty: easy
+    description: "Short prompt, JSON response latency"
+    prompt: "Return {\"greeting\": \"hello\"} as JSON only."
+    constraints:
+      - field: latency_ms
+        operator: lt
+        value: 5000
+      - field: json_valid
+        operator: eq
+        value: true
+
+  - id: lat-medium-01
+    difficulty: medium
+    description: "Medium prompt latency"
+    prompt: |
+      Read this passage and summarize it in one sentence:
+      The quick brown fox jumps over the lazy dog. This sentence contains every letter
+      of the alphabet and has been used for typing practice since the late 19th century.
+      It is one of the most famous pangrams in the English language.
+      Many typists use it to test their keyboards and practice their typing skills.
+    constraints:
+      - field: latency_ms
+        operator: lt
+        value: 10000
+      - field: summary_present
+        operator: eq
+        value: true
+
+  - id: lat-medium-02
+    difficulty: medium
+    description: "Medium prompt, structured output latency"
+    prompt: |
+      Extract entities from this text and return as JSON:
+      "Apple Inc. was founded by Steve Jobs in Cupertino, California in 1976.
+       Tim Cook became CEO in 2011. The company has offices in Seattle and Austin."
+      Return: {"companies": [...], "people": [...], "locations": [...], "years": [...]}
+    constraints:
+      - field: latency_ms
+        operator: lt
+        value: 15000
+      - field: json_valid
+        operator: eq
+        value: true
+      - field: all_keys_present
+        operator: eq
+        value: true
+
+  - id: lat-long-01
+    difficulty: hard
+    description: "Long prompt latency"
+    prompt: |
+      Here is a detailed specification for a microservice architecture:
+      
+      The system consists of four services:
+      1. User Service: handles authentication and user profiles
+      2. Order Service: manages order lifecycle and state transitions
+      3. Payment Service: processes transactions via Stripe integration
+      4. Notification Service: sends emails and push notifications
+      
+      The services communicate via REST APIs and an internal message queue (Redis).
+      Each service has its own database (PostgreSQL).
+      API Gateway routes requests to the appropriate service.
+      Rate limiting is applied at the gateway level (100 req/s per user).
+      Circuit breakers are implemented for all inter-service calls.
+      Health checks run every 10 seconds on each service.
+      All services log to stdout in JSON format.
+      Metrics are exported to Prometheus on port 9090.
+      
+      Based on this architecture, answer: what happens when the Payment Service is down?
+      Return your answer as a JSON object with keys: "impact", "user_experience", "mitigation".
+    constraints:
+      - field: latency_ms
+        operator: lt
+        value: 20000
+      - field: json_valid
+        operator: eq
+        value: true
+      - field: keys_present
+        operator: superset
+        value: ["impact", "user_experience", "mitigation"]
+
+  - id: lat-long-02
+    difficulty: hard
+    description: "Long context retention with latency"
+    prompt: |
+      Context (remember this for later questions):
+      Project Aurora is a space exploration initiative with the following parameters:
+      - Launch site: Cape Canaveral, Florida
+      - Target orbit: Low Earth Orbit at 400km altitude
+      - Crew size: 4 astronauts
+      - Mission duration: 180 days
+      - Primary objective: Deploy the Zenith Observatory module
+      - Secondary objective: Conduct materials science experiments
+      - Budget: $2.4 billion
+      - Timeline: Launch in Q3 2025
+      
+      Question 1: What is the mission duration?
+      Question 2: How many astronauts are on crew?
+      Question 3: What is the primary objective?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "Context (remember this for later questions): Project Aurora is a space exploration initiative with the following parameters: Launch site: Cape Canaveral, Florida. Target orbit: Low Earth Orbit at 400km altitude. Crew size: 4 astronauts. Mission duration: 180 days. Primary objective: Deploy the Zenith Observatory module. Secondary objective: Conduct materials science experiments. Budget: $2.4 billion. Timeline: Launch in Q3 2025."
+      - role: assistant
+        content: "I have noted the Project Aurora details."
+      - role: user
+        content: "Question 1: What is the mission duration?"
+      - role: assistant
+        content: "180 days"
+      - role: user
+        content: "Question 2: How many astronauts are on crew?"
+      - role: assistant
+        content: "4"
+      - role: user
+        content: "Question 3: What is the primary objective?"
+    constraints:
+      - field: latency_ms
+        operator: lt
+        value: 30000
+      - field: mission_duration
+        operator: eq
+        value: 180
+      - field: crew_size
+        operator: eq
+        value: 4
+      - field: primary_objective
+        operator: eq
+        value: "Zenith Observatory"

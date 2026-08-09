@@ -142,3 +142,59 @@ func TestBuildPythonTestSource_NoDuplicateSignature(t *testing.T) {
 		t.Fatalf("expected imports preserved, source:\n%s", src)
 	}
 }
+
+func TestBuildPythonTestSource_NoPrompt(t *testing.T) {
+	generated := "def add(a, b): return a + b"
+	test := "assert add(1, 2) == 3"
+	src := buildPythonTestSource("", generated, test, "add")
+	if !strings.Contains(src, "def add") {
+		t.Errorf("expected generated code preserved, source:\n%s", src)
+	}
+	if !strings.Contains(src, "assert add") {
+		t.Errorf("expected test code appended, source:\n%s", src)
+	}
+}
+
+func TestBuildPythonTestSource_NoEntryPoint(t *testing.T) {
+	prompt := "def helper(): pass\n"
+	generated := "def main(): pass"
+	test := "assert True"
+	src := buildPythonTestSource(prompt, generated, test, "")
+	if !strings.Contains(src, "def helper") {
+		t.Errorf("expected prompt code included when no entry point, source:\n%s", src)
+	}
+}
+
+func TestPythonBinary(t *testing.T) {
+	bin := pythonBinary()
+	if bin != "python3" && bin != "python" {
+		t.Errorf("pythonBinary() = %q, want python3 or python", bin)
+	}
+}
+
+func TestStringFromMap_MissingKey(t *testing.T) {
+	m := map[string]interface{}{"a": "1"}
+	got := stringFromMap(m, "b")
+	if got != "" {
+		t.Errorf("stringFromMap(missing key) = %q, want empty", got)
+	}
+}
+
+func TestStringFromMap_NonStringValue(t *testing.T) {
+	m := map[string]interface{}{"count": 42}
+	got := stringFromMap(m, "count")
+	if got != "42" {
+		t.Errorf("stringFromMap(int value) = %q, want '42'", got)
+	}
+}
+
+func TestStripImports(t *testing.T) {
+	prompt := "from typing import List\n\n# comment\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    pass\n"
+	src := stripImports(prompt)
+	if strings.Contains(src, "from typing import List") {
+		t.Errorf("expected imports stripped, got:\n%s", src)
+	}
+	if !strings.Contains(src, "def has_close_elements") {
+		t.Errorf("expected function body preserved, got:\n%s", src)
+	}
+}

@@ -6,12 +6,12 @@ import (
 
 // Condition identifiers for the different request modes.
 const (
-	ConditionDirect            Condition = "direct"
+	ConditionDirect          Condition = "direct"
 	ConditionGumiDirect      Condition = "gumi-direct"
 	ConditionGumiLightweight Condition = "gumi-lightweight"
 	ConditionGumiStabilized  Condition = "gumi-stabilized"
 	ConditionGumiStructured  Condition = "gumi-structured"
-	ConditionFrontier          Condition = "frontier"
+	ConditionFrontier        Condition = "frontier"
 )
 
 // Condition represents a request mode for a benchmark test.
@@ -62,7 +62,7 @@ func (cm *ConditionManager) BuildRequest(cond Condition, test benchmark.SuiteTes
 
 	switch cond {
 	case ConditionDirect:
-		// Use raw model name as-is
+		base.Model = cm.cleanModelForDirect(cm.modelName)
 
 	case ConditionGumiDirect:
 		base.Model = cm.providerPrefix() + cm.modelName
@@ -96,8 +96,19 @@ func (cm *ConditionManager) providerPrefix() string {
 		return "lmstudio:"
 	case "ollama":
 		return "ollama:"
+	case "conductor":
+		return "conductor:"
 	default:
 		return "lmstudio:"
 	}
 }
 
+// cleanModelForDirect strips the provider prefix for direct API calls.
+// The direct provider API expects just the model name without routing prefix.
+func (cm *ConditionManager) cleanModelForDirect(modelID string) string {
+	prefix := cm.providerPrefix()
+	if len(modelID) > len(prefix) && modelID[:len(prefix)] == prefix {
+		return modelID[len(prefix):]
+	}
+	return modelID
+}

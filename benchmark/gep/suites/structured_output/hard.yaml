@@ -1,0 +1,140 @@
+# GEP Structured Output Suite - Hard
+suite:
+  id: structured-output
+  type: structured_output
+  difficulty: hard
+  description: "Test structured output with complex validation and schema compliance"
+  attempts_recommended: 5
+  timeout_seconds: 120
+  max_tokens: 2048
+
+tests:
+  - id: struct-hard-01
+    difficulty: hard
+    description: "OpenAPI-like schema generation"
+    prompt: |
+      Generate a JSON representation of an OpenAPI schema for a "User" resource with:
+      - id (integer, required)
+      - username (string, required, min length 3)
+      - email (string, required, format: email)
+      - age (integer, optional, minimum 0, maximum 150)
+      - roles (array of strings, required, min items 1)
+      - created_at (string, required, format: date-time)
+      No markdown fences. Must be valid JSON.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["id", "username", "email", "roles", "created_at"]
+      - field: no_markdown
+        operator: eq
+        value: true
+      - field: required_fields
+        operator: eq
+        value: true
+      - field: array_min_items
+        operator: gte
+        value: 1
+
+  - id: struct-hard-02
+    difficulty: hard
+    description: "Conditional JSON structure"
+    prompt: |
+      Generate a JSON object for a shipping calculation:
+      If package_type is "fragile": include "insurance_cost" (float) and "handling_notes" (string)
+      If package_type is "standard": include "base_rate" (float)
+      Include "weight_kg" (float > 0) and "destination" (string) in both cases.
+      Set package_type to "fragile", weight to 2.5, destination to "NYC".
+      No markdown.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["weight_kg", "destination"]
+      - field: conditional_keys
+        operator: eq
+        value: true
+      - field: no_markdown
+        operator: eq
+        value: true
+
+  - id: struct-hard-03
+    difficulty: hard
+    description: "Complex nested data transformation"
+    prompt: |
+      Transform this raw data into a structured JSON report:
+      Input: "Q1: sales=15000, exp=8000 | Q2: sales=18000, exp=9200 | Q3: sales=22000, exp=10500 | Q4: sales=19000, exp=11000"
+      Output: {"quarters": [{"q": "Q1","sales": int,"expenses": int,"profit": int}, ...], "total_profit": int}
+      Calculate profit as sales - expenses. No markdown fences.
+    constraints:
+      - field: json
+        operator: valid
+      - field: array_length
+        operator: eq
+        value: 4
+      - field: keys_present
+        operator: superset
+        value: ["quarters", "total_profit"]
+      - field: profit_calculation
+        operator: eq
+        value: true
+      - field: no_markdown
+        operator: eq
+        value: true
+
+  - id: struct-hard-04
+    difficulty: hard
+    description: "JSON with type enforcement"
+    prompt: |
+      Generate a JSON document representing an employee with strict typing:
+      - id: integer (positive)
+      - name: string (non-empty)
+      - salary: number (positive, float)
+      - department: string (one of: "Engineering", "Sales", "Marketing", "HR")
+      - projects: array of objects, each with "name" (string) and "hours" (integer >= 0)
+      - active: boolean
+      No markdown fences. At least 2 projects.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["id", "name", "salary", "department", "projects", "active"]
+      - field: array_length
+        operator: gte
+        value: 2
+      - field: department_valid
+        operator: eq
+        value: true
+      - field: no_markdown
+        operator: eq
+        value: true
+
+  - id: struct-hard-05
+    difficulty: hard
+    description: "Schema-compliant API response"
+    prompt: |
+      Generate a JSON response for a paginated user list API:
+      {
+        "meta": {"page": 1, "per_page": 10, "total": 100},
+        "data": [{"id": int, "name": string}, ...]
+      }
+      Include exactly 3 items in data. No markdown.
+      All numeric fields must be integers.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["meta", "data"]
+      - field: meta_keys
+        operator: superset
+        value: ["page", "per_page", "total"]
+      - field: array_length
+        operator: eq
+        value: 3
+      - field: no_markdown
+        operator: eq
+        value: true

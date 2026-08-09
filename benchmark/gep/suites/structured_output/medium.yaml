@@ -1,0 +1,139 @@
+# GEP Structured Output Suite - Medium
+suite:
+  id: structured-output
+  type: structured_output
+  difficulty: medium
+  description: "Test structured output with nested types and validation rules"
+  attempts_recommended: 3
+  timeout_seconds: 90
+  max_tokens: 1024
+
+tests:
+  - id: struct-med-01
+    difficulty: medium
+    description: "Complex nested JSON with validation"
+    prompt: |
+      Generate a JSON object representing a library catalog entry.
+      Required structure:
+      {
+        "book": {
+          "title": string,
+          "author": string,
+          "year": integer (between 1800 and 2024),
+          "genres": array of strings (at least 2),
+          "pages": integer (between 50 and 1000)
+        }
+      }
+      No markdown fences. Must be valid JSON.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["book"]
+      - field: nested_keys
+        operator: superset
+        value: ["title", "author", "year", "genres", "pages"]
+      - field: genres_min_length
+        operator: gte
+        value: 2
+      - field: year_range
+        operator: eq
+        value: true
+      - field: no_markdown
+        operator: eq
+        value: true
+
+  - id: struct-med-02
+    difficulty: medium
+    description: "JSON with type constraints"
+    prompt: |
+      Return a JSON object with:
+      - "product": object with "name" (string) and "price" (number > 0)
+      - "tags": array of exactly 3 strings
+      - "in_stock": boolean
+      - "rating": number between 0 and 5
+      No markdown.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["product", "tags", "in_stock", "rating"]
+      - field: array_length
+        operator: eq
+        value: 3
+      - field: rating_range
+        operator: eq
+        value: true
+      - field: no_markdown
+        operator: eq
+        value: true
+
+  - id: struct-med-03
+    difficulty: medium
+    description: "Transform text to structured JSON"
+    prompt: |
+      Parse this text into JSON:
+      "Meeting: Tech Sync, Date: 2024-03-15, Attendees: Alice, Bob, Charlie, Priority: High"
+      Return: {"meeting": string, "date": string (ISO format), "attendees": array, "priority": string}
+      No markdown fences.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["meeting", "date", "attendees", "priority"]
+      - field: attendees_length
+        operator: eq
+        value: 3
+      - field: no_markdown
+        operator: eq
+        value: true
+
+  - id: struct-med-04
+    difficulty: medium
+    description: "Multiple objects in array"
+    prompt: |
+      Create a JSON array of 4 student records. Each record has:
+      id (integer), name (string), grade (string: A/B/C), gpa (number 0.0-4.0)
+      No markdown. All fields required.
+    constraints:
+      - field: json
+        operator: valid
+      - field: array_length
+        operator: eq
+        value: 4
+      - field: keys_present
+        operator: superset
+        value: ["id", "name", "grade", "gpa"]
+      - field: grade_valid
+        operator: eq
+        value: true
+      - field: no_markdown
+        operator: eq
+        value: true
+
+  - id: struct-med-05
+    difficulty: medium
+    description: "Config-like JSON output"
+    prompt: |
+      Generate a JSON configuration for a web server with:
+      - host: "localhost"
+      - port: integer between 8000 and 9000
+      - ssl: boolean false
+      - allowed_origins: array of 2 strings
+      - rate_limit: object with requests_per_minute (integer) and burst (integer)
+      No markdown fences.
+    constraints:
+      - field: json
+        operator: valid
+      - field: keys_present
+        operator: superset
+        value: ["host", "port", "ssl", "allowed_origins", "rate_limit"]
+      - field: no_markdown
+        operator: eq
+        value: true
+      - field: nested_keys
+        operator: superset
+        value: ["requests_per_minute", "burst"]

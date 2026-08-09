@@ -454,17 +454,28 @@ print(response.choices[0].message.content)
 
 ## Validated Profiles
 
-Official LM Studio-validated profiles:
+Focused model set for 12GB VRAM testing and fine-tuning:
 
-| Profile | LM Studio model | Role | Result |
-|---|---|---|---|
-| `qwen2.5-coder-7b` | `qwen2.5-coder-7b-instruct` | Coding baseline | Good baseline |
-| `qwen3-1.7b` | `qwen/qwen3-1.7b` | Fast chat | Good baseline |
-| `ornith-1.0-9b-q4-km` | `ornith-1.0-9b@q4_k_m` | Quality alternative | Good baseline |
-| `qwen3.5-9b` | `qwen/qwen3.5-9b` | Larger Qwen option | Good baseline |
-| `gemma-4-e4b` | `google/gemma-4-e4b` | Mid-size chat | Tuned profile |
+| Profile | Provider | Model | Role | Benchmark |
+|---|---|---|---|---|
+| **`qwen3-8b`** | Ollama | `ollama:qwen3:8b` | **Default / best overall** | **7.77/10** |
+| **`llama3.1-8b`** | Ollama | `ollama:llama3.1:8b` | Coding + analytical | 7.33/10 |
+| **`yi-coder-9b`** | Ollama | `ollama:yi-coder:9b` | Code-gen candidate | 6.08/10 |
+| **`qwen3.5-9b`** | LM Studio | `lmstudio:qwen/qwen3.5-9b` | Speed-critical | 5.68/10 |
+| **`ornith-1.0-9b-q4-km`** | LM Studio | `lmstudio:ornith-1.0-9b@q4_k_m` | Fallback / deprioritized | 5.9/10 |
 
-Profiles apply defaults such as:
+## Benchmark Strategy
+
+Full benchmarking is handled by the unified benchmark suite. For local regression
+testing and model comparison, use the included Python harness:
+
+```bash
+# Quick benchmark: 1 question/category, 3 runs
+python3 scripts/regression_harness.py --model ollama:qwen3:8b --mode full --questions 1 --runs 3 --save
+
+# Full benchmark: 5 questions/category
+python3 scripts/regression_harness.py --model ollama:qwen3:8b --mode full --questions 5 --save
+```
 
 - `temperature`
 - `top_p`
@@ -530,9 +541,11 @@ Gumi focuses on three hero models for agentic coding with local AI:
 
 | Role | Model | Profile |
 |---|---|---|
-| Primary fast coder | `lmstudio:qwen2.5-coder-7b-instruct` | `qwen2.5-coder-7b` |
-| Complex reasoning fallback | `lmstudio:qwen/qwen3.5-9b` | `qwen3.5-9b` |
-| Quality alternative | `lmstudio:ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
+| Default backbone | `ollama:qwen3:8b` | `qwen3-8b` |
+| Coding + analytical | `ollama:llama3.1:8b` | `llama3.1-8b` |
+| Code-gen candidate | `ollama:yi-coder:9b` | `yi-coder-9b` |
+| Speed-critical fallback | `lmstudio:qwen/qwen3.5-9b` | `qwen3.5-9b` |
+| Fallback / deprioritized | `lmstudio:ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
 
 These models declare `tool_calling: weak` because they do not reliably emit native OpenAI-style `tool_calls`. Gumi adds a prompt-based tool-calling shim for them:
 

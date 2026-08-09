@@ -51,8 +51,11 @@ prompt:
   instruction_assist: true
   instructions:
     - Answer in a natural, helpful tone.
+    - Think step-by-step before answering complex or multi-part questions.
+    - Break multi-part requests into smaller subtasks and address each one.
     - For JSON output, return only the requested JSON object without markdown fences.
     - Be concise unless the user asks for detail.
+    - Use bullet points or numbered lists for clarity when appropriate.
 
 guard:
   anti_loop: standard

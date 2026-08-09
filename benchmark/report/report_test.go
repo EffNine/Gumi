@@ -69,7 +69,7 @@ func TestWriteJSON_Deserializable(t *testing.T) {
 			Capabilities: map[string]benchmark.Capability{
 				"json": {
 					Direct:     benchmark.MetricSet{Mean: 0.65, Std: 0.12, N: 10},
-					Gumi:     benchmark.MetricSet{Mean: 0.82, Std: 0.09, N: 10},
+					Gumi:       benchmark.MetricSet{Mean: 0.82, Std: 0.09, N: 10},
 					Delta:      0.17,
 					EffectSize: 0.62,
 				},
@@ -157,7 +157,7 @@ func TestWriteMarkdown_CreatesFile(t *testing.T) {
 			Capabilities: map[string]benchmark.Capability{
 				"json": {
 					Direct:     benchmark.MetricSet{Mean: 0.70, Std: 0.1, N: 5},
-					Gumi:     benchmark.MetricSet{Mean: 0.85, Std: 0.08, N: 5},
+					Gumi:       benchmark.MetricSet{Mean: 0.85, Std: 0.08, N: 5},
 					Delta:      0.15,
 					EffectSize: 0.60,
 				},

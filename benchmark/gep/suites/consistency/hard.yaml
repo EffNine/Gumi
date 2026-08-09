@@ -1,0 +1,105 @@
+# GEP Consistency Suite - Hard
+suite:
+  id: consistency
+  type: consistency
+  difficulty: hard
+  description: "Test consistency with nuanced reasoning and ambiguous phrasings"
+  attempts_recommended: 5
+  timeout_seconds: 120
+  max_tokens: 1024
+
+tests:
+  - id: cons-hard-01
+    difficulty: hard
+    description: "Complex multi-step reasoning consistency"
+    prompt: |
+      A train leaves Station A at 60 mph heading to Station B, 300 miles away.
+      At the same time, a train leaves Station B at 40 mph heading to Station A.
+      How far from Station A do they meet?
+    type: self_consistency
+    variants:
+      - "Two trains approach each other: A→B at 60mph, B→A at 40mph. Distance=300mi. Where do they meet from A?"
+      - "Train problem: 300 miles apart. Speeds 60 and 40 mph. Meeting point distance from first station?"
+      - "Relay race of trains: 60mph and 40mph closing a 300 mile gap. Find meeting coordinate from origin."
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: numeric_correct
+        operator: eq
+        value: 180
+
+  - id: cons-hard-02
+    difficulty: hard
+    description: "Probability consistency"
+    prompt: "What is the probability of rolling at least one 6 in two rolls of a fair die?"
+    type: self_consistency
+    variants:
+      - "Dice probability: P(at least one six in two rolls) = ?"
+      - "Roll a fair six-sided die twice. Chance of seeing a 6 at least once?"
+      - "Two dice rolls. Probability of 6 appearing at least once?"
+    expected_answer: "11/36"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: numeric_range
+        operator: eq
+        value: true
+
+  - id: cons-hard-03
+    difficulty: hard
+    description: "Logical syllogism consistency"
+    prompt: |
+      All dogs are mammals. Some mammals are brown. Therefore, some dogs are brown.
+      Is this argument valid or invalid?
+    type: self_consistency
+    variants:
+      - "Deduction check: All dogs → mammals. Some mammals → brown. Conclusion: Some dogs → brown. Valid?"
+      - "Evaluate this syllogism: Major premise 'All dogs are mammals', minor 'Some mammals are brown', conclusion 'Some dogs are brown'."
+      - "Logical validity test: From 'all D are M' and 'some M are B', does 'some D are B' follow?"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: logic_valid
+        operator: eq
+        value: false
+
+  - id: cons-hard-04
+    difficulty: hard
+    description: "Algorithm output consistency"
+    prompt: |
+      What is the output of sorting [3, 1, 4, 1, 5, 9, 2, 6] in ascending order?
+      Return only the sorted array.
+    type: self_consistency
+    variants:
+      - "Sort this list ascending: [3, 1, 4, 1, 5, 9, 2, 6]"
+      - "Arrange in order from smallest to largest: 3,1,4,1,5,9,2,6"
+      - "What does a ascending sort produce for [3,1,4,1,5,9,2,6]?"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: sorted_correct
+        operator: eq
+        value: true
+
+  - id: cons-hard-05
+    difficulty: hard
+    description: "Cross-lingual fact consistency"
+    prompt: "Who wrote 'Pride and Prejudice'?"
+    type: self_consistency
+    variants:
+      - "Name the author of Pride and Prejudice."
+      - "Which writer created the novel Pride and Prejudice?"
+      - "Write the name of the person who penned Pride and Prejudice."
+      - "The book Pride and Prejudice was written by whom?"
+    expected_answer: "austen"
+    constraints:
+      - field: self_consistency
+        operator: self_consistency
+        value: []
+      - field: expected_answer_match
+        operator: eq
+        value: true

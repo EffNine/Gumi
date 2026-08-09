@@ -72,8 +72,8 @@ func (s *Scorer) Score(test benchmark.SuiteTest, response string) benchmark.Test
 func AggregateCapabilities(results []benchmark.TestResult, testCategories map[string]string) map[string]Capability {
 	// Group results by (category, condition-type)
 	type groupKey struct {
-		category  string
-		isGumi  bool // true for gumi-* conditions, false for direct
+		category string
+		isGumi   bool // true for gumi-* conditions, false for direct
 	}
 
 	groups := make(map[groupKey][]benchmark.TestResult)
@@ -106,10 +106,10 @@ func AggregateCapabilities(results []benchmark.TestResult, testCategories map[st
 		effectSize := CohenD(directMS, gumiMS)
 
 		caps[cat] = Capability{
-			Direct:      directMS,
-			Gumi:      gumiMS,
-			Delta:       delta,
-			EffectSize:  effectSize,
+			Direct:     directMS,
+			Gumi:       gumiMS,
+			Delta:      delta,
+			EffectSize: effectSize,
 		}
 	}
 

@@ -48,7 +48,7 @@ var WeightsByTier = map[string]ModelWeights{
 // Capability holds the direct and gumi metric sets for a single capability.
 type Capability struct {
 	Direct     MetricSet
-	Gumi     MetricSet
+	Gumi       MetricSet
 	Delta      float64
 	EffectSize float64
 }

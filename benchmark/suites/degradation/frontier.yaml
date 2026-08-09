@@ -41,6 +41,10 @@ suite:
           operator: eq
           value: true
 
+    - id: deg-frontier-03
+      difficulty: frontier
+      description: "Complex markdown document with multiple elements"
+      prompt: |
         ```javascript
         const greeting = "Hello, World!";
         console.log(greeting);

@@ -155,6 +155,7 @@ type ProviderConfig struct {
 type ProviderSettings struct {
 	Enabled         bool                `json:"enabled" yaml:"enabled"`
 	URL             string              `json:"url" yaml:"url"`
+	APIKey          string              `json:"api_key,omitempty" yaml:"api_key,omitempty"`
 	DefaultModel    string              `json:"default_model" yaml:"default_model"`
 	TimeoutSeconds  int                 `json:"timeout_seconds" yaml:"timeout_seconds"`
 	ModelManagement *LMStudioMgmtConfig `json:"model_management,omitempty" yaml:"model_management,omitempty"`
@@ -243,6 +244,12 @@ func DefaultConfig() *Config {
 				URL:            "http://localhost:8000/v1",
 				DefaultModel:   "local:auto",
 				TimeoutSeconds: 60,
+			},
+			"conductor": {
+				Enabled:        true,
+				URL:            "https://conductor-yknfkg.fly.dev/v1",
+				DefaultModel:   "local:auto",
+				TimeoutSeconds: 600,
 			},
 		},
 		Storage: StorageConfig{
@@ -371,6 +378,12 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("GUMI_OPENAI_COMPATIBLE_LOCAL_URL"); v != "" {
 		updateProvider(cfg, "openai_compatible_local", func(s *ProviderSettings) { s.URL = v })
+	}
+	if v := os.Getenv("GUMI_CONDUCTOR_URL"); v != "" {
+		updateProvider(cfg, "conductor", func(s *ProviderSettings) { s.URL = v })
+	}
+	if v := os.Getenv("GUMI_CONDUCTOR_API_KEY"); v != "" {
+		updateProvider(cfg, "conductor", func(s *ProviderSettings) { s.APIKey = v })
 	}
 	if v := os.Getenv("GUMI_DEFAULT_MODEL"); v != "" {
 		updateProvider(cfg, cfg.Provider.Default, func(s *ProviderSettings) { s.DefaultModel = v })

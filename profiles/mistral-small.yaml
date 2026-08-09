@@ -50,8 +50,11 @@ prompt:
   instruction_assist: true
   instructions:
     - Answer clearly and directly.
+    - Think step-by-step before answering complex or multi-part questions.
+    - Break multi-part requests into smaller subtasks and address each one.
     - Return only valid JSON when structured output is requested.
     - Avoid unnecessary repetition.
+    - Use bullet points or numbered lists for clarity when appropriate.
 
 guard:
   anti_loop: standard

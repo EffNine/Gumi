@@ -1,0 +1,119 @@
+# GEP Instruction Following Suite - Hard
+suite:
+  id: instruction-following
+  type: instruction_following
+  difficulty: hard
+  description: "Test instruction following with 6+ simultaneous constraints"
+  attempts_recommended: 5
+  timeout_seconds: 120
+  max_tokens: 1024
+
+tests:
+  - id: inst-hard-01
+    difficulty: hard
+    description: "Complex multi-constraint paragraph"
+    prompt: |
+      Write exactly 5 sentences about the history of computing.
+      Constraints:
+      - No sentence may exceed 25 words
+      - Do not use the words "computer", "digital", or "electronic"
+      - Sentence 1 must start with "In"
+      - Sentence 2 must start with "Later"
+      - Sentence 3 must start with "Then"
+      - Sentence 4 must start with "Finally"
+      - Sentence 5 must start with "Today"
+      - End the entire response with "progress."
+    constraints:
+      - field: sentence_count
+        operator: eq
+        value: 5
+      - field: max_words_per_sentence
+        operator: lte
+        value: 25
+      - field: forbidden_words
+        operator: not_contains
+        value: ["computer", "digital", "electronic"]
+      - field: capital_start
+        operator: eq
+        value: true
+      - field: ends_with
+        operator: ends_with
+        value: "progress."
+      - field: min_chars
+        operator: gte
+        value: 100
+
+  - id: inst-hard-02
+    difficulty: hard
+    description: "JSON with nested constraints"
+    prompt: |
+      Generate a JSON array of 3 objects representing books.
+      Each object must have: title (string), author (string), year (integer).
+      Rules:
+      - No markdown fences
+      - Years must be between 1900 and 2024
+      - No author may be "Anonymous"
+      - At least one book must be about science
+      - Total response must be under 500 characters
+    constraints:
+      - field: json
+        operator: valid
+      - field: no_markdown
+        operator: eq
+        value: true
+      - field: array_length
+        operator: eq
+        value: 3
+      - field: keys_present
+        operator: superset
+        value: ["title", "author", "year"]
+      - field: max_chars
+        operator: lte
+        value: 500
+      - field: forbidden_values
+        operator: not_contains
+        value: ["Anonymous"]
+
+  - id: inst-hard-03
+    difficulty: hard
+    description: "Alphabetical constraint list"
+    prompt: |
+      Write a list of 5 animals. Each line must start with the next letter
+      of "ZEBRA" (Z, E, B, R, A). Each line must mention the animal's habitat.
+      No line may exceed 20 words. Do not use the word "lives".
+    constraints:
+      - field: line_count
+        operator: eq
+        value: 5
+      - field: max_words_per_line
+        operator: lte
+        value: 20
+      - field: forbidden_words
+        operator: not_contains
+        value: ["lives"]
+      - field: alphabetical_start
+        operator: eq
+        value: true
+
+  - id: inst-hard-04
+    difficulty: hard
+    description: "Math problem with format constraints"
+    prompt: |
+      Calculate (15 * 23) + 7. Show your work step by step.
+      - Use exactly 3 steps
+      - Each step must be a separate line
+      - Do not use the word "equals" or "answer"
+      - Final line must be just the number
+    constraints:
+      - field: step_count
+        operator: eq
+        value: 3
+      - field: forbidden_words
+        operator: not_contains
+        value: ["equals", "answer"]
+      - field: final_is_number
+        operator: eq
+        value: true
+      - field: numeric_correct
+        operator: eq
+        value: 352

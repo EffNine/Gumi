@@ -1,0 +1,110 @@
+# GEP Context Retention Suite - Easy
+suite:
+  id: context-retention
+  type: context_retention
+  difficulty: easy
+  description: "Test model's ability to retain information across short conversations"
+  attempts_recommended: 3
+  timeout_seconds: 90
+  max_tokens: 512
+
+tests:
+  - id: ctx-easy-01
+    difficulty: easy
+    description: "Remember a number across turns"
+    prompt: |
+      Turn 1: Remember this number: 42. Reply with just "OK".
+      Turn 2: What number did I ask you to remember?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "Remember this number: 42. Reply with just OK."
+      - role: assistant
+        content: "OK"
+      - role: user
+        content: "What number did I ask you to remember?"
+    expected_answer: "42"
+    constraints:
+      - field: answer_match
+        operator: eq
+        value: "42"
+
+  - id: ctx-easy-02
+    difficulty: easy
+    description: "Remember a name across turns"
+    prompt: |
+      Turn 1: My name is Alexandra. Reply with "Nice to meet you, Alexandra!"
+      Turn 2: What is my name?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "My name is Alexandra. Reply with Nice to meet you, Alexandra!"
+      - role: assistant
+        content: "Nice to meet you, Alexandra!"
+      - role: user
+        content: "What is my name?"
+    expected_answer: "alexandra"
+    constraints:
+      - field: answer_match
+        operator: eq
+        value: "Alexandra"
+
+  - id: ctx-easy-03
+    difficulty: easy
+    description: "Remember a color preference"
+    prompt: |
+      Turn 1: I love the color teal. Just say "Got it."
+      Turn 2: What color do I love?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "I love the color teal. Just say Got it."
+      - role: assistant
+        content: "Got it."
+      - role: user
+        content: "What color do I love?"
+    expected_answer: "teal"
+    constraints:
+      - field: answer_match
+        operator: eq
+        value: "teal"
+
+  - id: ctx-easy-04
+    difficulty: easy
+    description: "Remember a simple fact"
+    prompt: |
+      Turn 1: The capital of Australia is Canberra. Confirm you understood.
+      Turn 2: What city is the capital of Australia?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "The capital of Australia is Canberra. Confirm you understood."
+      - role: assistant
+        content: "Understood."
+      - role: user
+        content: "What city is the capital of Australia?"
+    expected_answer: "canberra"
+    constraints:
+      - field: answer_match
+        operator: eq
+        value: "Canberra"
+
+  - id: ctx-easy-05
+    difficulty: easy
+    description: "Remember a list item"
+    prompt: |
+      Turn 1: Remember these three fruits: apple, banana, cherry. Reply "Got it."
+      Turn 2: What was the second fruit I listed?
+    type: multi_turn
+    turns:
+      - role: user
+        content: "Remember these three fruits: apple, banana, cherry. Reply Got it."
+      - role: assistant
+        content: "Got it."
+      - role: user
+        content: "What was the second fruit I listed?"
+    expected_answer: "banana"
+    constraints:
+      - field: answer_match
+        operator: eq
+        value: "banana"

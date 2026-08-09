@@ -176,6 +176,9 @@ var (
 		"The user needs",
 		"The user said",
 		"The user is requesting",
+		// DeepSeek / reasoning model markers
+		"Thinking",
+		"Reasoning",
 		// Discourse markers
 		"Okay, so",
 		"Alright, let me",

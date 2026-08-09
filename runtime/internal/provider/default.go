@@ -18,5 +18,8 @@ func DefaultRegistry() *Registry {
 	r.Register("openai_compatible_local", func(name string, settings config.ProviderSettings, log *logger.Logger) (ProviderAdapter, error) {
 		return NewOpenAICompatibleAdapter(name, settings, log)
 	})
+	r.Register("conductor", func(name string, settings config.ProviderSettings, log *logger.Logger) (ProviderAdapter, error) {
+		return NewConductorAdapter(name, settings, log)
+	})
 	return r
 }
