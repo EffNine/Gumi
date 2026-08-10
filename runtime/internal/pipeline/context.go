@@ -158,11 +158,16 @@ type Context struct {
 	ReasoningLength         int    `json:"reasoning_length,omitempty"`
 
 	// Instruction-following assist state.
-	InstructionConstraints  []instruction.Constraint `json:"instruction_constraints,omitempty"`
-	InstructionHintInjected bool                     `json:"instruction_hint_injected"`
-	InstructionRetryCount   int                      `json:"instruction_retry_count"`
-	InstructionConflicts    []string                 `json:"instruction_conflicts,omitempty"`
-	InstructionDeduplicated bool                     `json:"instruction_deduplicated"`
+	InstructionConstraints       []instruction.Constraint `json:"instruction_constraints,omitempty"`
+	InstructionHintInjected      bool                     `json:"instruction_hint_injected"`
+	InstructionRetryCount        int                      `json:"instruction_retry_count"`
+	InstructionConflicts         []string                 `json:"instruction_conflicts,omitempty"`
+	InstructionDeduplicated      bool                     `json:"instruction_deduplicated"`
+	InstructionHintTokens        int                      `json:"instruction_hint_tokens,omitempty"`
+	InstructionHardConstraintCnt int                      `json:"instruction_hard_constraint_count,omitempty"`
+	InstructionSoftHintCnt       int                      `json:"instruction_soft_hint_count,omitempty"`
+	InstructionSelectedProfile   instruction.HintProfile  `json:"instruction_selected_profile,omitempty"`
+	InstructionComplexityScore   int                      `json:"instruction_complexity_score,omitempty"`
 
 	// Agent mode governance state.
 	StepCount              int      `json:"step_count,omitempty"`

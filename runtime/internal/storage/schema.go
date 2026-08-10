@@ -81,6 +81,7 @@ var requestColumns = []columnDefinition{
 	{name: "reasoning_content_present", definition: "INTEGER NOT NULL DEFAULT 0"},
 	{name: "agent_step_count", definition: "INTEGER NOT NULL DEFAULT 0"},
 	{name: "agent_loop_detected", definition: "INTEGER NOT NULL DEFAULT 0"},
+	{name: "instruction_hint_tokens", definition: "INTEGER NOT NULL DEFAULT 0"},
 }
 
 var schemaStatements = []string{

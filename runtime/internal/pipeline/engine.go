@@ -2267,6 +2267,10 @@ func (e *Engine) applyInstructionAssist(pc *Context) {
 	pc.InstructionHintInjected = true
 	pc.InstructionConflicts = result.Conflicts
 	pc.InstructionDeduplicated = result.DeduplicatedCount > 0
+	pc.InstructionHintTokens = instructionengine.EstimateTokens(result.HintBlock)
+	pc.InstructionHardConstraintCnt = len(result.Constraints)
+	pc.InstructionSelectedProfile = result.SelectedProfile
+	pc.InstructionComplexityScore = result.ComplexityScore
 
 	// ── Optimization: Remove conflicting "think step-by-step" guidance
 	// when format-restrictive constraints (one_word, digit_answer, exact counts)

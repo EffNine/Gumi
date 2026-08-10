@@ -236,18 +236,28 @@ func runAttempt(ctx context.Context, provider providers.Provider, cfg RunConfig,
 
 // callGumiRuntime sends a request through the Gumi runtime API in stabilized mode.
 func callGumiRuntime(ctx context.Context, cfg RunConfig, test types.GEPTest, messages []providers.ChatMessage) (*providers.ChatResponse, error) {
+	// Gumi uses provider:model format. Ensure the model has the provider prefix.
+	// The cfg.Model may already contain a colon (e.g. "qwen3:8b"), but that's
+	// model:variant, not provider:model. Always prefix with the provider.
+	modelName := string(cfg.Provider) + ":" + cfg.Model
+
 	reqBody := struct {
 		Model    string              `json:"model"`
 		Messages []providers.ChatMessage `json:"messages"`
 		Stream   bool                `json:"stream"`
 		Gumi     map[string]interface{} `json:"gumi,omitempty"`
 	}{
-		Model:    cfg.Model,
+		Model:    modelName,
 		Messages: messages,
 		Stream:   false,
 	}
 	if cfg.GumiAPIKey != "" {
-		reqBody.Gumi = map[string]interface{}{"mode": "stabilized"}
+		reqBody.Gumi = map[string]interface{}{
+			"mode": "stabilized",
+			"thinking": map[string]interface{}{
+				"enabled": false,
+			},
+		}
 	}
 
 	body, err := json.Marshal(reqBody)

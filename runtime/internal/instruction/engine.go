@@ -1,9 +1,19 @@
 // Package instruction implements the Instruction-Following Assist Engine.
 //
 // It helps small local models follow complex formatting and content constraints
-// by extracting constraints from user prompts, injecting explicit reminders into
+// by extracting constraints from user prompts, injecting adaptive reminders into
 // the system prompt, and validating responses post-generation with automatic
 // retry on failure.
+//
+// Sprint 17R2 redesign: minimal intervention strategy.
+// Sprint 17R3 adaptive strategy: deterministic hint profiles based on constraint
+// complexity, not model identity. Profiles: NONE, MINIMAL, STANDARD, EXPLICIT.
+// - No hard constraint → inject nothing.
+// - Simple hard constraint → inject only the minimum necessary reminder.
+// - Multiple hard constraints → adaptive hint block based on complexity.
+// - Soft hints are NOT injected by default.
+// - Conflict metadata is diagnostic-only, never model-facing.
+// - Preserve exact user intent; never introduce model-specific wording.
 package instruction
 
 import (
@@ -22,16 +32,6 @@ type Constraint struct {
 	Check string `json:"check"` // validation check name
 }
 
-// Result holds extracted constraints and hint text.
-type Result struct {
-	Constraints       []Constraint `json:"constraints"`
-	HintBlock         string       `json:"hint_block"`
-	HasConstraints    bool         `json:"has_constraints"`
-	Conflicts         []string     `json:"conflicts,omitempty"`
-	DeduplicatedCount int          `json:"deduplicated_count,omitempty"`
-	PriorityOrder     string       `json:"priority_order,omitempty"`
-}
-
 // ValidationResult is the outcome of checking a response against constraints.
 type ValidationResult struct {
 	Passed     bool     `json:"passed"`
@@ -39,12 +39,49 @@ type ValidationResult struct {
 	Satisfied  []string `json:"satisfied"`
 }
 
-// Engine extracts and validates instruction constraints.
-type Engine struct{}
+// Telemetry records instrumentation for the instruction engine.
+type Telemetry struct {
+	OriginalPromptTokens   int    `json:"original_prompt_tokens"`
+	NormalizedPromptTokens int    `json:"normalized_prompt_tokens"`
+	InstructionTokens      int    `json:"instruction_tokens"`
+	TotalProviderTokens    int    `json:"total_provider_tokens"`
+	ConstraintCount        int    `json:"constraint_count"`
+	HardConstraintCount    int    `json:"hard_constraint_count"`
+	SoftHintCount          int    `json:"soft_hint_count"`
+	ConflictCount          int    `json:"conflict_count"`
+	RetryCount             int    `json:"retry_count"`
+	RetryReason            string `json:"retry_reason,omitempty"`
+	ProviderRequestCount   int    `json:"provider_request_count"`
+	ProviderLatencyMs      int64  `json:"provider_latency_ms"`
+	TotalLatencyMs         int64  `json:"total_latency_ms"`
+}
 
-// New creates an Instruction Engine.
-func New() *Engine {
-	return &Engine{}
+// HintProfile represents the selected hint verbosity level.
+type HintProfile string
+
+const (
+	// ProfileNone means no hint is injected. Used when there are no hard constraints.
+	ProfileNone HintProfile = "none"
+	// ProfileMinimal means one concise line per constraint. Used for single/simple constraints.
+	ProfileMinimal HintProfile = "minimal"
+	// ProfileStandard means compact grouped summary. Used for multiple non-conflicting constraints.
+	ProfileStandard HintProfile = "standard"
+	// ProfileExplicit means ordered requirements with verification reminder.
+	// Used for complex or high-risk constraint combinations.
+	ProfileExplicit HintProfile = "explicit"
+)
+
+// Result holds extracted constraints and hint text.
+type Result struct {
+	Constraints       []Constraint `json:"constraints"`
+	HintBlock         string       `json:"hint_block"`
+	HasConstraints    bool         `json:"has_constraints"`
+	Conflicts         []string     `json:"conflicts,omitempty"`
+	DeduplicatedCount int          `json:"deduplicated_count,omitempty"`
+	// SelectedProfile is the hint profile chosen for this request.
+	SelectedProfile HintProfile `json:"selected_profile,omitempty"`
+	// ComplexityScore is the deterministic complexity score used to select the profile.
+	ComplexityScore int `json:"complexity_score,omitempty"`
 }
 
 var (
@@ -69,65 +106,102 @@ var (
 	reDigitAsk    = regexp.MustCompile(`(?i)(?:answer|respond|reply|output|return)\s+(?:with\s+)?(?:a\s+)?(?:numeric\s+)?(?:digit|number)|numeric\s+digit\s+only|(?:as|with)\s+(?:a\s+)?digit`)
 	reMathAsk     = regexp.MustCompile(`(?i)(?:\d+\s*[\+\-\*\/×÷]\s*\d+|what\s+is\s+\d+|how\s+many|\d+\s*\+\s*\d+)`)
 
-	// Complex / multi-step reasoning questions
-	reComplexQ = regexp.MustCompile(`(?i)(?:explain|analyze|compare|contrast|why|how\s+(?:does|do|can|would|should)|what\s+is\s+the\s+difference|solve|calculate|evaluate|interpret|summarize|break\s+down|walk\s+me\s+through|step\s+by\s+step)`)
-
-	// Factual / definition questions — benefit from confidence indication
-	reFactualQ = regexp.MustCompile(`(?i)(?:who\s+is|what\s+is|where\s+is|when\s+(?:was|did|will)|define|describe|list|what\s+are|tell\s+me\s+about)`)
-
-	// Multi-step task indicators
+	// Soft hint detectors — these never inject into the model prompt by default.
+	reComplexQ   = regexp.MustCompile(`(?i)(?:explain|analyze|compare|contrast|why|how\s+(?:does|do|can|would|should)|what\s+is\s+the\s+difference|solve|calculate|evaluate|interpret|summarize|break\s+down|walk\s+me\s+through|step\s+by\s+step)`)
+	reFactualQ   = regexp.MustCompile(`(?i)(?:who\s+is|what\s+is|where\s+is|when\s+(?:was|did|will)|define|describe|list|what\s+are|tell\s+me\s+about)`)
 	reMultiStepQ = regexp.MustCompile(`(?i)(?:first\s+.*then\s+.*finally|step\s+\d|multi[\s-]step|multiple\s+parts|several\s+steps)`)
 
-	// Spelled cardinals that local models often emit instead of digits.
-	spelledNumbers = map[string]struct{}{
+		spelledNumbers = map[string]struct{}{
 		"zero": {}, "one": {}, "two": {}, "three": {}, "four": {}, "five": {},
 		"six": {}, "seven": {}, "eight": {}, "nine": {}, "ten": {},
 		"eleven": {}, "twelve": {}, "thirteen": {}, "fourteen": {}, "fifteen": {},
 		"sixteen": {}, "seventeen": {}, "eighteen": {}, "nineteen": {}, "twenty": {},
 		"thirty": {}, "forty": {}, "fifty": {}, "sixty": {}, "seventy": {},
 		"eighty": {}, "ninety": {}, "hundred": {}, "thousand": {},
-	}
+		}
 )
 
-// Constraint priority order for hint block construction.
-// Higher priority constraints appear first in the hint block.
-var constraintPriority = map[string]int{
-	"json":               1,
-	"one_word":           2,
-	"digit_answer":       3,
-	"sentences":          4,
-	"words":              5,
-	"lines":              6,
-	"min_chars":          7,
-	"min_words":          8,
-	"end_with":           9,
-	"start_with":         10,
-	"capital_start":      11,
-	"no_word":            12,
-	"no_commas":          13,
-	"no_markdown":        14,
-	"no_rhyme":           15,
-	"bullets":            16,
-	"sections":           17,
-	"complex_reasoning":  99,
-	"factual_confidence": 99,
+// Engine extracts and validates instruction constraints.
+type Engine struct{}
+
+// New creates an Instruction Engine.
+func New() *Engine {
+	return &Engine{}
 }
 
-// Extract scans the user prompt for known constraint patterns and returns
-// structured constraints plus a hint block to inject into the system prompt.
-func (e *Engine) Extract(userMessage string) Result {
-	if strings.TrimSpace(userMessage) == "" {
-		return Result{}
+// SelectProfile deterministically selects a hint profile based on constraint
+// complexity. Adaptation is based on request characteristics, NOT model identity.
+//
+// Scoring rules:
+//   - Base score = number of hard constraints.
+//   - Each conflict adds +1 (indicates complexity requiring explicit guidance).
+//   - JSON with other constraints adds +1 (format-heavy requests benefit from clarity).
+//
+// Profile thresholds:
+//   - Score 1 → MINIMAL (single simple constraint)
+//   - Score 2-3 → STANDARD (multiple non-conflicting constraints)
+//   - Score 4+ → EXPLICIT (complex or high-risk combinations)
+func (e *Engine) SelectProfile(constraints []Constraint, conflicts []string) (HintProfile, int) {
+	if len(constraints) == 0 {
+		return ProfileNone, 0
 	}
 
-	var rawConstraints []Constraint
+	score := len(constraints)
+	score += len(conflicts)
+
+	hasJSON := false
+	for _, c := range constraints {
+		if c.Type == "json" && len(constraints) > 1 {
+			hasJSON = true
+			break
+		}
+	}
+	if hasJSON {
+		score++
+	}
+
+	var profile HintProfile
+	switch {
+	case score <= 1:
+		profile = ProfileMinimal
+	case score <= 3:
+		profile = ProfileStandard
+	default:
+		profile = ProfileExplicit
+	}
+
+	return profile, score
+}
+
+// buildHintBlock constructs the hint block using the selected profile.
+func (e *Engine) buildHintBlock(constraints []Constraint, profile HintProfile) string {
+	switch profile {
+	case ProfileNone:
+		return ""
+	case ProfileMinimal:
+		return buildMinimalHintBlock(constraints)
+	case ProfileStandard:
+		return buildStandardHintBlock(constraints)
+	case ProfileExplicit:
+		return buildExplicitHintBlock(constraints)
+	default:
+		return buildMinimalHintBlock(constraints)
+	}
+}
+
+// extractConstraints scans the user prompt for known constraint patterns.
+// Returns hard constraints (with Check != "none") and soft hints separately.
+func (e *Engine) extractConstraints(userMessage string) (hardConstraints []Constraint, softHints []Constraint) {
+	if strings.TrimSpace(userMessage) == "" {
+		return
+	}
 
 	// Sentence count
 	if m := reSentences.FindStringSubmatch(userMessage); m != nil {
 		n, _ := strconv.Atoi(m[1])
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "sentences", Label: fmt.Sprintf("exactly %d sentences", n),
-			Value: m[1], Hint: fmt.Sprintf("Your response must contain exactly %d sentence(s). No more, no less.", n),
+			Value: m[1], Hint: fmt.Sprintf("exactly %d sentences", n),
 			Check: "sentence_count",
 		})
 	}
@@ -135,9 +209,9 @@ func (e *Engine) Extract(userMessage string) Result {
 	// Word count
 	if m := reWords.FindStringSubmatch(userMessage); m != nil {
 		n, _ := strconv.Atoi(m[1])
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "words", Label: fmt.Sprintf("exactly %d words", n),
-			Value: m[1], Hint: fmt.Sprintf("Your response must contain exactly %d word(s).", n),
+			Value: m[1], Hint: fmt.Sprintf("exactly %d words", n),
 			Check: "word_count",
 		})
 	}
@@ -145,25 +219,25 @@ func (e *Engine) Extract(userMessage string) Result {
 	// Line count
 	if m := reLines.FindStringSubmatch(userMessage); m != nil {
 		n, _ := strconv.Atoi(m[1])
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "lines", Label: fmt.Sprintf("%d lines", n),
-			Value: m[1], Hint: fmt.Sprintf("Your response must have exactly %d line(s).", n),
+			Value: m[1], Hint: fmt.Sprintf("%d lines", n),
 			Check: "line_count",
 		})
 	} else if m := reLinesSimple.FindStringSubmatch(userMessage); m != nil {
 		n, _ := strconv.Atoi(m[1])
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "lines", Label: fmt.Sprintf("%d lines", n),
-			Value: m[1], Hint: fmt.Sprintf("Produce exactly %d line(s).", n),
+			Value: m[1], Hint: fmt.Sprintf("%d lines", n),
 			Check: "line_count",
 		})
 	}
 
 	// Bullet points / dashes
 	if reBullets.MatchString(userMessage) {
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "bullets", Label: "bullet points",
-			Value: "", Hint: "Use dash (-) bullet points for each item. Start each item on a new line with a dash.",
+			Value: "", Hint: "use dash bullets",
 			Check: "dash_bullets",
 		})
 	}
@@ -177,9 +251,9 @@ func (e *Engine) Extract(userMessage string) Result {
 			word = m[2]
 		}
 		if word != "" {
-			rawConstraints = append(rawConstraints, Constraint{
+			hardConstraints = append(hardConstraints, Constraint{
 				Type: "no_word", Label: fmt.Sprintf("do not use '%s'", word),
-				Value: word, Hint: fmt.Sprintf("Do NOT use the word '%s' anywhere in your response.", word),
+				Value: word, Hint: fmt.Sprintf("no '%s'", word),
 				Check: "forbidden_word",
 			})
 		}
@@ -187,27 +261,27 @@ func (e *Engine) Extract(userMessage string) Result {
 
 	// End with specific word/phrase
 	if m := reEndWith.FindStringSubmatch(userMessage); m != nil {
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "end_with", Label: fmt.Sprintf("end with '%s'", m[1]),
-			Value: m[1], Hint: fmt.Sprintf("Your response must END with the word '%s'. Make sure the last word is '%s'.", m[1], m[1]),
+			Value: m[1], Hint: fmt.Sprintf("end with '%s'", m[1]),
 			Check: "end_with",
 		})
 	}
 
 	// Start with capital letter
 	if reStartWith.MatchString(userMessage) || reEachCap.MatchString(userMessage) {
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "capital_start", Label: "start with capital",
-			Value: "", Hint: "Each line of your response MUST start with a capital (uppercase) letter.",
+			Value: "", Hint: "each line starts with capital",
 			Check: "capital_start",
 		})
 	}
 
 	// JSON output
 	if reJSON.MatchString(userMessage) {
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "json", Label: "JSON only",
-			Value: "", Hint: "Return ONLY a valid JSON object. No markdown fences, no explanation, no text outside the JSON.",
+			Value: "", Hint: "return valid JSON only",
 			Check: "json",
 		})
 	}
@@ -215,9 +289,9 @@ func (e *Engine) Extract(userMessage string) Result {
 	// Minimum character count
 	if m := reMinChars.FindStringSubmatch(userMessage); m != nil {
 		n, _ := strconv.Atoi(m[1])
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "min_chars", Label: fmt.Sprintf("at least %d chars", n),
-			Value: m[1], Hint: fmt.Sprintf("Your response must be at least %d characters long.", n),
+			Value: m[1], Hint: fmt.Sprintf("at least %d characters", n),
 			Check: "min_chars",
 		})
 	}
@@ -225,27 +299,27 @@ func (e *Engine) Extract(userMessage string) Result {
 	// Minimum word count
 	if m := reMinWords.FindStringSubmatch(userMessage); m != nil {
 		n, _ := strconv.Atoi(m[1])
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "min_words", Label: fmt.Sprintf("at least %d words", n),
-			Value: m[1], Hint: fmt.Sprintf("Your response must contain at least %d words.", n),
+			Value: m[1], Hint: fmt.Sprintf("at least %d words", n),
 			Check: "min_words",
 		})
 	}
 
 	// No commas
 	if reNoCommas.MatchString(userMessage) {
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "no_commas", Label: "no commas",
-			Value: "", Hint: "Do NOT use any commas (,) in your response.",
+			Value: "", Hint: "no commas",
 			Check: "no_commas",
 		})
 	}
 
 	// No markdown
 	if reNoMarkdown.MatchString(userMessage) {
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "no_markdown", Label: "no markdown",
-			Value: "", Hint: "Do NOT use any markdown formatting in your response.",
+			Value: "", Hint: "no markdown",
 			Check: "no_markdown",
 		})
 	}
@@ -253,18 +327,18 @@ func (e *Engine) Extract(userMessage string) Result {
 	// Highlight sections
 	if m := reSections.FindStringSubmatch(userMessage); m != nil {
 		n, _ := strconv.Atoi(m[1])
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "sections", Label: fmt.Sprintf("%d sections", n),
-			Value: m[1], Hint: fmt.Sprintf("Highlight at least %d sections using markdown titles like *Section Title*.", n),
+			Value: m[1], Hint: fmt.Sprintf("%d sections", n),
 			Check: "sections",
 		})
 	}
 
 	// No rhyme
 	if reNoRhyme.MatchString(userMessage) {
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "no_rhyme", Label: "do not rhyme",
-			Value: "", Hint: "Lines should NOT rhyme with each other.",
+			Value: "", Hint: "do not rhyme",
 			Check: "no_rhyme",
 		})
 	}
@@ -275,69 +349,79 @@ func (e *Engine) Extract(userMessage string) Result {
 
 	// Math + one-word / digit format → require a numeric digit (not "Four").
 	if isMath && (wantsOneWord || wantsDigit) {
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "digit_answer", Label: "numeric digit only",
-			Value: "", Hint: "For this math question, answer with the numeric digit only (example: 4). Do NOT spell the number (example: not Four). Output a single digit or number with no punctuation or explanation.",
+			Value: "", Hint: "numeric digit only",
 			Check: "digit_answer",
 		})
 	} else if wantsDigit {
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "digit_answer", Label: "numeric digit only",
-			Value: "", Hint: "Answer with the numeric digit only (example: 4). Do NOT spell the number (example: not Four).",
+			Value: "", Hint: "numeric digit only",
 			Check: "digit_answer",
 		})
 	}
 
-	// One-word answers (non-digit or in addition to digit) must be a single token.
+	// One-word answers
 	if wantsOneWord {
-		rawConstraints = append(rawConstraints, Constraint{
+		hardConstraints = append(hardConstraints, Constraint{
 			Type: "one_word", Label: "exactly one word",
-			Value: "1", Hint: "Your entire response must be exactly one word. No sentences, no punctuation, no extra explanation.",
+			Value: "1", Hint: "one word",
 			Check: "one_word",
 		})
 	}
 
-	// Complex / multi-step reasoning question → inject step-by-step hint
+	// Soft hints — detected but NOT injected into model prompt by default.
 	if reComplexQ.MatchString(userMessage) || reMultiStepQ.MatchString(userMessage) {
-		rawConstraints = append(rawConstraints, Constraint{
+		softHints = append(softHints, Constraint{
 			Type: "complex_reasoning", Label: "step-by-step reasoning",
 			Value: "", Hint: "Break this question down step-by-step. Think through each part before answering.",
 			Check: "none",
 		})
 	}
 
-	// Factual / definition question → encourage confidence indication
 	if reFactualQ.MatchString(userMessage) {
-		rawConstraints = append(rawConstraints, Constraint{
+		softHints = append(softHints, Constraint{
 			Type: "factual_confidence", Label: "confidence indication",
 			Value: "", Hint: "If you are uncertain about any factual claim, state your confidence level (high/medium/low).",
 			Check: "none",
 		})
 	}
 
-	// ── Optimization: Deduplicate constraints ──
-	constraints, dedupCount := deduplicateConstraints(rawConstraints)
+	return hardConstraints, softHints
+}
 
-	// ── Optimization: Detect conflicts ──
-	conflicts := detectConflicts(constraints)
-
-	// Only count hard constraints (Check != "none") for HasConstraints.
-	// Soft hints (complex_reasoning, factual_confidence) do not set HasConstraints
-	// so simple questions without formatting constraints still return HasConstraints=false.
-	hasHardConstraints := false
-	for _, c := range constraints {
-		if c.Check != "none" {
-			hasHardConstraints = true
-			break
-		}
-	}
-
-	if !hasHardConstraints {
+// Extract scans the user prompt for known constraint patterns and returns
+// structured constraints plus a minimal hint block to inject into the system prompt.
+func (e *Engine) Extract(userMessage string) Result {
+	if strings.TrimSpace(userMessage) == "" {
 		return Result{}
 	}
 
-	// ── Optimization: Priority-ordered hint block ──
-	hintBlock := buildPrioritizedHintBlock(constraints, conflicts)
+	hardConstraints, _ := e.extractConstraints(userMessage)
+
+	// Deduplicate hard constraints
+	constraints, dedupCount := deduplicateConstraints(hardConstraints)
+
+	// Detect conflicts (diagnostic only — not injected into model prompt)
+	conflicts := detectConflicts(constraints)
+
+	if len(constraints) == 0 {
+		return Result{
+			Constraints:       nil,
+			HintBlock:         "",
+			HasConstraints:    false,
+			Conflicts:         conflicts,
+			DeduplicatedCount: dedupCount,
+			SelectedProfile:   ProfileNone,
+		}
+	}
+
+	// Select adaptive hint profile based on constraint complexity
+	profile, complexityScore := e.SelectProfile(constraints, conflicts)
+
+	// Build hint block using selected profile
+	hintBlock := e.buildHintBlock(constraints, profile)
 
 	return Result{
 		Constraints:       constraints,
@@ -345,6 +429,8 @@ func (e *Engine) Extract(userMessage string) Result {
 		HasConstraints:    true,
 		Conflicts:         conflicts,
 		DeduplicatedCount: dedupCount,
+		SelectedProfile:   profile,
+		ComplexityScore:   complexityScore,
 	}
 }
 
@@ -366,11 +452,10 @@ func deduplicateConstraints(constraints []Constraint) ([]Constraint, int) {
 }
 
 // detectConflicts identifies contradictory constraints in the list.
-// Returns a list of human-readable conflict descriptions.
+// Returns a list of human-readable conflict descriptions for diagnostics only.
 func detectConflicts(constraints []Constraint) []string {
 	var conflicts []string
 
-	// Check for one_word + word_count mismatch
 	oneWord := false
 	oneWordCount := 0
 	for _, c := range constraints {
@@ -383,10 +468,9 @@ func detectConflicts(constraints []Constraint) []string {
 		}
 	}
 	if oneWord && oneWordCount > 0 && oneWordCount != 1 {
-		conflicts = append(conflicts, fmt.Sprintf("CONFLICT: 'one word' but also 'exactly %d words' — these cannot both be satisfied", oneWordCount))
+		conflicts = append(conflicts, fmt.Sprintf("CONFLICT: 'one word' but also 'exactly %d words'", oneWordCount))
 	}
 
-	// Check for one_word + sentence_count mismatch
 	oneSentence := false
 	for _, c := range constraints {
 		if c.Type == "sentences" {
@@ -398,7 +482,6 @@ func detectConflicts(constraints []Constraint) []string {
 		conflicts = append(conflicts, "NOTE: 'one word' and 'one sentence' are compatible only if the sentence is a single word")
 	}
 
-	// Check for JSON + one_word conflict
 	hasJSON := false
 	for _, c := range constraints {
 		if c.Type == "json" {
@@ -410,7 +493,6 @@ func detectConflicts(constraints []Constraint) []string {
 		conflicts = append(conflicts, "CONFLICT: 'JSON output' and 'one word' are incompatible — JSON requires braces")
 	}
 
-	// Check for digit_answer + one_word (non-math context)
 	hasDigit := false
 	for _, c := range constraints {
 		if c.Type == "digit_answer" {
@@ -419,72 +501,76 @@ func detectConflicts(constraints []Constraint) []string {
 		}
 	}
 	if hasDigit && oneWord {
-		conflicts = append(conflicts, "NOTE: 'digit answer' and 'one word' are compatible — a digit is a single word")
+		conflicts = append(conflicts, "NOTE: 'digit answer' and 'one word' are compatible")
 	}
 
 	return conflicts
 }
 
-// buildPrioritizedHintBlock constructs a hint block with constraints ordered
-// by priority (most critical first) and grouped logically.
-func buildPrioritizedHintBlock(constraints []Constraint, conflicts []string) string {
-	var parts []string
+// buildMinimalHintBlock constructs a concise hint block from hard constraints.
+// Principles:
+//   - No header fluff ("CRITICAL", "Follow ALL rules")
+//   - No numbered lists for single constraints
+//   - No soft hints injected
+//   - No conflict warnings injected
+//   - No verification footer
+//   - One line per constraint, minimum words
+func buildMinimalHintBlock(constraints []Constraint) string {
+	if len(constraints) == 0 {
+		return ""
+	}
 
-	// Hard constraints grouped by priority
-	hardConstraints := make(map[int][]Constraint)
-	var maxPriority int
+	var parts []string
 	for _, c := range constraints {
 		if c.Check == "none" {
 			continue
 		}
-		p := constraintPriority[c.Type]
-		if p > maxPriority {
-			maxPriority = p
-		}
-		hardConstraints[p] = append(hardConstraints[p], c)
+		parts = append(parts, c.Hint)
 	}
 
-	parts = append(parts, "CRITICAL: Follow ALL of these rules exactly:")
-
-	// Emit constraints in priority order
-	for p := 1; p <= maxPriority; p++ {
-		group, ok := hardConstraints[p]
-		if !ok {
-			continue
-		}
-		for i, c := range group {
-			parts = append(parts, fmt.Sprintf("%d. %s", len(parts), c.Hint))
-			_ = i
-		}
+	if len(parts) == 0 {
+		return ""
 	}
 
-	// Append soft hints after hard constraints
-	softHints := make([]string, 0)
+	return strings.Join(parts, "\n")
+}
+
+// buildStandardHintBlock constructs a compact grouped summary for multiple
+// non-conflicting constraints. Each constraint gets a brief descriptive label.
+// Target: <=40 tokens typical, <=80 tokens hard upper bound.
+func buildStandardHintBlock(constraints []Constraint) string {
+	if len(constraints) == 0 {
+		return ""
+	}
+
+	var parts []string
 	for _, c := range constraints {
-		if c.Check != "none" {
+		if c.Check == "none" {
 			continue
 		}
-		softHints = append(softHints, c.Hint)
-	}
-	if len(softHints) > 0 {
-		parts = append(parts, "")
-		parts = append(parts, "Additional guidance:")
-		for _, h := range softHints {
-			parts = append(parts, "- "+h)
-		}
+		parts = append(parts, fmt.Sprintf("%s: %s", c.Label, c.Hint))
 	}
 
-	// Append conflict warnings if any
-	if len(conflicts) > 0 {
-		parts = append(parts, "")
-		parts = append(parts, "⚠ WARNING: Some constraints may conflict. Resolve by following the most specific rule.")
-		for _, c := range conflicts {
-			parts = append(parts, "  "+c)
-		}
+	return strings.Join(parts, "\n")
+}
+
+// buildExplicitHintBlock constructs an ordered requirements list with a final
+// verification reminder for complex or high-risk constraint combinations.
+// Target: <=60 tokens typical, <=100 tokens hard upper bound.
+func buildExplicitHintBlock(constraints []Constraint) string {
+	if len(constraints) == 0 {
+		return ""
 	}
 
-	parts = append(parts, "")
-	parts = append(parts, "Before responding, verify each rule above is satisfied.")
+	var parts []string
+	for i, c := range constraints {
+		if c.Check == "none" {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%d. %s: %s", i+1, c.Label, c.Hint))
+	}
+
+	parts = append(parts, "verify all requirements before responding")
 
 	return strings.Join(parts, "\n")
 }
@@ -508,8 +594,7 @@ func (e *Engine) Validate(response string, constraints []Constraint) ValidationR
 }
 
 // IsFormatRestrictive returns true if the constraints include format-restrictive
-// rules that conflict with verbose or step-by-step guidance (e.g. one_word,
-// digit_answer, exact sentence/word/line counts).
+// rules that conflict with verbose or step-by-step guidance.
 func (e *Engine) IsFormatRestrictive(constraints []Constraint) bool {
 	for _, c := range constraints {
 		switch c.Type {
@@ -527,13 +612,9 @@ func (e *Engine) BuildRetryHint(violations []string, constraints []Constraint) s
 	}
 
 	var parts []string
-	parts = append(parts, "YOUR PREVIOUS RESPONSE VIOLATED THESE RULES. FIX EACH ONE:")
+	parts = append(parts, "Fix these issues:")
 	for i, v := range violations {
-		parts = append(parts, fmt.Sprintf("%d. FAILED: %s", i+1, v))
-	}
-	parts = append(parts, "Try again. Follow ALL rules exactly this time.")
-	if len(violations) > 1 {
-		parts = append(parts, "TIP: Restate the question in your own words, then verify each requirement before output.")
+		parts = append(parts, fmt.Sprintf("%d. %s", i+1, v))
 	}
 
 	return strings.Join(parts, "\n")
@@ -593,11 +674,10 @@ func checkSentenceCount(response string, c Constraint) (bool, string) {
 			count++
 		}
 	}
-	// Count last sentence even if no punctuation
 	if count == 0 {
 		count = 1
 	} else if trimmed[len(trimmed)-1] != '.' && trimmed[len(trimmed)-1] != '!' && trimmed[len(trimmed)-1] != '?' {
-		count++ // trailing text without punctuation
+		count++
 	}
 	if count != n {
 		return false, fmt.Sprintf("expected %d sentences, got %d", n, count)
@@ -649,7 +729,6 @@ func checkEndWith(response string, c Constraint) (bool, string) {
 	expected := strings.ToLower(strings.TrimRight(c.Value, "."))
 	actual := strings.ToLower(strings.TrimRight(trimmed, "."))
 
-	// Check last word
 	actualWords := strings.Fields(actual)
 	if len(actualWords) == 0 {
 		return false, fmt.Sprintf("empty response (expected to end with '%s')", c.Value)
@@ -674,7 +753,6 @@ func checkCapitalStart(response string) (bool, string) {
 
 func checkJSON(response string) (bool, string) {
 	trimmed := strings.TrimSpace(response)
-	// Strip markdown fences if present (handles any language tag: ```json, ```python, etc.)
 	if strings.HasPrefix(trimmed, "```") {
 		if idx := strings.Index(trimmed, "\n"); idx >= 0 {
 			fenceLine := trimmed[:idx]
@@ -683,7 +761,6 @@ func checkJSON(response string) (bool, string) {
 				trimmed = rest
 			}
 		}
-		// Strip the closing fence.
 		trimmed = strings.TrimSpace(strings.TrimSuffix(trimmed, "```"))
 	}
 	if len(trimmed) == 0 || (trimmed[0] != '{' && trimmed[0] != '[') {
@@ -737,7 +814,6 @@ func checkSections(response string, c Constraint) (bool, string) {
 }
 
 func checkNoRhyme(response string) (bool, string) {
-	// Simple check: look at last words of each line, if two end the same, flag it
 	lines := nonEmptyLines(response)
 	if len(lines) < 2 {
 		return true, ""
@@ -747,7 +823,6 @@ func checkNoRhyme(response string) (bool, string) {
 			w1 := lastWord(lines[i])
 			w2 := lastWord(lines[j])
 			if w1 != "" && w2 != "" && len(w1) > 2 && len(w2) > 2 {
-				// Check if last 3 chars match (simple rhyme detection)
 				if strings.HasSuffix(strings.ToLower(w1), strings.ToLower(w2[len(w2)-3:])) ||
 					strings.HasSuffix(strings.ToLower(w2), strings.ToLower(w1[len(w1)-3:])) {
 					return false, fmt.Sprintf("lines may rhyme: '%s' and '%s'", w1, w2)
@@ -787,7 +862,6 @@ func checkOneWord(response string) (bool, string) {
 	if cleaned == "" {
 		return false, "empty response (expected exactly one word)"
 	}
-	// Treat trailing punctuation as still one word ("Paris." / "4.").
 	fields := strings.Fields(cleaned)
 	if len(fields) != 1 {
 		return false, fmt.Sprintf("expected exactly one word, got %d", len(fields))
@@ -800,7 +874,6 @@ func normalizeAnswerToken(response string) string {
 	if trimmed == "" {
 		return ""
 	}
-	// Take the first field so "Four." / "4\n" normalize cleanly.
 	fields := strings.Fields(trimmed)
 	token := fields[0]
 	var b strings.Builder
@@ -830,4 +903,9 @@ func lastWord(text string) string {
 		return ""
 	}
 	return words[len(words)-1]
+}
+
+// EstimateTokens is a rough token estimator (4 chars per token).
+func EstimateTokens(s string) int {
+	return (len(s) + 3) / 4
 }

@@ -282,6 +282,8 @@ func (s *Server) recordRequestTelemetry(ctx context.Context, reqID string, start
 		// Agent-specific telemetry fields.
 		record.AgentStepCount = result.Context.StepCount
 		record.AgentLoopDetected = result.Context.LoopDetected
+		// Instruction-following telemetry fields.
+		record.InstructionHintTokens = result.Context.InstructionHintTokens
 	}
 
 	if result.Response != nil {

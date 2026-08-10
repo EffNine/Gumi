@@ -117,6 +117,7 @@ type RequestRecord struct {
 	ReasoningContentPresent bool
 	AgentStepCount          int  `json:"agent_step_count,omitempty"`
 	AgentLoopDetected       bool `json:"agent_loop_detected,omitempty"`
+	InstructionHintTokens   int  `json:"instruction_hint_tokens,omitempty"`
 }
 
 // PipelineEventRecord captures one pipeline event for storage.
@@ -143,8 +144,8 @@ func (w *Writer) RecordRequest(ctx context.Context, r RequestRecord) {
 			completion_tokens, total_tokens, context_compressed, validation_passed,
 			repair_applied, retry_count, error_code, prompt_logged, response_logged,
 			prompt_preview, response_preview, thinking_enabled, reasoning_content_present,
-			agent_step_count, agent_loop_detected
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			agent_step_count, agent_loop_detected, instruction_hint_tokens
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			workspace_id = excluded.workspace_id,
 			session_id = excluded.session_id,
@@ -170,7 +171,8 @@ func (w *Writer) RecordRequest(ctx context.Context, r RequestRecord) {
 			thinking_enabled = excluded.thinking_enabled,
 			reasoning_content_present = excluded.reasoning_content_present,
 			agent_step_count = excluded.agent_step_count,
-			agent_loop_detected = excluded.agent_loop_detected
+			agent_loop_detected = excluded.agent_loop_detected,
+			instruction_hint_tokens = excluded.instruction_hint_tokens
 	`,
 		r.RequestID,
 		r.CreatedAt.UTC().Format(time.RFC3339),
@@ -199,6 +201,7 @@ func (w *Writer) RecordRequest(ctx context.Context, r RequestRecord) {
 		boolToInt(r.ReasoningContentPresent),
 		r.AgentStepCount,
 		boolToInt(r.AgentLoopDetected),
+		r.InstructionHintTokens,
 	)
 	if err != nil && w.log != nil {
 		w.log.Error("telemetry: failed to record request", err, "request_id", r.RequestID)
