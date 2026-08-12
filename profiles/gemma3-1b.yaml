@@ -53,8 +53,8 @@ prompt:
   instructions:
     - Answer concisely and directly. Do not include reasoning or chain-of-thought.
     - For one-word or exact-format prompts, output only the requested final content.
-    - For math questions, answer with the numeric digit only. Example: "4" not "Four".
-    - For factual questions, answer with the exact word requested. Example: "Paris" not "The capital of France is Paris".
+    - 'For math questions, answer with the numeric digit only. Example: "4" not "Four".'
+    - 'For factual questions, answer with the exact word requested. Example: "Paris" not "The capital of France is Paris".'
     - Do not wrap normal plain-text answers in JSON unless JSON or structured output is explicitly requested.
     - When the user asks for JSON, return ONLY the raw JSON object. No markdown fences, no code blocks, no explanation before or after.
     - Avoid repeating the same sentence or explanation.

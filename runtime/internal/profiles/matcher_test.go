@@ -294,3 +294,115 @@ func TestResolveFamilyOrderIndependence(t *testing.T) {
 		t.Fatalf("(large first) expected qwen3.5-2b, got %q", m2.Profile.ID)
 	}
 }
+
+// ── Sprint 17R5: Profile Integrity Tests ────────────────────────
+
+func TestResolveGemma34bToCorrectProfile(t *testing.T) {
+	loader := NewDefaultLoader()
+	loaded, err := loader.Load()
+	if err != nil {
+		t.Fatalf("failed to load profiles: %v", err)
+	}
+	if len(loaded.Warnings) > 0 {
+		t.Fatalf("profile load produced warnings (indicates broken profiles): %v", loaded.Warnings)
+	}
+	resolver := NewResolver(loaded.Profiles)
+
+	match := resolver.Resolve("ollama", "gemma3:4b")
+	if match.IsFallback {
+		t.Fatal("gemma3:4b should resolve to its own profile, not fallback")
+	}
+	if match.Profile.ID != "gemma3-4b" {
+		t.Fatalf("expected gemma3-4b profile, got %s (reason=%s)", match.Profile.ID, match.Reason)
+	}
+}
+
+func TestResolveGemma31bToCorrectProfile(t *testing.T) {
+	loader := NewDefaultLoader()
+	loaded, _ := loader.Load()
+	resolver := NewResolver(loaded.Profiles)
+
+	match := resolver.Resolve("ollama", "gemma3:1b")
+	if match.IsFallback {
+		t.Fatal("gemma3:1b should resolve to its own profile, not fallback")
+	}
+	if match.Profile.ID != "gemma3-1b" {
+		t.Fatalf("expected gemma3-1b profile, got %s (reason=%s)", match.Profile.ID, match.Reason)
+	}
+}
+
+func TestResolveLlama323bToCorrectProfile(t *testing.T) {
+	loader := NewDefaultLoader()
+	loaded, _ := loader.Load()
+	resolver := NewResolver(loaded.Profiles)
+
+	match := resolver.Resolve("ollama", "llama3.2:3b")
+	if match.IsFallback {
+		t.Fatal("llama3.2:3b should resolve to its own profile, not fallback")
+	}
+	if match.Profile.ID != "llama3.2-3b" {
+		t.Fatalf("expected llama3.2-3b profile, got %s (reason=%s)", match.Profile.ID, match.Reason)
+	}
+}
+
+func TestResolveGemma4E4bToCorrectProfile(t *testing.T) {
+	loader := NewDefaultLoader()
+	loaded, _ := loader.Load()
+	resolver := NewResolver(loaded.Profiles)
+
+	match := resolver.Resolve("ollama", "gemma-4:4b")
+	if match.IsFallback {
+		t.Fatal("gemma-3-4b should resolve to its own profile, not fallback")
+	}
+	if match.Profile.ID != "gemma-4-e4b" {
+		t.Fatalf("expected gemma-4-e4b profile, got %s (reason=%s)", match.Profile.ID, match.Reason)
+	}
+}
+
+func TestAllProfilesLoadWithoutWarnings(t *testing.T) {
+	loader := NewDefaultLoader()
+	loaded, err := loader.Load()
+	if err != nil {
+		t.Fatalf("load error: %v", err)
+	}
+	if len(loaded.Warnings) > 0 {
+		for _, w := range loaded.Warnings {
+			t.Errorf("profile load warning: %s", w)
+		}
+		t.Fatalf("expected 0 warnings, got %d", len(loaded.Warnings))
+	}
+	if len(loaded.Profiles) < 16 {
+		t.Fatalf("expected at least 16 profiles, got %d", len(loaded.Profiles))
+	}
+}
+
+func TestBrokenProfileDoesNotResolveToUnrelatedProfile(t *testing.T) {
+	// Simulate a broken profile by creating a resolver without the gemma3-4b profile
+	// but with gemma3-12b present. Verify that if gemma3-4b were missing,
+	// it would fall back to family matching, but a PARSED profile always wins.
+	profiles := []*Profile{
+		{ID: "gemma3-12b", Family: "gemma", Size: "12b", Models: map[string][]string{"ollama": {"gemma3:12b"}}},
+		{ID: "generic-local", Family: "unknown", Size: "unknown"},
+	}
+	resolver := NewResolver(profiles)
+
+	// Without gemma3-4b, this falls back to family match (gemma3-12b)
+	match := resolver.Resolve("ollama", "gemma3:4b")
+	if !match.IsFallback && match.Profile.ID != "gemma3-12b" {
+		t.Fatalf("without gemma3-4b profile, expected family fallback to gemma3-12b, got %s", match.Profile.ID)
+	}
+
+	// With gemma3-4b present, it should resolve directly
+	profiles = append(profiles, &Profile{
+		ID: "gemma3-4b", Family: "gemma", Size: "4b",
+		Models: map[string][]string{"ollama": {"gemma3:4b", "gemma3:latest"}},
+	})
+	resolver = NewResolver(profiles)
+	match = resolver.Resolve("ollama", "gemma3:4b")
+	if match.IsFallback {
+		t.Fatal("with gemma3-4b present, should not fallback")
+	}
+	if match.Profile.ID != "gemma3-4b" {
+		t.Fatalf("expected gemma3-4b, got %s", match.Profile.ID)
+	}
+}
