@@ -120,18 +120,18 @@ func Run(cfg RunConfig) (*types.GEPReport, error) {
 		RunID:           runID,
 		ProtocolVersion: types.ProtocolVersion,
 		Config: types.GEPRunConfig{
-			Model:        cfg.Model,
-			Provider:     cfg.Provider,
-			ProviderURL:  cfg.ProviderURL,
-			APIKey:       cfg.APIKey,
-			Timestamp:    time.Now().UTC(),
-			Attempts:     cfg.Attempts,
-			SuiteID:      cfg.SuiteID,
-			Difficulty:   cfg.Difficulty,
-			Conditions:   cfg.Conditions,
-			GumiURL:      cfg.GumiURL,
-			GumiAPIKey:   cfg.GumiAPIKey,
-			Scope:        cfg.Scope,
+			Model:       cfg.Model,
+			Provider:    cfg.Provider,
+			ProviderURL: cfg.ProviderURL,
+			APIKey:      cfg.APIKey,
+			Timestamp:   time.Now().UTC(),
+			Attempts:    cfg.Attempts,
+			SuiteID:     cfg.SuiteID,
+			Difficulty:  cfg.Difficulty,
+			Conditions:  cfg.Conditions,
+			GumiURL:     cfg.GumiURL,
+			GumiAPIKey:  cfg.GumiAPIKey,
+			Scope:       cfg.Scope,
 		},
 		Summary:      summary,
 		Capabilities: capabilities,
@@ -242,10 +242,10 @@ func callGumiRuntime(ctx context.Context, cfg RunConfig, test types.GEPTest, mes
 	modelName := string(cfg.Provider) + ":" + cfg.Model
 
 	reqBody := struct {
-		Model    string              `json:"model"`
+		Model    string                  `json:"model"`
 		Messages []providers.ChatMessage `json:"messages"`
-		Stream   bool                `json:"stream"`
-		Gumi     map[string]interface{} `json:"gumi,omitempty"`
+		Stream   bool                    `json:"stream"`
+		Gumi     map[string]interface{}  `json:"gumi,omitempty"`
 	}{
 		Model:    modelName,
 		Messages: messages,
@@ -343,7 +343,18 @@ func runSelfConsistencyAttempt(ctx context.Context, provider providers.Provider,
 	for _, prompt := range prompts {
 		testCtx, cancel := context.WithTimeout(ctx, timeout)
 		start := time.Now()
-		resp, err := callGumiRuntime(testCtx, cfg, test, []providers.ChatMessage{{Role: "user", Content: prompt}})
+		var resp *providers.ChatResponse
+		var err error
+		if cond == types.ConditionGumiStabilized && cfg.GumiURL != "" {
+			resp, err = callGumiRuntime(testCtx, cfg, test, []providers.ChatMessage{{Role: "user", Content: prompt}})
+		} else {
+			resp, err = provider.ChatCompletion(testCtx, providers.ChatRequest{
+				Model:       cfg.Model,
+				Messages:    []providers.ChatMessage{{Role: "user", Content: prompt}},
+				MaxTokens:   test.MaxTokens,
+				Temperature: 0.3,
+			})
+		}
 		totalLatency += time.Since(start).Seconds() * 1000
 		cancel()
 
