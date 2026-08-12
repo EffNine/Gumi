@@ -111,14 +111,14 @@ var (
 	reFactualQ   = regexp.MustCompile(`(?i)(?:who\s+is|what\s+is|where\s+is|when\s+(?:was|did|will)|define|describe|list|what\s+are|tell\s+me\s+about)`)
 	reMultiStepQ = regexp.MustCompile(`(?i)(?:first\s+.*then\s+.*finally|step\s+\d|multi[\s-]step|multiple\s+parts|several\s+steps)`)
 
-		spelledNumbers = map[string]struct{}{
+	spelledNumbers = map[string]struct{}{
 		"zero": {}, "one": {}, "two": {}, "three": {}, "four": {}, "five": {},
 		"six": {}, "seven": {}, "eight": {}, "nine": {}, "ten": {},
 		"eleven": {}, "twelve": {}, "thirteen": {}, "fourteen": {}, "fifteen": {},
 		"sixteen": {}, "seventeen": {}, "eighteen": {}, "nineteen": {}, "twenty": {},
 		"thirty": {}, "forty": {}, "fifty": {}, "sixty": {}, "seventy": {},
 		"eighty": {}, "ninety": {}, "hundred": {}, "thousand": {},
-		}
+	}
 )
 
 // Engine extracts and validates instruction constraints.
