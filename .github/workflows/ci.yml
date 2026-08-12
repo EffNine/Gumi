@@ -43,6 +43,34 @@ jobs:
           cd runtime
           go build ./cmd/gumi
 
+  benchmark:
+    name: Benchmark checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: benchmark/go.mod
+
+      - name: gofmt
+        run: |
+          cd benchmark
+          gofmt -w .
+          git diff --exit-code
+
+      - name: go vet
+        run: |
+          cd benchmark
+          go vet ./...
+
+      - name: go test
+        run: |
+          cd benchmark
+          go test ./...
+
   dashboard:
     name: Dashboard build
     runs-on: ubuntu-latest
@@ -62,6 +90,11 @@ jobs:
           cd dashboard
           npm ci
           npm run build
+
+      - name: lint
+        run: |
+          cd dashboard
+          npm run lint
 
   integration:
     name: Integration tests

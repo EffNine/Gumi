@@ -590,9 +590,10 @@ func TestSelfTuningIntegration_TuneAdjustsRouteSelection(t *testing.T) {
 	}
 
 	// Boost path: promote small model and demote large so SelectWithBoost flips winner.
+	// Pin rng above epsilon to guarantee deterministic boost selection (no exploration).
+	tuner.rng = func() float64 { return 1.0 }
 	tuner.mu.Lock()
 	tuner.modelBoosts["provider-small:small-model:v1"] = 0.5
-	tuner.modelDemotes["provider-large:large-model:v1"] = 0.5
 	tuner.mu.Unlock()
 
 	rule := findDefaultRule("moderate-feature")

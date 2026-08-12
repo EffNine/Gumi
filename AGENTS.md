@@ -17,8 +17,8 @@ Standard commands are in the root `Makefile`, `README.md`, and CI
 - Run: `./gumi start` (or `make run`). API on `127.0.0.1:8787`, dashboard on
   `127.0.0.1:8788`. Stop with `./gumi stop`; check with `./gumi status` /
   `./gumi doctor`.
-- Go tests / vet: `cd runtime && go test ./...` / `go vet ./...`
-  (CI also enforces `gofmt`).
+- Go tests / vet: `cd runtime && go test ./...` / `go vet ./...` (CI also enforces `gofmt`).
+  Benchmark module is validated separately: `cd benchmark && go test ./...` / `go vet ./...`.
 - Dashboard dev server: `cd dashboard && npm run dev` (proxies `/api` →
   runtime on 8787, so the runtime must already be running).
 
@@ -46,6 +46,6 @@ Standard commands are in the root `Makefile`, `README.md`, and CI
   very fast or tiny models; this is a UI display quirk, not a backend failure —
   verify via the API directly or the dashboard "Requests" page (which shows the
   correctly-recorded telemetry).
-- `cd dashboard && npm run lint` currently fails: the repo ships no
-  `eslint.config.js` (ESLint v9+ flat-config). Dashboard lint is not part of CI
-  (CI only runs `npm ci && npm run build`).
+- `cd dashboard && npm run lint` passes (ESLint v9+ flat-config present as
+  `eslint.config.js`). Lint reports only unused-import warnings, not errors.
+  Dashboard lint is not part of CI (CI runs `npm ci && npm run build`).
