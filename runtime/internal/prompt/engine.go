@@ -124,9 +124,6 @@ func buildSystemPrompt(in Input) string {
 		lines = append(lines, "Return only the requested structured output. Avoid prose outside the structure.")
 	} else if in.ResponseFormat != nil && in.ResponseFormat.Type != "" {
 		lines = append(lines, "Return only the requested output format. Do not wrap it in markdown fences or add explanatory prose.")
-	} else {
-		lines = append(lines, "Quality guidelines: think step-by-step for complex tasks, break multi-part requests into subtasks, and verify your response before output.")
-		lines = append(lines, "Do not convert plain-text answers into JSON. If the user asks a simple question, answer in plain text unless they explicitly request JSON.")
 	}
 	// Inject format constraints from user messages into the system prompt for
 	// stabilized mode so models respect exact-format requirements.
