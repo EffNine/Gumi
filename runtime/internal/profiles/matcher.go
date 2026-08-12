@@ -14,14 +14,28 @@ type Match struct {
 
 // Resolver selects the best matching profile for a provider/model pair.
 type Resolver struct {
-	profiles []*Profile
+	profiles   []*Profile
+	brokenIDs  map[string]bool
+	brokenAlts map[string]bool
 }
 
 // NewResolver creates a resolver from a list of loaded profiles.
 // If the list does not contain generic-local, the fallback profile is
-// appended automatically.
-func NewResolver(profiles []*Profile) *Resolver {
-	r := &Resolver{profiles: append([]*Profile(nil), profiles...)}
+// appended automatically. brokenIDs are profile IDs that existed on disk
+// but could not be loaded; brokenAlts are their aliases. Resolving to any
+// of them is blocked to prevent silent fallback to an unrelated profile.
+func NewResolver(profiles []*Profile, brokenIDs []string, brokenAlts []string) *Resolver {
+	r := &Resolver{
+		profiles:   append([]*Profile(nil), profiles...),
+		brokenIDs:  make(map[string]bool),
+		brokenAlts: make(map[string]bool),
+	}
+	for _, id := range brokenIDs {
+		r.brokenIDs[strings.ToLower(strings.TrimSpace(id))] = true
+	}
+	for _, a := range brokenAlts {
+		r.brokenAlts[strings.ToLower(strings.TrimSpace(a))] = true
+	}
 	hasGeneric := false
 	for _, p := range r.profiles {
 		if p != nil && p.ID == "generic-local" {
@@ -38,6 +52,10 @@ func NewResolver(profiles []*Profile) *Resolver {
 // Resolve matches a provider-native model name to a profile.
 // Matching order: provider-specific alias, global alias, profile id,
 // family heuristic (scored), generic fallback.
+//
+// If the requested model exactly matches a known-but-broken profile ID, the
+// resolver returns the generic fallback with reason "broken_profile" instead
+// of silently falling through to an unrelated family match.
 func (r *Resolver) Resolve(providerKey, modelName string) *Match {
 	key := strings.ToLower(strings.TrimSpace(providerKey))
 	model := strings.ToLower(strings.TrimSpace(modelName))
@@ -73,6 +91,16 @@ func (r *Resolver) Resolve(providerKey, modelName string) *Match {
 		}
 		if strings.ToLower(p.ID) == model {
 			return &Match{Profile: p, Reason: "profile_id"}
+		}
+	}
+
+	// If the model name matches a known-but-broken profile (by ID or alias),
+	// block family heuristic fallback to an unrelated profile.
+	if r.brokenIDs[model] || r.brokenAlts[model] {
+		return &Match{
+			Profile:    GenericFallback(),
+			IsFallback: true,
+			Reason:     "broken_profile",
 		}
 	}
 

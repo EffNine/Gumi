@@ -12,8 +12,10 @@ import (
 
 // LoadResult is returned by Loader.Load.
 type LoadResult struct {
-	Profiles []*Profile
-	Warnings []string
+	Profiles   []*Profile
+	Warnings   []string
+	BrokenIDs  []string // IDs of profiles that existed but could not be loaded
+	BrokenAlts []string // alternative names (aliases) for broken profiles, for resolution blocking
 }
 
 // Loader reads model profile YAML files from a directory.
@@ -53,6 +55,8 @@ func (l *Loader) Load() (*LoadResult, error) {
 
 	var profiles []*Profile
 	var warnings []string
+	var brokenIDs []string
+	var brokenAlts []string
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -72,11 +76,27 @@ func (l *Loader) Load() (*LoadResult, error) {
 		var p Profile
 		if err := yaml.Unmarshal(data, &p); err != nil {
 			warnings = append(warnings, fmt.Sprintf("failed to parse profile %s: %v", path, err))
+			// Extract ID if present so the resolver can block family fallback.
+			var meta struct {
+				ID      string   `yaml:"id"`
+				Aliases []string `yaml:"aliases,omitempty"`
+			}
+			yaml.Unmarshal(data, &meta)
+			if strings.TrimSpace(meta.ID) != "" {
+				brokenIDs = append(brokenIDs, meta.ID)
+			}
+			brokenAlts = append(brokenAlts, meta.Aliases...)
 			continue
 		}
 
 		if err := Validate(&p); err != nil {
 			warnings = append(warnings, fmt.Sprintf("skipping invalid profile %s: %v", path, err))
+			if strings.TrimSpace(p.ID) != "" {
+				brokenIDs = append(brokenIDs, p.ID)
+			}
+			for _, a := range p.Aliases {
+				brokenAlts = append(brokenAlts, a)
+			}
 			continue
 		}
 
@@ -90,7 +110,7 @@ func (l *Loader) Load() (*LoadResult, error) {
 		}, nil
 	}
 
-	return &LoadResult{Profiles: profiles, Warnings: warnings}, nil
+	return &LoadResult{Profiles: profiles, Warnings: warnings, BrokenIDs: brokenIDs, BrokenAlts: brokenAlts}, nil
 }
 
 // findProfilesDir searches upward from the executable directory and the

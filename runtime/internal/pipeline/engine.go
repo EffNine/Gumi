@@ -74,7 +74,7 @@ type StreamResult struct {
 func New(cfg *config.Config, manager *provider.Manager, log *logger.Logger) *Engine {
 	loader := profiles.NewDefaultLoader()
 	loaded, _ := loader.Load()
-	resolver := profiles.NewResolver(loaded.Profiles)
+	resolver := profiles.NewResolver(loaded.Profiles, loaded.BrokenIDs, loaded.BrokenAlts)
 
 	// Build router if routing is enabled.
 	var codingRouter *router.CodingRuleEngine

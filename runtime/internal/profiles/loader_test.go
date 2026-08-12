@@ -135,6 +135,55 @@ capabilities:
 	if len(result.Warnings) < 2 {
 		t.Fatalf("expected warnings for invalid profiles, got %v", result.Warnings)
 	}
+	if len(result.BrokenIDs) != 1 {
+		t.Fatalf("expected 1 broken ID, got %d: %v", len(result.BrokenIDs), result.BrokenIDs)
+	}
+	if len(result.BrokenIDs) > 0 && result.BrokenIDs[0] != "bad-cap" {
+		t.Fatalf("expected broken ID 'bad-cap', got %v", result.BrokenIDs)
+	}
+}
+
+func TestBrokenProfileIDTracking(t *testing.T) {
+	dir := t.TempDir()
+	// A profile with a parse error but an extractable ID.
+	writeProfile(t, dir, "broken-parse.yaml", `
+id: broken-parse
+  indented badly: [
+`)
+	// A profile that validates but fails schema checks.
+	writeProfile(t, dir, "broken-valid.yaml", `
+id: broken-valid
+version: 1
+family: test
+capabilities:
+  structured_output: impossible
+`)
+	// A valid profile.
+	writeProfile(t, dir, "good.yaml", `
+id: good
+version: 1
+family: test
+capabilities:
+  chat: true
+`)
+
+	loader := NewLoader(dir)
+	result, err := loader.Load()
+	if err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+	if len(result.Profiles) != 1 || result.Profiles[0].ID != "good" {
+		t.Fatalf("expected only good profile, got %v", result.Profiles)
+	}
+	if len(result.BrokenIDs) != 1 {
+		t.Fatalf("expected 1 broken ID, got %d: %v", len(result.BrokenIDs), result.BrokenIDs)
+	}
+	if len(result.BrokenIDs) == 0 || result.BrokenIDs[0] != "broken-valid" {
+		t.Fatalf("expected broken-valid in BrokenIDs, got %v", result.BrokenIDs)
+	}
+	if len(result.BrokenAlts) != 0 {
+		// The parse-error profile has no extractable aliases.
+	}
 }
 
 func TestDefaultLoaderFindsRealProfiles(t *testing.T) {

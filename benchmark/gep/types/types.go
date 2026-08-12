@@ -1,7 +1,10 @@
 // Package types defines the core data types for the Gumi Evaluation Protocol (GEP).
 package types
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // ProtocolVersion is the current GEP protocol version.
 const ProtocolVersion = "2.0.0"
@@ -52,8 +55,8 @@ const (
 type GEPScope string
 
 const (
-	ScopeModel     GEPScope = "model"
-	ScopeRuntime   GEPScope = "runtime"
+	ScopeModel   GEPScope = "model"
+	ScopeRuntime GEPScope = "runtime"
 )
 
 // A GEPTest is a single evaluation case within a GEP suite.
@@ -151,24 +154,24 @@ type GEPMetricSet struct {
 
 // GEPCapability holds per-capability GEP results with condition dimension.
 type GEPCapability struct {
-	SuiteType  SuiteType    `json:"suite_type"`
-	Direct     GEPMetricSet `json:"direct"`
-	Gumi       GEPMetricSet `json:"gumi"`
-	Delta      float64      `json:"delta"`
-	PassRate   float64      `json:"pass_rate"`
-	Desc       string       `json:"description"`
+	SuiteType SuiteType    `json:"suite_type"`
+	Direct    GEPMetricSet `json:"direct"`
+	Gumi      GEPMetricSet `json:"gumi"`
+	Delta     float64      `json:"delta"`
+	PassRate  float64      `json:"pass_rate"`
+	Desc      string       `json:"description"`
 }
 
 // GEPBaseline stores historical benchmark data for regression comparison.
 type GEPBaseline struct {
-	RunID        string                  `json:"run_id"`
-	Model        string                  `json:"model"`
-	Provider     ProviderType            `json:"provider"`
-	Scope        GEPScope                `json:"scope"`
-	Timestamp    time.Time               `json:"timestamp"`
-	OverallScore float64                 `json:"overall_score"`
+	RunID        string                   `json:"run_id"`
+	Model        string                   `json:"model"`
+	Provider     ProviderType             `json:"provider"`
+	Scope        GEPScope                 `json:"scope"`
+	Timestamp    time.Time                `json:"timestamp"`
+	OverallScore float64                  `json:"overall_score"`
 	Capabilities map[string]GEPCapability `json:"capabilities"`
-	Config       GEPRunConfig            `json:"config"`
+	Config       GEPRunConfig             `json:"config"`
 }
 
 // GEPRegression is the comparison between a new run and a baseline.
@@ -204,19 +207,93 @@ type GEPReport struct {
 
 // GEPSummary holds the top-level aggregate results of a GEP run.
 type GEPSummary struct {
-	OverallScore       float64      `json:"overall_score"`
-	DirectScore        float64      `json:"direct_score,omitempty"`
-	GumiScore          float64      `json:"gumi_score,omitempty"`
-	ScoreDelta         float64      `json:"score_delta,omitempty"`
-	PassRate           float64      `json:"pass_rate"`
-	DirectPassRate     float64      `json:"direct_pass_rate,omitempty"`
-	GumiPassRate       float64      `json:"gumi_pass_rate,omitempty"`
-	PassRateDelta      float64      `json:"pass_rate_delta,omitempty"`
-	AvgLatencyMs       float64      `json:"avg_latency_ms"`
-	DirectLatencyMs    float64      `json:"direct_latency_ms,omitempty"`
-	GumiLatencyMs      float64      `json:"gumi_latency_ms,omitempty"`
-	LatencyDeltaMs     float64      `json:"latency_delta_ms,omitempty"`
-	TotalTests         int          `json:"total_tests"`
-	PassedTests        int          `json:"passed_tests"`
-	WorthIt            bool         `json:"worth_it"`
+	OverallScore    float64 `json:"overall_score"`
+	DirectScore     float64 `json:"direct_score,omitempty"`
+	GumiScore       float64 `json:"gumi_score,omitempty"`
+	ScoreDelta      float64 `json:"score_delta,omitempty"`
+	PassRate        float64 `json:"pass_rate"`
+	DirectPassRate  float64 `json:"direct_pass_rate,omitempty"`
+	GumiPassRate    float64 `json:"gumi_pass_rate,omitempty"`
+	PassRateDelta   float64 `json:"pass_rate_delta,omitempty"`
+	AvgLatencyMs    float64 `json:"avg_latency_ms"`
+	DirectLatencyMs float64 `json:"direct_latency_ms,omitempty"`
+	GumiLatencyMs   float64 `json:"gumi_latency_ms,omitempty"`
+	LatencyDeltaMs  float64 `json:"latency_delta_ms,omitempty"`
+	TotalTests      int     `json:"total_tests"`
+	PassedTests     int     `json:"passed_tests"`
+	WorthIt         bool    `json:"worth_it"`
+}
+
+// PairKey uniquely identifies a test attempt within a GEP run, enabling
+// deterministic pairing of Direct and Gumi-stabilized results for the same
+// logical test instance. The key is (SuiteID, TestID, Attempt).
+type PairKey struct {
+	SuiteID string
+	TestID  string
+	Attempt int
+}
+
+// PairResult holds a Direct/Gumi pair for a single test attempt.
+type PairResult struct {
+	Key      PairKey
+	Direct   *GEPResult
+	Gumi     *GEPResult
+	DirectOK bool
+	GumiOK   bool
+}
+
+// PairResults groups per-test results by PairKey and returns paired Direct and
+// Gumi-stabilized results. Unpaired conditions are left as nil. The order of
+// pairs follows the order of first appearance of each PairKey in the input.
+// Returns an error if duplicate results with the same (SuiteID, TestID,
+// Attempt, Condition) are detected — an evaluation harness must not silently
+// overwrite identical pair keys.
+func PairResults(results []GEPResult) ([]PairResult, error) {
+	type entry struct {
+		key PairKey
+		d   *GEPResult
+		g   *GEPResult
+	}
+	var ordered []entry
+	seen := make(map[PairKey]int)
+	// track (key, condition) for duplicate detection
+	seenCond := make(map[[2]interface{}]bool)
+
+	for i := range results {
+		r := &results[i]
+		k := PairKey{SuiteID: r.SuiteID, TestID: r.TestID, Attempt: r.Attempt}
+		condKey := [2]interface{}{k, r.Condition}
+		if seenCond[condKey] {
+			return nil, fmt.Errorf("duplicate GEPResult for test_id=%q suite_id=%q attempt=%d condition=%q",
+				r.TestID, r.SuiteID, r.Attempt, r.Condition)
+		}
+		seenCond[condKey] = true
+
+		pos, ok := seen[k]
+		if !ok {
+			pos = len(ordered)
+			seen[k] = pos
+			ordered = append(ordered, entry{key: k})
+		}
+		switch r.Condition {
+		case ConditionDirect:
+			d := *r
+			ordered[pos].d = &d
+		case ConditionGumiStabilized:
+			g := *r
+			ordered[pos].g = &g
+		}
+	}
+
+	pairs := make([]PairResult, len(ordered))
+	for i, e := range ordered {
+		pairs[i] = PairResult{
+			Key:      e.key,
+			Direct:   e.d,
+			Gumi:     e.g,
+			DirectOK: e.d != nil,
+			GumiOK:   e.g != nil,
+		}
+	}
+	return pairs, nil
 }
