@@ -91,3 +91,6 @@ venv/
 .venv-bench/
 benchmark/cmd/benchmark_run
 /run
+
+# Optimizer run artifacts
+/reports/

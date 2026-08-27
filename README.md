@@ -1,880 +1,416 @@
-<div align="center">
+# Gumi — Local Inference Auto-Tuner
 
-# Gumi
-
-### Intelligence Runtime for Local AI
-
-**Gumi is an intelligence runtime that makes local AI models more stable,
-reliable, and production-ready.**
-
-[![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![CI](https://github.com/EffNine/Gumi/actions/workflows/ci.yml/badge.svg)](https://github.com/EffNine/Gumi/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/EffNine/Gumi?include_prereleases&label=release)](https://github.com/EffNine/Gumi/releases)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/EffNine/Gumi?style=social)](https://github.com/EffNine/Gumi/stargazers)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue)](#)
-[![Last Release](https://img.shields.io/github/release-date/EffNine/Gumi?label=last%20release)](./CHANGELOG.md)
-[![Go Reference](https://pkg.go.dev/badge/github.com/EffNine/gumi/runtime.svg)](https://pkg.go.dev/github.com/EffNine/gumi/runtime)
-
-> 💡 **System Requirements:** Gumi runs on macOS, Linux, and Windows. See [System Requirements](./docs/guides/system-requirements.md) for hardware and software prerequisites.
-
-[Quick start](#get-started) · [Benchmarks](#benchmarks) · [Docs](./docs/) · [Integrations](./docs/guides/integrations/) · [Changelog](./CHANGELOG.md)
-
-</div>
-
----
-
-Gumi sits between your app and your local inference server:
-
-```text
-OpenCode / Continue / Cline / Open WebUI / SDK
-        ↓
-Gumi Runtime
-http://127.0.0.1:8787/v1
-        ↓
-LM Studio / Ollama / OpenAI-compatible local server
-        ↓
-Local model
-```
-
-Gumi is not a model, chatbot, or hosted cloud gateway. It is the runtime layer
-around local AI.
-
----
-
-## Try it
-
-Start Gumi and point any OpenAI-compatible client at it:
+Gumi is a **local inference auto-tuner**: a CLI-first, local-first Go tool that
+experiments with inference configurations on *your* CUDA machine. Give it a GGUF
+model and a workload — Gumi inspects the model geometry, probes the hardware,
+discovers what the installed `llama.cpp` backend actually supports, measures real
+configurations, verifies capability, searches the practical context frontier, and
+returns the best **measured and verified** configurations it can prove. No cloud,
+no database, no guessing.
 
 ```bash
-# Build and start
-make build
-./gumi start
-
-# Any OpenAI SDK / cURL works out of the box
-curl http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer gumi-local" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "lmstudio:qwen2.5-coder-7b-instruct",
-    "messages": [{"role": "user", "content": "Write a Go function that adds two ints. Code only."}]
-  }'
+gumi tune qwen3-30b-a3b-q4_k_m.gguf --workload agentic_coding
+# or just:
+gumi tune qwen3-30b-a3b-q4_k_m.gguf
+# with an explicit decode floor (tok/s):
+gumi tune model.gguf --min-decode 25
 ```
-
-```python
-from openai import OpenAI
-
-client = OpenAI(base_url="http://127.0.0.1:8787/v1", api_key="gumi-local")
-print(client.chat.completions.create(
-    model="lmstudio:qwen2.5-coder-7b-instruct",
-    messages=[{"role": "user", "content": "Write a tiny TypeScript add function."}],
-).choices[0].message.content)
-```
-
-Dashboard: **http://127.0.0.1:8788**
-
-![Gumi dashboard](./docs/assets/dashboard-overview.png)
-*Gumi dashboard — local telemetry and diagnostics at http://127.0.0.1:8788*
-
----
-
-## Key metrics
-
-Benchmarked on Ornith 9B and Qwen 3.5 9B via LM Studio.
-Full report: [`benchmarks/reports/SUMMARY-20260712.md`](benchmarks/reports/SUMMARY-20260712.md).
-
-| Metric | Direct (no Gumi) | Gumi | Change |
-|---|---|---|---|
-| JSON validity (agentic) | 0% | **100%** | +100% |
-| JSON + required keys | 0% | **100%** | +100% |
-| Tool-call accuracy | 100% | 100% | maintained |
-| Latency p50 (JSON) | 2,949 ms | **352 ms** | **8.4× faster** |
-| HTTP errors | ~50% | **0%** | eliminated |
-| Repetition false positives | 113 | **0** | eliminated |
-| Instruction following (structured) | 67% | **100%** | +33% |
-
-These per-turn gains compound across multi-turn agent loops (30+ turns),
-where a single broken JSON response can stall the entire run.
-
----
-
-## Who is this for?
-
-- **OpenCode / Continue / Cline users** — You run a coding agent on a local
-  model and hit broken JSON, repeated output, or empty responses. Point your
-  client at Gumi instead of the raw provider and those failure modes
-  disappear.
-- **Ollama / LM Studio users** — You like local inference but the model is
-  rough in real apps. Gumi adds JSON repair, instruction-following assist,
-  anti-loop guards, and telemetry without replacing your model.
-- **Local AI app builders** — You're building on top of local models and need
-  an OpenAI-compatible reliability layer with model routing, memory, and
-  provider-specific fixes. Gumi is that layer.
-
----
-
-## What makes Gumi different?
-
-| | Gumi | Raw Ollama / LM Studio | Cloud gateways |
-|---|---|---|---|
-| Runs locally (no data leaves your machine) | ✅ | ✅ | ❌ |
-| OpenAI-compatible drop-in | ✅ | partial | ✅ |
-| JSON validation + repair | ✅ | ❌ | varies |
-| Instruction-following assist | ✅ | ❌ | ❌ |
-| Per-step model routing (agent) | ✅ | ❌ | ❌ |
-| Persistent cross-model memory | ✅ | ❌ | ❌ |
-| Provider-specific quirk fixes | ✅ | ❌ | ❌ |
-| Local telemetry dashboard | ✅ | ❌ | ✅ |
-| Local-first, no cloud dependency | ✅ | ✅ | ❌ |
-
-Gumi improves the **layer around the model** instead of replacing the model.
-It is not an agent framework, a model, or a hosted cloud gateway — it is the
-runtime that makes whatever model you already run behave reliably.
-
----
-
-## Dashboard
-
-> The Gumi dashboard runs at `http://127.0.0.1:8788` and provides 11 pages
-> covering every aspect of the runtime. Full prompts and responses are hidden
-> by default.
-
-| Overview | Playground |
-|---|---|
-| ![Overview](./docs/assets/dashboard-overview.png) | Interactive chat with provider/model/mode selection |
-
-| Requests | Analytics | Providers | Models |
-|---|---|---|---|
-| Request history with filtering | Latency distribution & provider breakdown | Provider health cards | Model load/unload & configuration |
-
-| Memory | Profiles | Logs | Config | Doctor |
-|---|---|---|---|---|
-| Facts CRUD & model-fit | Profile listing | Real-time SSE log streaming | Resolved config viewer | Diagnostic checks |
-
-**Page overview:**
-
-| Page | Description |
-|------|-------------|
-| **Overview** | Runtime status, pipeline visualization, provider health, recent activity |
-| **Playground** | Interactive chat — select provider, model, and pipeline mode |
-| **Requests** | Request history table with status, latency, validation, repair info |
-| **Analytics** | Latency distribution bar chart, provider breakdown, success rate, trends |
-| **Providers** | Provider status cards with health indicators and model counts |
-| **Models** | Model listing with load/unload, context length, flash attention config |
-| **Memory** | Browse facts, model-fit leaderboard, memory engine status, clear action |
-| **Profiles** | Model profile listing with capabilities and defaults |
-| **Logs** | Real-time log viewer via SSE with level filtering |
-| **Config** | Resolved runtime config with redacted secrets, save-to-disk action |
-| **Doctor** | Visual diagnostics with status/suggestion for each check |
-
----
 
 ## Why Gumi?
 
-Local AI is private and cheap, but it is often rough in real apps:
+Local model users constantly guess:
 
-- broken JSON
-- repeated output
-- empty or reasoning-only responses
-- weak instruction following
-- provider-specific quirks
-- model-specific tuning headaches
-- poor debugging visibility
+- context length
+- KV cache precision (`f16` / `q8_0` / `q4_0`)
+- GPU offload (`-ngl`)
+- expert placement (`-ot exps=CPU`)
+- flash attention (`-fa`)
+- batch / ubatch (`-b` / `-ub`)
 
-Gumi improves the layer around the model instead of replacing the model.
+Different models behave differently on different hardware. Wrong guesses make good
+models look weak, waste VRAM, or silently degrade long-context recall.
 
-It provides:
+Gumi replaces guesswork with measurement. It loads and measures real
+configurations on your machine — real prefill/decode throughput, real VRAM/RAM
+peaks, real capability checks — and only recommends what it verified. The core
+philosophy:
 
-- OpenAI-compatible `/v1/chat/completions` (streaming and non-streaming)
-- local provider adapters
-- model profiles
-- runtime modes
-- **agentic coding router** — automatic per-step model selection by task difficulty
-- **memory engine** — zero-VRAM persistent memory (facts, episodes, model-fit tracking) shared across all models, survives session boundaries
-- prompt and context handling
-- JSON validation and repair
-- anti-loop and safety guards
-- instruction-following assist (auto-detects 14 constraint types)
-- local telemetry
-- agent mode (step budget enforcement, tool-call loop detection, tool-call JSON validation, context compaction)
-- CLI diagnostics
-- local dashboard
+> *Don't guess the best local inference settings. Measure them on the user's
+> actual machine.*
 
----
+## Quick Start
 
-## Get Started
-
-Build from source:
+**Build:**
 
 ```bash
-git clone https://github.com/EffNine/Gumi.git
-cd Gumi
-make build
-./gumi start
+make build        # produces ./gumi  (Go 1.25+)
+make test         # unit tests — no backend or models required
 ```
 
-Or download a pre-built archive from
-[GitHub Releases](https://github.com/EffNine/Gumi/releases).
+Requires `llama-cli` (llama.cpp, CUDA build recommended) on `PATH` or via
+`--backend-bin` for real tuning. No model files are bundled.
 
-### Docker
+**Tune:**
 
 ```bash
-docker build -t gumi:v1.0.0-rc1 .
-docker run -d --name gumi \
-  -p 127.0.0.1:8787:8787 \
-  -p 127.0.0.1:8788:8788 \
-  -v gumi-data:/data \
-  gumi:v1.0.0-rc1
+# V1 product command — default workload: agentic_coding
+./gumi tune ./model.gguf --workload agentic_coding
+
+# Minimum decode requirement (tok/s):
+./gumi tune ./model.gguf --workload agentic_coding --min-decode 25
+
+# Plan only — no llama.cpp needed (shows the planned search)
+./gumi tune ./model.gguf --workload agentic_coding --dry-run
 ```
 
-The runtime stores telemetry at `/data/.gumi/gumi.db` on a persistent Docker
-volume. See [Installation → Docker](./docs/guides/installation.md#docker) for details.
+**Show result:**
 
-Default endpoints:
+Each run writes `reports/<model>-<workload>-<timestamp>/` containing:
 
-```text
-API:       http://127.0.0.1:8787/v1
-Dashboard: http://127.0.0.1:8788
-API key:   gumi-local
+- `report.md` — human-readable recommendation
+- `report.json` — machine-readable evidence
+- `candidates.json` — full candidate objects + every perf sample
+- `hardware.json` — probed hardware snapshot
+
+Example summary printed after tuning:
+
+```
+MAX PRACTICAL CONTEXT
+  40960 tokens — decode 26.1 tok/s, prefill 3105.2 tok/s
+
+RECOMMENDED — QUALITY (f16, 40960 ctx)
+  Decode: 30.4 tok/s ± 0.3 (3 runs)  ·  Tier 2: 12/12 PASSED  ·  Confidence: HIGH
+  Operationally tied with SPEED on capability; wins on KV fidelity.
 ```
 
-See:
-
-- [Installation](./docs/guides/installation.md)
-- [Quickstart](./docs/guides/quickstart.md)
-- [Troubleshooting](./docs/guides/troubleshooting.md)
-- [Integration guides](./docs/guides/integrations/)
-
----
-
-## Recommended Local Setup
-
-For LM Studio, Gumi uses its OpenAI-compatible API for inference and can
-optionally manage model lifecycle via LM Studio's v1 REST API:
-
-| Capability | Gumi today | LM Studio v1 API available |
-|---|---|---|
-| Chat completion (temperature, top_p, tools, etc.) | ✅ | ✅ |
-| Per-model default temperature via profiles | ✅ | ✅ |
-| Model loading with custom config | ✅ | `POST /api/v1/models/load` |
-| Model unloading | ✅ | `POST /api/v1/models/unload` |
-| Context length per model | ✅ | `context_length` in load request |
-| Flash attention / GPU offload | ✅ | `flash_attention`, `offload_kv_cache` in load request |
-| Auto-unload previous model on switch | ✅ | `POST /api/v1/models/unload` |
-
-Basic LM Studio setup:
+**Export:**
 
 ```bash
-GUMI_PROVIDER_DEFAULT=lmstudio \
-GUMI_LMSTUDIO_URL=http://localhost:1234/v1 \
-GUMI_DEFAULT_MODEL=qwen2.5-coder-7b-instruct \
-GUMI_PROVIDER_TIMEOUT_SECONDS=120 \
-./gumi start
+# Render one saved candidate as a launch config for another tool
+./gumi export --config reports/<run>/candidates.json --id balanced \
+    --target llama.cpp --model model.gguf
+# targets: llama.cpp | llama-server | lmstudio | ollama
 ```
 
-For a LAN-hosted LM Studio server, replace the URL:
+## How It Works
 
-```bash
-GUMI_LMSTUDIO_URL=http://192.168.0.164:1234/v1
+```
+MODEL ──▶ Inspect ──▶ Hardware Probe ──▶ Backend Capability Discovery ──▶
+      (GGUF)       (GPU/CPU/RAM/disk)   (what does THIS build support?)
+
+──▶ REFERENCE measurement (warmup + repeated perf + full battery)
+──▶ Context frontier sweep (coarse doubling → bisection refinement)
+──▶ Variant lines (+ dominance pruning) ──▶ Capability gate on everything
+──▶ Final verification ──▶ QUALITY / BALANCED / SPEED / MAX-CONTEXT profiles
 ```
 
-Recommended model choices:
+1. **Inspect** the model geometry from GGUF (exact KV-cache arithmetic: 2 × layers × kv_heads × head_dim × bytes-per-elem, including ggml block sizes for quantized KV — e.g. Qwen3-30B-A3B = 96 KiB/token at f16).
+2. **Probe** CUDA/NVIDIA hardware (`nvidia-smi` / `lspci` fallback, CPU topology, RAM, filesystem). Unknown stays unknown — never fabricated.
+3. **Discover** backend capabilities by parsing `llama-cli --help` once (accepted KV types, flash-attention syntax, `-ot`, batch flags). Unsupported dimensions are suppressed upstream with recorded reasons.
+4. **Generate** a small deterministic candidate set (REFERENCE + up to five policy slots; `internal/candidate` + `internal/policy`).
+5. **Search** the practical context frontier: coarse doublings (`16K→32K→64K…`) capped by `min(TrainContext, reach)`, then bisection between the last passing and first failing level until ≤ 2048 tokens or `--max-refine-steps` (default 4). Midpoints are 1024-aligned.
+6. **Measure** prefill/decode, VRAM/RAM peaks, stability; **verify** capability via paired battery vs REFERENCE.
+7. **Reject** anything that degrades capability. **Refine** the best boundary. **Rank** verified configurations conservatively and report **operational ties** honestly.
+8. **Export** verified configurations for `llama.cpp` / LM Studio / Ollama.
 
-| Use case | Model ID | Profile |
-|---|---|---|
-| Coding | `lmstudio:qwen2.5-coder-7b-instruct` | `qwen2.5-coder-7b` |
-| Agentic coding | `lmstudio:ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
-| Fast chat | `lmstudio:qwen/qwen3-1.7b` | `qwen3-1.7b` |
-| Mid-size chat | `lmstudio:google/gemma-4-e4b` | `gemma-4-e4b` |
-| Ollama fast chat | `ollama:llama3.2:3b` | `llama3.2-3b` |
-| Ollama mid-size | `ollama:gemma3:4b` | `gemma3-4b` |
+## What Gumi Tunes
 
-Apps should only need:
+Execution configuration only (never weights, never active expert count, never
+RoPE scaling, never system prompts, never reasoning/sampling behavior):
 
-```text
-base_url: http://127.0.0.1:8787/v1
-api_key: gumi-local
-model: lmstudio:qwen2.5-coder-7b-instruct
+- GPU offload (`-ngl`)
+- Expert placement (`-ot exps=CPU` — MoE whitelist: `qwen2moe`/`qwen3moe`/`mixtral`/`deepseek2`; otherwise suppressed)
+- Context length
+- KV cache precision (`f16` / `q8_0` / `q4_0`, backend-gated)
+- Flash attention (`-fa on|off|auto`, backend-gated)
+- Batch size (`-b`) and ubatch size (`-ub`)
+- Threads, `mmap` / `mlock`
+
+Quantization of the model file itself is **recommend-only** — never applied
+automatically.
+
+## What Gumi Does NOT Tune
+
+- Model quantization / weight changes
+- Temperature, `top_p`, `top_k`, `min_p` or any sampler setting (verification is fixed at `temperature 0`, `seed 42`)
+- Reasoning budget / thinking mode / system prompt
+- Number of active experts (`NumExperts` is read from GGUF metadata; Gumi only moves *where* expert tensors reside)
+- RoPE / context-extension scaling
+- Any backend control not advertised by the current `llama-cli --help`
+
+Gumi never auto-changes any of the above; if a knob is unsupported by the
+installed backend build, it is suppressed with an explicit reason.
+
+## What Gumi Is NOT
+
+- An LLM runtime, model server, launcher, or wrapper
+- A dashboard or web UI (the pre-pivot runtime/dashboard at `runtime/` + `dashboard/` is frozen legacy)
+- A coding agent, sampler optimizer, or model quantizer
+- An ML training / fine-tuning / continuous-learning system
+- A general cluster scheduler or multi-node orchestrator
+
+## The Core Trade-off: Faster != Better
+
+Gumi does **not** simply maximize tok/s. It searches for the best configuration
+**subject to** four constraints:
+
+1. **Hardware feasibility** — fits in probed VRAM/RAM budgets (95% safety factor).
+2. **Workload requirements** — meets the workload's `MinContext` and hard constraints.
+3. **Performance objective** — satisfies the declared decode floor (see below).
+4. **Capability preservation** — passes the paired capability gate vs REFERENCE.
+
+A faster configuration can be **rejected** if capability verification fails.
+
+```
+FAST + capability FAIL  →  REJECTED
+SLOWER + capability PASS  →  wins
 ```
 
-Gumi handles profile tuning, thinking policy, provider quirks, JSON handling,
-and runtime behavior.
+This is the primary product differentiator and is exercised end-to-end in
+`internal/optimize/pipeline_test.go` with a fake backend (`dumbKV: "q4_0"` at
+99 tok/s loses to f16 at 30 tok/s).
 
----
+## Maximum Practical Context
 
-## Benchmarks
+Do not confuse:
 
-Gumi improves local model reliability across multiple dimensions. Full
-report: [`benchmarks/reports/SUMMARY-20260712.md`](benchmarks/reports/SUMMARY-20260712.md).
+- **Theoretical context capacity** — what VRAM arithmetic says could fit
+- **Model training context** — what the model was trained on
+- **VRAM-derived possible context** — a budget estimate
+- **Maximum practical verified context** — what Gumi actually measured and verified
 
-### Ornith 9B — Agentic Coding (Tool calls + JSON + Multi-turn)
+Gumi reports `TheoreticalMax` (exact memory arithmetic for the reach-maximizing
+KV × placement line) **separately** from `MaxPractical` (measured,
+stability-gated, capability-gated). The frontier point runs the **full battery**;
+on gate regression it steps down through measured passing levels (≤ 3 attempts).
+If no level clears, `MaxPractical` anchors at the workload minimum. The result
+is:
 
-| Metric | Direct LM Studio | Gumi Stabilized | Improvement |
+> *The largest context Gumi could verify on this hardware / model / workload
+> while satisfying the configured performance and capability constraints.*
+
+Theoretical arithmetic alone is never sufficient.
+
+## Performance Objective
+
+Two modes (mutually exclusive):
+
+**`--min-decode N`** — absolute minimum acceptable decode throughput (tok/s).
+Gates the frontier **and** profile eligibility exactly as stated. When set, the
+frontier sweep is skipped entirely if the REFERENCE itself misses it (growing
+context cannot recover throughput).
+
+**`DecodeRetention` (workload-relative)** — minimum acceptable decode throughput
+*relative* to the best stable decode measured **anywhere in this run** (the
+baseline floats upward as better decode is observed; `EffectiveFloor()` =
+`Retention × Baseline`). This is hardware-relative by construction: an H100 and
+a laptop are each judged against their own measured baseline.
+
+| Workload | `MinContext` | `DecodeRetention` | Meaning |
 |---|---|---|---|
-| JSON Validity | 0% | **100%** | +100% |
-| JSON + Required Keys | 0% | **100%** | +100% |
-| Tool Call Accuracy | 100% | 100% | maintained |
-| Latency p50 (JSON) | 2,949ms | 352ms | **8.4× faster** |
+| `agentic_coding` | 16384 | 0.75 | A larger window is practical while it retains ≥ 75% of the best measured decode (prefill+depth bound; tolerates some decode loss for window). |
+| `chat` | 4096 | 0.85 | A larger window is practical while it retains ≥ 85% of the best measured decode (decode-bound; responsiveness dominates). |
 
-### Instruction-Following Assist
+Neither declared → ranking orders by workload utility alone (stable execution).
 
-Gumi automatically detects formatting constraints (sentence count, word
-restrictions, bullet format, JSON, line count, etc.) and injects explicit
-reminders into the system prompt:
+Decisions use the **conservative lower bound** `mean − half-range` of repeated
+probes (`--perf-runs`, default 3). Noise can never promote a point past the bar.
+OOM or timeout during probes fails unconditionally. Performance alone **never**
+overrides the capability gate.
+
+## Capability Verification
+
+Gumi uses **reference-based, paired evaluation** against a REFERENCE
+configuration selected by explicit policy: the highest-confidence quality
+baseline that is feasible on your hardware — same model, same backend binary,
+same prompts, same `seed 42`, `temperature 0`, greedy decoding, f16 KV where
+possible.
 
 ```
-Prompt: "2 sentences, end with 'learning', no word 'language'"
-→ Gumi: "CRITICAL: 1. Exactly 2 sentences. 2. End with 'learning'.
-           3. Do NOT use the word 'language'."
-→ Valid response in 1 attempt ✅
+REFERENCE = highest-confidence quality baseline feasible on current hardware
 ```
 
-### How Gumi Helps Agent Frameworks
-
-Gumi is not an agent framework. It improves **every turn** inside any
-agent loop (OpenCode, Continue, Claude Code, Terminus-2). When an agent
-makes 30+ turns to solve a task, Gumi's per-turn reliability gains
-compound:
-
-| Per-turn improvement | After 30 turns | Compound effect |
-|---|---|---|
-| JSON: 0% → 100% | Zero parsing failures | Agent never gets stuck on bad JSON |
-| Instruction: 78% → 100% | Fewer wrong file edits | Higher SWE-Bench success rate |
-| Tool calls: 100% maintained | All tool invocations valid | No wasted episodes |
-
-> **Ornith 9B scores 43.1% on Terminal-Bench 2.1 and 69.4% on SWE-Bench
-> Verified when using agent frameworks.** Gumi helps local deployments
-> close the gap with cloud-grade reliability per turn.
-
----
-
-## Supported Providers
-
-Implemented providers:
-
-- Ollama
-- LM Studio (OpenAI-compatible + planned v1 REST API model management)
-- OpenAI-compatible local servers
-
-Future candidates:
-
-- llama.cpp server
-- vLLM
-- SGLang
-- Text Generation Inference
-- LocalAI
-- KoboldCpp
-
----
-
-## Runtime Modes
-
-Gumi supports multiple runtime modes:
-
-| Mode | Benchmark label | Best for |
-|---|---|---|
-| `direct` | `B-GumiDirect` | Diagnostics and raw provider comparison |
-| `lightweight` | `C-GumiLightweight` | Coding agents and low-token calls |
-| `stabilized` | `D-GumiStabilized` | General chat quality and reliability |
-| `structured` | `E-GumiStructured` | JSON/schema-sensitive workflows |
-| `agent` | — | Agentic coding loops (with optional router) |
-
-Provider-direct benchmarks use:
-
-```text
-A-LMStudioDirect
-A-OllamaDirect
-```
-
-`direct` is diagnostic only. `stabilized` and `structured` are the main quality
-gates. `lightweight` is optimized for tools such as OpenCode, Continue, and
-Cline.
-
----
-
-## Integration Guides
-
-Current guides:
-
-- [OpenCode](./docs/guides/integrations/opencode.md)
-- [Continue](./docs/guides/integrations/continue.md)
-- [Cline](./docs/guides/integrations/cline.md)
-- [Open WebUI](./docs/guides/integrations/open-webui.md)
-- [OpenAI SDK clients](./docs/guides/integrations/openai-sdk.md)
-- [LM Studio setup](./docs/guides/integrations/lmstudio.md) — including management API capabilities
-
-All guides use the same basic pattern: point the client at Gumi's
-OpenAI-compatible API, then let Gumi handle provider and model behavior.
-
----
-
-## OpenAI-Compatible Usage
-
-cURL:
-
-```bash
-curl http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer gumi-local" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "lmstudio:qwen2.5-coder-7b-instruct",
-    "messages": [
-      {
-        "role": "user",
-        "content": "Write a Go function that adds two ints. Return code only."
-      }
-    ],
-    "gumi": {
-      "mode": "lightweight"
-    }
-  }'
-```
-
-Python:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://127.0.0.1:8787/v1",
-    api_key="gumi-local",
-)
-
-response = client.chat.completions.create(
-    model="lmstudio:qwen2.5-coder-7b-instruct",
-    messages=[
-        {"role": "user", "content": "Write a tiny TypeScript add function."}
-    ],
-)
-
-print(response.choices[0].message.content)
-```
-
----
-
-## Validated Profiles
-
-Focused model set for 12GB VRAM testing and fine-tuning:
-
-| Profile | Provider | Model | Role | Benchmark |
-|---|---|---|---|---|
-| **`qwen3-8b`** | Ollama | `ollama:qwen3:8b` | **Default / best overall** | **7.77/10** |
-| **`llama3.1-8b`** | Ollama | `ollama:llama3.1:8b` | Coding + analytical | 7.33/10 |
-| **`yi-coder-9b`** | Ollama | `ollama:yi-coder:9b` | Code-gen candidate | 6.08/10 |
-| **`qwen3.5-9b`** | LM Studio | `lmstudio:qwen/qwen3.5-9b` | Speed-critical | 5.68/10 |
-| **`ornith-1.0-9b-q4-km`** | LM Studio | `lmstudio:ornith-1.0-9b@q4_k_m` | Fallback / deprioritized | 5.9/10 |
-
-## Benchmark Strategy
-
-Full benchmarking is handled by the unified benchmark suite. For local regression
-testing and model comparison, use the included Python harness:
-
-```bash
-# Quick benchmark: 1 question/category, 3 runs
-python3 scripts/regression_harness.py --model ollama:qwen3:8b --mode full --questions 1 --runs 3 --save
-
-# Full benchmark: 5 questions/category
-python3 scripts/regression_harness.py --model ollama:qwen3:8b --mode full --questions 5 --save
-```
-
-- `temperature`
-- `top_p`
-- `max_tokens`
-- thinking/reasoning policy
-- exact-format instructions
-- JSON-only instructions
-- guard settings
-
-If no matching profile exists, Gumi falls back to `generic-local`.
-
----
-
-## Agentic Coding Router
-
-Gumi includes an **Agentic Coding Router** that automatically selects the
-right model for each coding task based on difficulty. When enabled, the router
-classifies every agent step using structural heuristics (message length, file
-count, traceback presence, keywords, step count) and routes to the optimal
-model:
-
-| Difficulty | Example | Routes to |
-|------------|---------|-----------|
-| 1 — trivial | Typo fix, rename variable | Tiny/fast model (Gemma 3 1B, Qwen3 1.7B) |
-| 2 — simple | Add parameter, fix import | Small model (Qwen 2.5 Coder 7B) |
-| 3 — moderate | Implement function, error handling | Medium model (Ornith 9B) |
-| 4 — complex | Multi-file refactor, feature | Strong model (DeepSeek R1 8B) |
-| 5 — novel | New algorithm, architecture design | Strongest available + reasoning |
-
-The router re-evaluates at every agent step — so a "fix typo" step uses a tiny
-model while the next "implement payment handler" step escalates to a large one.
-Routing is **opt-in** (disabled by default) and only activates in agent mode.
-
-```yaml
-# gumi.yaml
-routing:
-  enabled: true         # Enable per-step coding routing
-```
-
-Clients can also provide per-request hints:
-
-```json
-{
-  "model": "lmstudio:qwen2.5-coder-7b-instruct",
-  "gumi": {
-    "routing": {
-      "hint_difficulty": 4,
-      "hint_task_type": "refactor",
-      "preferred_provider": "lmstudio",
-      "min_context": 32768
-    }
-  }
-}
-```
-
-See the full specification at `docs/specs/19-agentic-coding-router-specification.md`.
-
----
-
-## Agentic Coding
-
-Gumi focuses on three hero models for agentic coding with local AI:
-
-| Role | Model | Profile |
-|---|---|---|
-| Default backbone | `ollama:qwen3:8b` | `qwen3-8b` |
-| Coding + analytical | `ollama:llama3.1:8b` | `llama3.1-8b` |
-| Code-gen candidate | `ollama:yi-coder:9b` | `yi-coder-9b` |
-| Speed-critical fallback | `lmstudio:qwen/qwen3.5-9b` | `qwen3.5-9b` |
-| Fallback / deprioritized | `lmstudio:ornith-1.0-9b@q4_k_m` | `ornith-1.0-9b-q4-km` |
-
-These models declare `tool_calling: weak` because they do not reliably emit native OpenAI-style `tool_calls`. Gumi adds a prompt-based tool-calling shim for them:
-
-1. Converts `tools` into explicit prompt instructions and a JSON schema.
-2. Asks the model to reply with a JSON tool call object.
-3. Parses the response back into OpenAI-compatible `tool_calls`.
-4. Validates tool names and required arguments.
-5. Repairs or retries when the output is malformed.
-
-Agentic modes also harden structured JSON output, summarize old tool results to save context budget, and detect repeated tool calls.
-
----
-
-## Memory Engine (Experimental)
-
-Gumi includes a **Memory Engine** that gives coding agents persistent,
-cross-model memory using zero VRAM. Facts, episode summaries, and model-fit
-data are stored in SQLite — shared across all models, surviving model swaps
-and session boundaries.
-
-### How It Works
-
-```
-Agent Step → Memory Engine retrieves relevant facts → injects into context
-    ↓
-Model processes step
-    ↓
-Memory Engine extracts new facts → updates model fit → stores episode
-    ↓
-(next step starts with updated memory)
-```
-
-### Memory Types
-
-| Type | Storage | Persistence | Purpose |
-|------|---------|-------------|---------|
-| Facts | SQLite + Go map cache | Cross-session | Project knowledge, preferences |
-| Episodes | SQLite | Session (auto-summarized) | What happened, what worked |
-| Model Fit | SQLite | Cross-session | Router feedback, performance history |
-
-### Injection
-
-Memory is injected as a prepended system message within a configurable token
-budget (default 1200 tokens). Facts are scored by `relevance × confidence ×
-access_frequency` — the most relevant facts are selected first.
-
-```yaml
-# gumi.yaml
-memory:
-  enabled: true                     # Opt-in in V1
-  injection_budget_tokens: 1200    # Tokens reserved for memory context
-  max_injected_facts: 20           # Maximum facts per injection
-  max_facts: 10000                 # Max stored facts before eviction
-  track_model_fit: true            # Record model performance per task type
-```
-
-### CLI Commands
-
-```bash
-gumi memory status        # Show database path, fact count, model fit entries
-gumi memory facts         # List stored facts
-gumi memory facts search  # Search facts by key/value
-gumi memory clear --force # Reset all memory
-```
-
-### API Endpoints
-
-```text
-GET  /v1/gumi/memory/facts       # List/search stored facts
-GET  /v1/gumi/memory/model-fit   # Model performance data
-GET  /v1/gumi/memory/status      # Memory engine status
-POST /v1/gumi/memory/clear       # Clear all memory
-```
-
-Memory is **opt-in** (disabled by default, set `memory.enabled: true`).
-No GPU memory is used at any tier.
-
-See the full specification at `docs/specs/20-memory-engine-specification.md`.
-
----
-
-## Managed Thinking (Experimental)
-
-Local reasoning models can behave more like frontier models when they are allowed to think before answering. Gumi adds a **managed thinking** layer so reasoning is controlled, not chaotic:
-
-- `thinking_policy` in model profiles decides when thinking is enabled.
-- Token budget is split into output budget + reasoning budget.
-- Reasoning returned in a separate field (`reasoning_content`) is stripped from the final response.
-- Reasoning wrapped in explicit markers (`<thinking>`, `<reasoning>`, fenced blocks) is stripped.
-- Thinking is automatically disabled for JSON/schema and tool-calling workflows.
-- Telemetry records thinking mode and reasoning presence without storing reasoning text.
-
-Enable per request:
-
-```json
-{
-  "gumi": {
-    "thinking": { "enabled": true }
-  }
-}
-```
-
-Current limitation: some local models emit reasoning as plain prose inside the main content. Gumi strips explicit markers and separate reasoning fields, but cannot yet remove free-form reasoning prose from every model.
-
-Run the managed thinking benchmark:
-
-```bash
-LMSTUDIO_URL=http://localhost:1234/v1 \
-GUMI_URL=http://127.0.0.1:8787/v1 \
-ATTEMPTS=1 \
-./scripts/benchmark-managed-thinking.sh qwen/qwen3.5-9b
-```
-
----
-
-## Benchmarking
-
-Run a single model benchmark:
-
-```bash
-BENCHMARK_PROVIDER=lmstudio \
-LMSTUDIO_URL=http://localhost:1234/v1 \
-ATTEMPTS=3 \
-./scripts/benchmark-local-model.sh qwen2.5-coder-7b-instruct
-```
-
-Run the LM Studio model matrix:
-
-```bash
-ATTEMPTS=1 \
-LMSTUDIO_URL=http://localhost:1234/v1 \
-./scripts/benchmark-lmstudio-matrix.sh
-```
-
-Each benchmark writes:
-
-```text
-benchmarks/<model>-<timestamp>.md
-benchmarks/<model>-<timestamp>.json
-```
-
-Use Profile Doctor on a JSON report:
-
-```bash
-./scripts/profile-doctor.sh benchmarks/<report>.json
-```
-
-Profile Doctor is read-only. It recommends tuning changes but does not edit
-profiles automatically.
-
-### Standard before/after scorecard
-
-For a reproducible comparison against an established benchmark, install the
-EleutherAI LM Evaluation Harness and run IFEval through the direct provider and
-Gumi with identical generation settings:
-
-```bash
-python3 -m venv .venv-bench
-.venv-bench/bin/pip install "lm-eval[api]" langdetect immutabledict
-
-DIRECT_BASE_URL=http://192.168.0.164:1234/v1 \
-GUMI_BASE_URL=http://127.0.0.1:8787/v1 \
-GUMI_MODEL=lmstudio:qwen/qwen3.5-9b \
-LM_EVAL_BIN="$PWD/.venv-bench/bin/lm_eval" \
-./scripts/benchmark-standard-scorecard.sh qwen/qwen3.5-9b
-```
-
-The default task is `ifeval`, a standard instruction-following benchmark. The
-runner writes raw `lm-eval` output plus a Markdown and JSON scorecard under
-`benchmarks/standard/`. Add supported generation tasks with
-`STANDARD_TASKS=ifeval,<task>`; keep task version, model artifact, few-shot
-count, and generation settings unchanged for every comparison. Start Gumi in
-the mode being measured before running the scorecard; `stabilized` is its
-default mode. For example: `go run ./cmd/gumi start --mode stabilized`.
-Use `LIMIT=50` only for a fast validation run; omit it for the full score.
-
-### Terminal-Bench agent scorecard
-
-Terminal-Bench measures a complete coding agent (model, Gumi, agent loop, and
-terminal tools), rather than the model alone. It requires Docker Desktop and a
-Python 3.13 environment:
-
-```bash
-python3.13 -m venv .venv-terminal
-.venv-terminal/bin/pip install terminal-bench
-
-DIRECT_BASE_URL=http://192.168.0.164:1234/v1 \
-GUMI_BASE_URL=http://127.0.0.1:8787/v1 \
-./scripts/benchmark-terminal-bench.sh qwen/qwen3.5-9b
-```
-
-The first run uses five `terminal-bench-core==0.1.1` tasks and the same
-`terminus-2` agent for both endpoints. Increase `TERMINAL_BENCH_TASKS` only
-after the smoke run succeeds.
-
-### Agentic coding benchmark
-
-Run a focused comparison of direct LM Studio vs. Gumi on tool-calling,
-structured JSON, and multi-turn prompts:
-
-```bash
-LMSTUDIO_URL=http://localhost:1234/v1 \
-GUMI_URL=http://127.0.0.1:8787/v1 \
-ATTEMPTS=3 \
-./scripts/benchmark-agentic-coding.sh qwen2.5-coder-7b-instruct
-```
-
-Results are written to `benchmarks/agentic/<model>-<timestamp>.md` and
-`benchmarks/agentic/<model>-<timestamp>.json`.
-
----
+The report documents exactly *why* it was chosen (`REFERENCE CONFIGURATION /
+Why selected`: memory safety, quality settings, stability, role as the paired
+anchor).
+
+The gate (`internal/verify.Gate`, `internal/optimize`):
+
+- requires Tier 1 smoke to pass fully;
+- requires Tier 2 rate ≥ reference rate − `slack` (default `0`);
+- reference OOM degrades context by half once and retries; reference failure aborts the run (nothing rankable without the anchor).
+
+**Honest wording** (never "proof" or "lossless"):
+
+- **SCREENED** — probes collected (`PROBED`)
+- **VERIFIED** — gate `PASSED` and re-tested
+- **RECOMMENDED** — among verified, best per profile rule
+- **REJECTED** — gate `FAILED` with reason (`capability regression: 9/12 < 10/12`)
+- **UNKNOWN** — insufficient evidence (crash/unclassified error)
+
+Verification is empirical and bounded by the included test battery (see
+`gumi profiles`). It screens for capability *regression* vs REFERENCE — it does
+not prove "same intelligence" mathematically.
+
+## Profiles
+
+Gumi produces four **evidence-backed** profile labels from verified,
+objective-satisfying candidates (`internal/search.SelectProfiles`):
+
+| Label | Rule (deterministic tie-break) |
+|---|---|
+| **MAX CONTEXT** | Largest passing context (less VRAM → faster) |
+| **SPEED** | Fastest decode lower bound (less VRAM → smaller ctx) |
+| **QUALITY** | Highest capability rate → highest KV fidelity → largest context |
+| **BALANCED** | Best workload utility among unlabeled; when exhausted, shares the utility-best labeled candidate |
+
+If configurations are **operationally tied**, Gumi says so. Ties are detected
+when repetition ranges overlap at equal capability (and ranking confidence is
+`LOW` / `indistinguishable`). The report renders ties in both Markdown and JSON
+(`profiles[].tied_with`, `ranking.{level,indistinguishable,note}`); winner
+selection under ties falls back to the **safer operating margin**: higher
+capability → more VRAM headroom → fewer errors. Labels may collapse — all four
+can point at the same underlying configuration when evidence does not justify
+different configs. Gumi never invents distinctions.
+
+## Supported Scope
+
+| Dimension | V1 scope |
+|---|---|
+| Accelerator | CUDA / NVIDIA only, single GPU (any class: consumer, workstation, datacenter) |
+| Model format | GGUF (parsed directly; no catalog) |
+| Backend | `llama.cpp` (`llama-cli` subprocess) for actual tuning |
+| Exports | `llama.cpp` CLI/server, LM Studio, Ollama (compatibility outputs) |
+| Local hardware | Workload-aware, capability-verified, context-frontier search |
+| Workloads | `agentic_coding`, `chat` |
+
+Explicitly **not** in scope for V1 (and not claimed): ROCm, Metal, Vulkan,
+DirectML, CPU-only optimization, multi-GPU, multi-node, tensor parallelism,
+runtime scheduling, daemon, continuous learning, automatic quant selection,
+model downloading. The backend stays extensible behind `backend.Runner`, but
+only `llama.cpp` is implemented.
 
 ## CLI
 
-Implemented commands:
-
-```bash
-gumi start
-gumi status
-gumi doctor
-gumi config show
-gumi providers
-gumi models
-gumi benchmark
-gumi logs
+```
+gumi tune <model.gguf> [--workload agentic_coding|chat] [--min-decode N] [flags]
+gumi inspect <model.gguf> [--json]
+gumi probe [--model path] [--bandwidth] [--json]
+gumi profiles [--json]
+gumi export --config candidates.json --id <id> --target llama.cpp|lmstudio|ollama [--model path]
 gumi version
-gumi stop
-gumi restart
 ```
 
----
+Common `gumi tune` flags: `--tier smoke|capability` (default `capability`),
+`--perf-runs` (default 3), `--max-refine-steps` (default 4), `--timeout`
+minutes (default 10), `--gate-slack` (default 0), `--baseline
+'ngl=33,c=8192,kv=q8_0,fa,b=512,ub=128'` (human config admitted as a gated
+`CURRENT-BASELINE` candidate), `--backend-bin /path/to/llama-cli`, `--out DIR`,
+`--dry-run` (plan without a backend). `gumi optimize` is a documented alias.
 
-## Dashboard
+Full help: `gumi tune --help` (or `gumi tune -h`). Dry run: `gumi tune
+model.gguf --workload agentic_coding --dry-run`.
 
-Default dashboard:
+Exit codes: `0` success · `1` `TARGET NOT ACHIEVED` or no verified winner ·
+`2` usage errors.
 
-```text
-http://127.0.0.1:8788
+## Validation — Real Hardware Examples
+
+> Presented as **validation examples**, not universal performance guarantees.
+> Throughput varies by hardware, driver, llama.cpp build, and model quant. Do
+> not treat these as promised tok/s.
+
+Both on **RTX 5070 12 GB**, CUDA 13.2, driver 595.84, `llama-cli` v10360:
+
+**Llama-3.1-8B-Instruct Q4_K_M — workload `chat`**
+
+- Maximum practical context: **65,536 tokens** — capability verified
+- Theoretical capacity ≈ 96K on q4_0 KV; ladder capped by training context; all levels ~85 tok/s ≥ floor
+
+**Qwen3-30B-A3B Q4_K_M — workload `agentic_coding`**
+
+- Maximum practical context: **40,960 tokens** — capability verified
+- Approximately **30 tok/s decode** in the validated run (e.g. `CTX-40K` q4_0 at 30.4 tok/s, REFERENCE f16 at 30.5 tok/s; `QUALITY` f16 at 27.7 tok/s — all `12/12 (100%)` capability where noted)
+- Full ladder/bisection discovery, capability-gated frontier, dominance-pruned variants, re-tested profiles
+
+For broader validation (three model families, two replications, MoE placement
+audit, sensitivity ladder), see `docs/experiments/` and `docs/specs/25-evidence-hardening.md`.
+
+## Limitations
+
+From `docs/specs/27-gumi-v1-release-audit.md` (V1 Release Audit — verdict **V1
+READY WITH DOCUMENTED LIMITATIONS**):
+
+1. Single-GPU, single-backend verification. Multi-GPU split is out of scope.
+2. Frontier sweeps **one** line (reach-maximizing KV × placement); other KV types are evaluated as point variants, not swept.
+3. Boundary precision defaults to 2048 tokens within 4 bisection steps; tighter bounds cost more probes.
+4. Capability cost dominates — Tier-2 battery is the dominant cost; intermediate levels carry no capability verdict unless promoted (`PROBED`).
+5. Flat-throughput ties: on GPUs where decode barely moves with context, profiles legitimately collapse and are reported as tied.
+6. One discarded generation warms up file-cache/allocator; deeper warmup (KV pre-fill) is future work.
+7. Windows/macOS: process management and RSS sampling have platform files; CUDA probing assumes `nvidia-smi`. Untested platforms stay untested.
+8. Second-GPU-class validation: V1 validated two model shapes on one GPU class (RTX 5070). An A100/H100-class pass remains desirable but is not a blocker.
+9. Floating retention baseline: the workload threshold anchors on the best measured decode anywhere in the run, surfaced as `baseline_decode_tps` in the report.
+10. `lspci` fallback: without `nvidia-smi`, vendor entries may appear without VRAM; duplicate suppression prevents corruption when VRAM data exists (fixed in audit).
+
+See §14 of the release audit for the full text.
+
+## Repository Layout
+
+```
+cmd/gumi/          CLI entrypoint (commands: tune/inspect/probe/profiles/export)
+internal/gguf/     GGUF metadata parser + geometry derivation (dependency-free)
+internal/hardware/ Hardware prober (Linux-first; parsers are pure fixtures)
+internal/workload/ Workload profiles, golden benchmark groups, verification suites
+                   └─ agentic_coding/tests/  repository fixtures + exec evaluator
+internal/candidate/ Deterministic candidate generator + reference policy + feasibility math
+internal/backend/  llama.cpp subprocess runner, capability discovery, exports
+internal/search/   Pure tuning strategy: frontier ladder, bisection, objective, dominance, profile selection
+internal/verify/   Perf probing, capability suites, paired gate logic
+internal/confidence/ Deterministic HIGH/MEDIUM/LOW + ranking confidence
+internal/optimize/ Tuner orchestration (staged search loop)
+internal/report/   Markdown + JSON report rendering
+runtime/ dashboard/ benchmark/ …   Legacy pre-pivot components (frozen; own Go modules)
 ```
 
-The dashboard is local-only by default. Secrets are redacted. Prompts and
-responses are hidden by default.
+The pre-pivot Gumi (OpenAI-compatible reliability runtime + dashboard, specs
+`00`–`22` + `GEP_v1`) is frozen in place under its own modules while migration
+decisions are made. The current V1 product is the auto-tuner specified in
+`docs/specs/26-gumi-v1-auto-tuner.md` (with evidence engine preserved from
+`23`–`25`). Historical specs note this at the top.
 
----
-
-## Telemetry and Privacy
-
-Gumi is local-first and privacy-first.
-
-Default telemetry behavior:
-
-```yaml
-telemetry:
-  local: true
-  external: false
-  log_prompts: false
-  log_responses: false
-```
-
-By default, Gumi stores metadata only. It does not store full prompts or full
-responses unless explicitly configured. It does not send external telemetry.
-
----
-
-## Alpha Limitations
-
-Gumi `v1.0.0-rc1` is usable, but not feature-complete:
-
-- Continue tab autocomplete should use LM Studio directly for now.
-- Dockerfile exists, but Docker image verification may vary by host.
-- Profile Doctor is read-only.
-
----
-
-## Release Targets
-
-Alpha release archives are built for:
-
-- macOS arm64
-- macOS amd64
-- Linux amd64
-- Linux arm64
-- Windows amd64
-
----
-
-## Development Rules
-
-Gumi follows these rules:
-
-1. Keep Gumi local-first.
-2. Do not add cloud providers in V1.
-3. Do not add billing in V1.
-4. Do not bypass the Pipeline Engine.
-5. Keep provider adapters thin.
-6. Do not store prompts or responses by default.
-7. Do not send external telemetry by default.
-8. Benchmark before tuning model profiles.
-
----
-
-## Contributing
-
-Contributions are welcome! Gumi is local-first and runtime-only — please
-read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR to understand the
-core rules (no cloud providers in V1, no billing, keep provider adapters thin,
-don't bypass the Pipeline Engine).
-
-Quick start for contributors:
+## Development
 
 ```bash
-make test    # go test ./runtime/...
-make vet     # go vet ./runtime/...
-make dashboard  # build the React dashboard
-make build   # build the runtime binary
+make build        # ./gumi
+make test         # go test ./internal/... ./cmd/...
+make vet          # go vet ./internal/... ./cmd/...
+make fmt          # gofmt -w cmd internal
 ```
 
-Use the [bug report](.github/ISSUE_TEMPLATE/bug_report.md) and
-[feature request](.github/ISSUE_TEMPLATE/feature_request.md) templates when
-opening issues.
+`go.work` includes `.`, `./runtime`, `./benchmark`. **Root** make/CI targets use
+`./internal/... ./cmd/...` (not `./...`), because `dashboard/node_modules`
+contains stray vendored Go packages.
 
----
+Real optimization runs need `llama-cli` (llama.cpp) on `PATH` or via
+`--backend-bin`; none is bundled. `gumi inspect` reads GGUF metadata directly —
+no manually maintained model catalog. KV-cache arithmetic is exact from GGUF
+geometry.
 
-## Star history
+Flag drift across llama.cpp versions is handled by a `--help` probe plus retry
+chain (`internal/backend`).
 
-[![Star History Chart](https://api.star-history.com/svg?repos=EffNine/Gumi&type=Date)](https://star-history.com/#EffNine/Gumi&Date)
+## Product Language
 
----
+Preferred (used throughout current docs): **local inference auto-tuner**,
+**hardware-aware inference tuning**, **measured configuration**, **verified
+configuration**, **practical context frontier**, **capability gate**,
+**performance objective**.
+
+Avoided for V1: *AI-powered optimization*, *intelligent scheduler*, *guaranteed
+optimal*, *same intelligence*, *lossless*, *best possible configuration* — unless
+explicitly qualified by measured evidence. Verification is **screened / verified
+/ recommended / rejected / unknown**, not "proved".
 
 ## License
 
-Gumi is licensed under the Apache License 2.0. See [LICENSE](./LICENSE).
+See [LICENSE](LICENSE).

@@ -2,6 +2,131 @@
 
 All notable changes to Gumi are documented in this file.
 
+## v1.0.0 — 2026-08-27
+
+### Gumi V1 — Local Inference Auto-Tuner
+
+Gumi V1 pivots from the reliability runtime + dashboard to a **local inference
+auto-tuner**: a CLI-first, local-first Go tool that experiments with inference
+configurations on the user's CUDA machine, measures real performance, verifies
+capability, and returns the best verified configurations it can prove. See
+`docs/specs/26-gumi-v1-auto-tuner.md` (product contract) and
+`docs/specs/27-gumi-v1-release-audit.md` (V1 READY audit, one bug fixed).
+
+> *Don't guess the best local inference settings. Measure them on the user's
+> actual machine.*
+
+Pre-pivot runtime/dashboard/benchmark components (`runtime/`, `dashboard/`,
+`benchmark/`, specs `00`–`22` + `GEP_v1`) are **frozen** in place under their
+own modules; see `README.md` migration note.
+
+### Added
+
+- **`gumi tune <model.gguf> [--workload agentic_coding|chat] [--min-decode N]`**
+  — V1 product command (`optimize` alias retained). Deterministic staged search:
+  INSPECT → PROBE → DISCOVER BACKEND CAPABILITIES → MEASURE REFERENCE → CONTEXT
+  FRONTIER SWEEP (coarse doubling) → BOUNDARY REFINEMENT (bisection, 1024-aligned,
+  ≤2048 tokens / 4 steps) → VARIANT LINES (+ dominance pruning) → CAPABILITY-GATE
+  THE FRONTIER → FINAL VERIFICATION → VERIFIED PROFILES + REPORT + EXPORTS.
+  Implementation: `cmd/gumi` + `internal/optimize`, `internal/search` (pure strategy),
+  `internal/candidate`/`internal/policy`, `internal/backend`, `internal/verify`,
+  `internal/confidence`, `internal/report`.
+- **`gumi inspect <model.gguf> [--json]`** — dependency-free GGUF v2/v3 parser,
+  exact KV-cache arithmetic (2×layers×kv_heads×head_dim×bytes-per-elem, ggml block
+  sizes; Qwen3-30B-A3B = 96 KiB/token at f16).
+- **`gumi probe [--bandwidth] [--json]`** — CUDA/NVIDIA hardware prober
+  (`nvidia-smi` → `rocm-smi` → `lspci` fallback, /proc CPU/RAM, statfs); parsers are
+  pure fixtures-tested; unknown stays unknown, no VRAM/generation assumptions in
+  `internal/*`.
+- **`gumi profiles [--json]`** — built-in workload contracts:
+  `agentic_coding` (MinContext 16384, retain ≥75%, quality 0.65) and `chat`
+  (MinContext 4096, retain ≥85%, balanced 0.55/0.45) with deterministic smoke (3)
+  + capability suites (exec fixtures, kv_probe_deep @97% depth, etc., temperature 0,
+  seed 42, LLM-judge-free).
+- **`gumi export --config candidates.json --id <id> --target llama.cpp|llama-server|lmstudio|ollama`**
+  — verified-configuration exports with honest caveats where target cannot represent a knob.
+- **Backend capability discovery** (`internal/backend/capabilities.go`) — one-time
+  `llama-cli --help` probe (accepted KV types, `-fa on|off|auto`, `-ot`, `-ngl`,
+  `-b/-ub`, mmap/mlock, `--single-turn`); generator is capability-aware, unsupported
+  dimensions suppressed upstream with recorded reasons; `validateAgainstCaps` fails
+  loudly on evidence-critical flags.
+- **Practical context frontier** — ladder doublings capped by `min(TrainContext,
+  reach(line))` + ≥1.25× ceiling rule, perf probes (`--perf-runs` 3, warmup),
+  conservative `mean−halfRange` objective, early exit if REFERENCE misses
+  `--min-decode`, full battery at frontier with ≤3 step-downs; `TheoreticalMax`
+  vs `MaxPractical` reported separately.
+- **Performance objective** — no universal tok/s floor. `--min-decode` absolute
+  gates frontier + profiles; otherwise `Profile.DecodeRetention` relative to best
+  stable decode measured in *this* run (floating baseline, surfaced as
+  `baseline_decode_tps`/`effective_floor_tps`). Documented in `26` §4.
+- **Capability gate** (`internal/verify.Gate`) — paired Tier-1 (perfect) + Tier-2
+  (rate ≥ reference − `--gate-slack` 0) vs policy-selected REFERENCE (highest-confidence
+  quality baseline, f16, greedy, memory-safe, documented `Why selected`). Reference
+  OOM halves context once; faster-but-worse always rejected (E2E `fakeRunner` proof
+  in `internal/optimize/pipeline_test.go`). Frontier point is gated like any recommendation.
+- **Dominated-configuration pruning** — only gate-CLEARED points may dominate; strictness
+  must exceed combined measurement noise; context IS a resource axis (KV scales linearly).
+- **Evidence semantics** (`docs/specs/25-evidence-hardening.md`) — three separate
+  questions: capability confidence (HIGH/MEDIUM/LOW per candidate, deterministic rules),
+  performance stability (`mean ± halfRange`), ranking confidence (`RankConfidence`,
+  top-two only, HIGH/MEDIUM/LOW+indistinguishable, zero variance = UNKNOWN noise floor,
+  tie fallback to safer margin). Never invented distinctions.
+- **Profile generation** (`internal/search.SelectProfiles`) — MAX CONTEXT / SPEED /
+  QUALITY / BALANCED with deterministic tie-breaks; may collapse onto one config when
+  evidence does not justify differences; `tied_with` surfaced in JSON + Markdown.
+- **Reports** — per-run `reports/<model>-<workload>-<timestamp>/` with `report.md`,
+  `report.json`, `candidates.json` (every perf sample), `hardware.json`; includes
+  frontier, ranking, limitations, exports, policy decisions.
+- **Validation** — RTX 5070 12GB, CUDA 13.2, driver 595.84, llama.cpp v10360:
+  Llama-3.1-8B-Instruct Q4_K_M (`chat`) → MAX PRACTICAL CONTEXT 65,536, capability
+  verified; Qwen3-30B-A3B Q4_K_M (`agentic_coding`) → MAX PRACTICAL CONTEXT 40,960,
+  capability verified, ~30 tok/s decode. Presented as validation examples, not guarantees
+  (see `docs/experiments/` and `26` §6). Three-model-family generalization (qwen3moe,
+  llama dense, deepseek2) exercised in `02-generalization.md`.
+- **Documentation rewrite** — `README.md` restructured for first-time discoverers
+  (Why Gumi, Quick Start, How It Works, What Tuned/NOT Tuned, Faster≠Better,
+  Practical Context, Performance Objective, Verification wording
+  SCREENED/VERIFIED/RECOMMENDED/REJECTED/UNKNOWN, Profiles, Scope, CLI, Validation,
+  Limitations), `AGENTS.md` product language, `docs/guides/*` rewritten for V1,
+  historical specs `00`–`22` + `GEP_v1` bannered.
+
+### Changed
+
+- **Product identity** — Gumi is now a local inference auto-tuner; preferred language
+  is *local inference auto-tuner*, *hardware-aware inference tuning*,
+  *measured/verified configuration*, *practical context frontier*, *capability gate*,
+  *performance objective*. Avoid: *AI-powered optimization*, *guaranteed optimal*,
+  *same intelligence*, *lossless* unless qualified by measured evidence.
+- **Scope** — CUDA/NVIDIA single-GPU, GGUF, llama.cpp verification, LM Studio/Ollama
+  exports. Explicitly out of scope: ROCm/Metal/Vulkan/DirectML/CPU-only, multi-GPU,
+  multi-node, tensor parallelism, runtime scheduling/daemon/dashboard/web UI, sampler
+  tuning, continuous learning, automatic quant/model downloading, cluster scheduling.
+- **Repository layout** — single Go module at root (`go.mod` + `go.work` `.`) for
+  the optimizer; `runtime/`/`dashboard/`/`benchmark/` frozen with own modules. Root
+  `make` targets (`build`/`test`/`vet`/`fmt`) now use `./internal/... ./cmd/...`.
+- **CI** — `optimizer` job (gofmt/vet/test/build on root module), `legacy-runtime`
+  job (frozen, `continue-on-error`).
+
+### Fixed
+
+- **Release audit bug** (`27-gumi-v1-release-audit.md` §7.2, `internal/hardware/gpu.go`)
+  — lspci ghost GPU (`00.0 VGA compatible controller`) caused 2-GPU reports; fixed by
+  vendor deduplication on VRAM-backed entries and `"]: "` name extraction. Verified
+  `gumi probe --json` returns 1 GPU.
+- **Documentation consistency** — bannered 19 historical specs/guides, rewrote 4
+  guides, corrected stale dashboard/`gumi start`/`8787` references; added honest
+  limitations from audit §14.
+
+### Known limitations (from `27` §14)
+
+1. Single-GPU, single-backend verification; 2. frontier sweeps one reach-maximizing line;
+3. 2048-token / 4-step refinement; 4. Tier-2 cost dominates; 5. flat-throughput ties reported
+honestly; 6. one warmup generation; 7. Windows/macOS linux-primary; 8. second GPU-class
+validation desirable; 9. floating retention baseline (transparently surfaced);
+10. lspci fallback harmless when VRAM present. See `27` §14 and `README.md` Limitations.
+
+---
+
 ## v1.0.0-rc1 — 2026-07-20
 
 ### Summary

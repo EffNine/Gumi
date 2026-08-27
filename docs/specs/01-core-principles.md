@@ -1,3 +1,8 @@
+> **Historical — Pre-Pivot Architecture (Frozen)**
+> This document describes the pre-pivot Gumi runtime / dashboard / benchmark architecture. It is **not** the current V1 product. The current product is the **local inference auto-tuner** specified in `26-gumi-v1-auto-tuner.md` (with `23-optimization-engine-mvp.md` · `24-verification-confidence-phase2.md` · `25-evidence-hardening.md` · `27-gumi-v1-release-audit.md`). This file is retained for provenance — do not extend it.
+
+---
+
 # Gumi Core Principles
 
 Version: 1.0

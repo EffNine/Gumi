@@ -1,70 +1,42 @@
-# Gumi top-level task runner.
+# Gumi — Local LLM Optimization Engine (top-level task runner).
 #
-# This Makefile orchestrates the Go runtime and React dashboard builds. It uses
-# build-time ldflags to inject release metadata so `gumi version` can report
-# the exact release it was built from without editing source files.
+# The primary product is the `gumi` optimizer CLI at the repo root
+# (cmd/gumi + internal/*). The pre-pivot runtime/dashboard/benchmark code is
+# frozen in place under their own Go modules; see README.md.
 
 VERSION_GIT ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "")
-VERSION     ?= $(if $(filter v%,$(VERSION_GIT)),$(VERSION_GIT),v1.0.0-rc1)
-# ^ fallback dev version; keep in sync with runtime/internal/version/version.go
-COMMIT     ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+VERSION     ?= $(if $(filter v%,$(VERSION_GIT)),$(VERSION_GIT),v1.0.0)
+COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE  ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-LDFLAGS     = -s -w \
-		-X github.com/EffNine/gumi/runtime/internal/version.Version=$(VERSION) \
-		-X github.com/EffNine/gumi/runtime/internal/version.Commit=$(COMMIT) \
-		-X github.com/EffNine/gumi/runtime/internal/version.BuildDate=$(BUILD_DATE)
+LDFLAGS = -s -w \
+		-X github.com/EffNine/gumi/internal/version.Version=$(VERSION) \
+		-X github.com/EffNine/gumi/internal/version.Commit=$(COMMIT) \
+		-X github.com/EffNine/gumi/internal/version.BuildDate=$(BUILD_DATE)
 
-GO     ?= go
-NPM    ?= npm
+GO ?= go
 
-.PHONY: all test vet dashboard build run release clean check-release
+.PHONY: all build test vet fmt clean optimize
 
-all: dashboard build
+all: fmt vet test build
+
+# Build the optimizer CLI into ./gumi.
+build:
+	$(GO) build -ldflags '$(LDFLAGS)' -o gumi ./cmd/gumi
 
 test:
-	cd runtime && $(GO) test ./...
-	cd benchmark && $(GO) test ./...
+	$(GO) test ./internal/... ./cmd/...
 
 vet:
-	cd runtime && $(GO) vet ./...
-	cd benchmark && $(GO) vet ./...
+	$(GO) vet ./internal/... ./cmd/...
 
-# Build the dashboard production bundle using the lockfile. The resulting
-# dashboard/dist directory is embedded into release archives by build-release.sh.
-dashboard:
-	cd dashboard && $(NPM) ci && $(NPM) run build
+fmt:
+	gofmt -l -w cmd internal
 
-# Build a local development binary for the current platform. The dashboard is
-# rebuilt first so the local server can serve it on port 8788.
-build: dashboard
-	cd runtime && $(GO) build -ldflags '$(LDFLAGS)' -o ../gumi ./cmd/gumi
-
-# Run the locally built binary. Use Ctrl+C to stop.
-run: build
-	./gumi start
-
-# Create cross-platform release archives under dist/releases/.
-release: clean dashboard
-	./scripts/build-release.sh "$(VERSION)" "$(COMMIT)" "$(BUILD_DATE)"
-
-# Verify that every release archive contains the expected files and that its
-# checksum is valid. This target depends on release so the artifacts exist.
-check-release: release
-	./scripts/check-release.sh "$(VERSION)"
-
-# Remove generated build artifacts. Preserve the source lockfiles and profiles.
 clean:
-	rm -rf dist/releases dashboard/dist gumi runtime/gumi
+	rm -f gumi gumi.exe
+	rm -rf reports
 
-# ── Benchmark ──────────────────────────────────────────────
-.PHONY: benchmark benchmark-quick benchmark-thorough
-
-benchmark: build
-	./gumi benchmark --model "$(MODEL)" --mode auto
-
-benchmark-quick: build
-	./gumi benchmark --model "$(MODEL)" --mode quick
-
-benchmark-thorough: build
-	./gumi benchmark --model "$(MODEL)" --mode thorough --attempts 10
+# Quick demo: plan candidates for a model without running a backend.
+optimize: build
+	./gumi optimize $(MODEL) --workload $(WORKLOAD) --dry-run

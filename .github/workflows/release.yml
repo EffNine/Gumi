@@ -19,39 +19,44 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: runtime/go.mod
+          go-version-file: go.mod
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: dashboard/package-lock.json
-
-      - name: Build dashboard
-        run: |
-          cd dashboard
-          npm ci
-          npm run build
-
-      - name: Build release archives
+      - name: Build optimizer release archives
         env:
           VERSION: ${{ github.ref_name }}
           COMMIT: ${{ github.sha }}
           BUILD_DATE: ${{ github.event.head_commit.timestamp }}
         run: |
-          # Fall back to a ISO-formatted UTC date if the commit timestamp is unavailable.
           if [ -z "$BUILD_DATE" ]; then
             BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           fi
-          ./scripts/build-release.sh "$VERSION" "$COMMIT" "$BUILD_DATE"
-
-      - name: Verify release archives
-        run: ./scripts/check-release.sh "${{ github.ref_name }}"
+          LDFLAGS="-s -w -X github.com/EffNine/gumi/internal/version.Version=${VERSION} -X github.com/EffNine/gumi/internal/version.Commit=${COMMIT} -X github.com/EffNine/gumi/internal/version.BuildDate=${BUILD_DATE}"
+          mkdir -p dist/releases dist/staging
+          for spec in "linux amd64" "linux arm64" "darwin amd64" "darwin arm64" "windows amd64"; do
+            set -- $spec; os=$1; arch=$2
+            ext=""; [ "$os" = "windows" ] && ext=".exe"
+            name="gumi-${VERSION}-${os}-${arch}"
+            dir="dist/staging/${name}"
+            echo "building ${os}/${arch} ..."
+            mkdir -p "${dir}"
+            GOOS=${os} GOARCH=${arch} CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o "${dir}/gumi${ext}" ./cmd/gumi
+            cp README.md LICENSE CHANGELOG.md "${dir}/"
+            # Copy V1 specs as provenance (not required for runtime, but useful for audit)
+            mkdir -p "${dir}/docs/specs"
+            cp docs/specs/26-gumi-v1-auto-tuner.md docs/specs/27-gumi-v1-release-audit.md "${dir}/docs/specs/" 2>/dev/null || true
+            if [ "$os" = "windows" ]; then
+              (cd dist/staging && zip -rq "../releases/${name}.zip" "${name}")
+            else
+              tar -czf "dist/releases/${name}.tar.gz" -C dist/staging "${name}"
+            fi
+          done
+          (cd dist/releases && sha256sum gumi-* > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          ls -lh dist/releases/
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
         with:
           files: dist/releases/*
           draft: true
-          prerelease: true
+          prerelease: false
+          generate_release_notes: true

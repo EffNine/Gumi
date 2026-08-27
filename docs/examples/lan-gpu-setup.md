@@ -1,3 +1,8 @@
+> **Historical — Pre-Pivot Runtime Example (Frozen)**
+> This example calls the pre-pivot Gumi runtime's OpenAI-compatible endpoint (`127.0.0.1:8787`). It is **not** the current V1 product. The V1 product is the **local inference auto-tuner** (`gumi tune` / `gumi export`; see `26-gumi-v1-auto-tuner.md`). Retained for provenance — the V1 export equivalent is `gumi export --target lmstudio|ollama|llama.cpp`.
+
+---
+
 # Two-box LAN GPU setup (Mac + Windows)
 
 Use a Mac (or cloud CI) for building and unit tests, and a Windows PC with a GPU

@@ -1,3 +1,8 @@
+> **Historical — Pre-Pivot Experiment (Frozen)**
+> This document predates the V1 local inference auto-tuner and describes fine-tuning / model-comparison work from the earlier runtime phase. It is **not** part of the current V1 product (see `26-gumi-v1-auto-tuner.md`). Retained for provenance.
+
+---
+
 # Fine-Tuning Plan: qwen3:8b → gumi-finetuned
 
 ## Objective

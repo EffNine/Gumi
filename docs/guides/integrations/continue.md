@@ -1,3 +1,8 @@
+> **Historical — Pre-Pivot Runtime (Frozen)**
+> This document describes the pre-pivot Gumi runtime / provider-adapter architecture. It is **not** the current V1 product. The V1 product is the **local inference auto-tuner** (`26-gumi-v1-auto-tuner.md`; CLI: `gumi tune` / `inspect` / `probe` / `profiles` / `export`). For the current backend model see `internal/backend/capabilities.go` and `26 §9 — Backend Capability Discovery`. Retained for provenance — do not extend.
+
+---
+
 # Continue + Gumi
 
 Connect [Continue](https://continue.dev) to a local LLM through

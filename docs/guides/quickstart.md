@@ -1,148 +1,134 @@
-# Quickstart
+# Quickstart — Local Inference Auto-Tuner
 
-This quickstart assumes you are using Ollama. It takes about five minutes and
-covers installing Gumi, pulling a local model, and sending your first request.
+This quickstart takes about five minutes and covers building Gumi, inspecting a
+model, probing hardware, and running a real tuning session. No dashboard, no
+server, no cloud.
 
-## 1. Install or start Ollama
-
-Install Ollama for your platform:
-
-```bash
-# macOS / Linux
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-Or download Ollama from [ollama.com](https://ollama.com).
-
-Verify Ollama is running:
+## 1. Build Gumi
 
 ```bash
-ollama --version
+git clone https://github.com/EffNine/Gumi.git
+cd gumi
+make build        # produces ./gumi
+./gumi --help
+./gumi tune --help
 ```
 
-If it is not running, start it:
+Requirements: Go 1.25+. No `llama.cpp` or model files needed to build or run
+`--dry-run` plans.
+
+For a real tuning run you need `llama-cli` (llama.cpp, CUDA build recommended)
+on `PATH` or via `--backend-bin`. See [installation](./installation.md).
+
+## 2. Get a GGUF model
+
+Any GGUF file works. Download one with your preferred tool (e.g. `huggingface-cli`,
+`wget`, LM Studio, or Ollama export). Example:
 
 ```bash
-ollama serve
+# Example — pick any GGUF you have; do not treat the filename as a requirement
+ls ~/models/*.gguf
 ```
 
-## 2. Pull a local model
-
-Pull a small general-purpose model. This example uses `qwen3:8b`, but any
-Ollama model works.
+Inspect the metadata (no backend needed):
 
 ```bash
-ollama pull qwen3:8b
+./gumi inspect ./model.gguf
+./gumi inspect ./model.gguf --json
 ```
 
-Verify the model is installed:
+This prints architecture, parameter count, quantization, layers, training context,
+and exact KV-cache geometry (e.g. Qwen3-30B-A3B = 96 KiB/token at f16).
+
+## 3. Probe hardware
 
 ```bash
-ollama list
+./gumi probe
+./gumi probe --json
+./gumi probe --bandwidth   # opt-in ~1s RAM bandwidth micro-benchmark
 ```
 
-## 3. Start Gumi
+Probing reads `nvidia-smi` (GPU name/VRAM), CPU topology, RAM, and filesystem
+capabilities. Unknown stays unknown — never fabricated. Measurement overrides
+planning wherever they disagree.
 
-If you built from source or extracted a release archive, run:
+## 4. Tune
+
+The V1 product command:
 
 ```bash
-./gumi start
+# Default workload: agentic_coding (MinContext 16384, retain ≥75% decode)
+./gumi tune ./model.gguf --workload agentic_coding
+
+# Chat workload (MinContext 4096, retain ≥85% decode — decode-bound)
+./gumi tune ./model.gguf --workload chat
+
+# Explicit decode floor — absolute tok/s, gates frontier AND profiles
+./gumi tune ./model.gguf --workload agentic_coding --min-decode 25
+
+# Plan only — no llama.cpp needed
+./gumi tune ./model.gguf --workload agentic_coding --dry-run
+
+# Compare your current config through the same pipeline
+./gumi tune ./model.gguf --baseline 'ngl=33,c=8192,kv=q8_0,fa,b=512,ub=128'
 ```
 
-You should see:
+Typical run prints:
 
-```text
-Gumi Runtime 0.1.0
+```
+GUMI AUTO-TUNER
+Model: ...  Hardware: ...  Workload: ...
 
-API        http://127.0.0.1:8787/v1
-Dashboard  http://127.0.0.1:8788
-Mode       stabilized
-Provider   ollama
-Model      local:auto
+Discovering backend capabilities...
+Measuring REFERENCE configuration...
+Searching context frontier...
+  [PASS] 32K q4_0 — decode 28.9 tok/s meets target 24.6
+Testing configuration variants...
+Verifying frontier capability...
+Final verification...
 
-Status     ready
+MAX PRACTICAL CONTEXT
+  40K tokens — decode 26.1 tok/s, prefill 3105.2 tok/s
+
+QUALITY / BALANCED / SPEED / MAX CONTEXT blocks with config, metrics, confidence.
+RECOMMENDED ...
+Full report: reports/<model>-<workload>-<timestamp>/
 ```
 
-Leave this terminal open. Gumi runs until you press `Ctrl+C`.
+## 5. Read the report
 
-## 4. Open the dashboard
+Each run writes `reports/<model>-<workload>-<timestamp>/`:
 
-Open http://127.0.0.1:8788 in your browser. The dashboard has 11 pages:
+- `report.md` — human-readable recommendation (start here)
+- `report.json` — machine-readable evidence
+- `candidates.json` — every candidate + every perf sample
+- `hardware.json` — probed hardware snapshot
 
-- **Overview** — Runtime status, pipeline visualization, provider health, recent activity
-- **Playground** — Interactive chat with provider/model/mode selection
-- **Requests** — Request history table with filtering and status indicators
-- **Analytics** — Latency distribution, provider breakdown, success rate, trends
-- **Providers** — Provider health cards with model counts
-- **Models** — Model listing with load/unload and configuration
-- **Memory** — Facts CRUD, model-fit leaderboard, memory engine status
-- **Profiles** — Model profile listing
-- **Logs** — Real-time log viewer via SSE with level filtering
-- **Config** — Resolved config viewer with redacted secrets
-- **Doctor** — Visual diagnostic checks with suggestions
+The report answers *what should I run?* — a recommended block (config, verified
+tok/s with ± half-range, capability tier), per-candidate confidence
+(HIGH/MEDIUM/LOW), and a **ranking confidence** that says when top candidates
+are operationally tied rather than inventing a winner.
 
-Full prompts and responses are hidden by default for privacy.
-
-## 5. Call the chat completions endpoint
-
-In another terminal, run:
+## 6. Export the winner
 
 ```bash
-curl http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer gumi-local" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "local:auto",
-    "messages": [{"role": "user", "content": "Explain local AI runtimes in one sentence."}]
-  }'
+# List workload contracts and verification suites
+./gumi profiles
+
+# Render one saved candidate as a launch config
+./gumi export --config reports/<run>/candidates.json --id balanced \
+    --target llama.cpp --model ./model.gguf
+# targets: llama.cpp | llama-server | lmstudio | ollama
 ```
 
-Gumi selects an available local provider and model automatically, then returns
-an OpenAI-compatible response.
-
-To request a specific model, use the `provider:model` form:
-
-```bash
-curl http://127.0.0.1:8787/v1/chat/completions \
-  -H "Authorization: Bearer gumi-local" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "ollama:qwen3:8b",
-    "messages": [{"role": "user", "content": "Hello"}]
-  }'
-```
-
-## 6. Run `gumi doctor` if something fails
-
-If a request does not work, run diagnostics in another terminal:
-
-```bash
-./gumi doctor
-```
-
-Example output when Ollama is reachable but the default model is missing:
-
-```text
-Gumi Doctor
-
-Runtime Config        ok
-Telemetry Storage     ok
-Provider ollama       ok
-Provider lmstudio     offline
-Provider openai_compatible_local offline
-
-Warnings:
-- Default model local:auto may resolve to a model that is not installed.
-
-Suggestion:
-- Run: ollama pull qwen3:8b
-- Or start Gumi with: ./gumi start --model qwen3:8b
-```
-
-Common fixes are in the [troubleshooting guide](./troubleshooting.md).
+Exports are static renders of the verified config — they never claim settings
+the target cannot represent (e.g. LM Studio notes KV quantization as UI-only;
+Ollama notes it as unsupported).
 
 ## Next steps
 
-- Read the [installation guide](./installation.md) for Docker and release-archive options.
-- Explore the bundled model profiles in the `profiles/` directory.
-- Try the CLI commands: `status`, `providers`, `models`, `config show`.
+- [Installation](./installation.md) — detailed build, `llama-cli`, and platform notes.
+- [System requirements](./system-requirements.md) — what V1 supports and what it does not.
+- [Troubleshooting](./troubleshooting.md) — OOM, timeout, capability-gate failures.
+- `docs/specs/26-gumi-v1-auto-tuner.md` — the full V1 product contract.
+- `docs/experiments/` — real-hardware validation provenance.

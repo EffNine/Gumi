@@ -10,9 +10,36 @@ permissions:
   contents: read
 
 jobs:
-  runtime:
-    name: Runtime checks
+  optimizer:
+    name: Optimizer checks
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt
+        run: |
+          gofmt -l cmd internal | tee /tmp/fmt.out
+          test ! -s /tmp/fmt.out
+
+      - name: go vet
+        run: go vet ./internal/... ./cmd/...
+
+      - name: go test
+        run: go test ./internal/... ./cmd/...
+
+      - name: Build CLI binary
+        run: go build ./cmd/gumi
+
+  legacy-runtime:
+    name: Legacy runtime checks (frozen)
+    runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,106 +49,16 @@ jobs:
         with:
           go-version-file: runtime/go.mod
 
-      - name: gofmt
-        run: |
-          cd runtime
-          gofmt -w .
-          git diff --exit-code
-
       - name: go vet
-        run: |
-          cd runtime
-          go vet ./...
+        run: cd runtime && go vet ./...
 
       - name: go test
-        run: |
-          cd runtime
-          go test ./...
-
-      - name: Build runtime binary
-        run: |
-          cd runtime
-          go build ./cmd/gumi
-
-  benchmark:
-    name: Benchmark checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: benchmark/go.mod
-
-      - name: gofmt
-        run: |
-          cd benchmark
-          gofmt -w .
-          git diff --exit-code
-
-      - name: go vet
-        run: |
-          cd benchmark
-          go vet ./...
-
-      - name: go test
-        run: |
-          cd benchmark
-          go test ./...
-
-  dashboard:
-    name: Dashboard build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: dashboard/package-lock.json
-
-      - name: Install and build
-        run: |
-          cd dashboard
-          npm ci
-          npm run build
-
-      - name: lint
-        run: |
-          cd dashboard
-          npm run lint
-
-  integration:
-    name: Integration tests
-    runs-on: ${{ matrix.os }}
-    needs: [runtime]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: runtime/go.mod
-
-      - name: Run integration tests
-        run: |
-          cd runtime
-          go test -run "TestIntegration|TestSelfTuningIntegration|TestTune_" -count=1 -timeout 5m ./...
+        run: cd runtime && go test ./...
 
   diff-check:
     name: git diff --check
     runs-on: ubuntu-latest
-    needs: [runtime, dashboard, integration]
+    needs: [optimizer]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

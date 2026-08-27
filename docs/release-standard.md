@@ -1,3 +1,8 @@
+> **Historical — Pre-Pivot Release Process (Frozen)**
+> This document describes the pre-pivot runtime's release process (dashboard, provider adapters, etc.). The current V1 product is the **local inference auto-tuner** (single Go module at `cmd/gumi` + `internal/*`, no dashboard, no `8787`/`8788`). See `26-gumi-v1-auto-tuner.md` and `27-gumi-v1-release-audit.md` for the V1 release criteria. Retained for provenance.
+
+---
+
 # Gumi Release Standard
 
 **Version:** 1.0  
