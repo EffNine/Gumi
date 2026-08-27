@@ -167,13 +167,19 @@ type FrontierSection struct {
 
 // ObjectiveSection states the performance objective and its outcome.
 // TARGET NOT ACHIEVED is a valid result and must never be masked.
+//
+// BaselineDecodeTPS is the frozen REFERENCE baseline (stable) — the only
+// value that feeds EffectiveFloorTPS when Retention is used. BestObserved
+// is the best stable decode observed anywhere in the run; it is reported
+// for transparency but never redefines the gate floor.
 type ObjectiveSection struct {
-	UserFloorTPS      float64 `json:"user_floor_tps,omitempty"`
-	Retention         float64 `json:"workload_retention,omitempty"`
-	BaselineDecodeTPS float64 `json:"baseline_decode_tps,omitempty"`
-	EffectiveFloorTPS float64 `json:"effective_floor_tps,omitempty"`
-	Achieved          bool    `json:"achieved"`
-	Statement         string  `json:"statement,omitempty"`
+	UserFloorTPS          float64 `json:"user_floor_tps,omitempty"`
+	Retention             float64 `json:"workload_retention,omitempty"`
+	BaselineDecodeTPS     float64 `json:"baseline_decode_tps,omitempty"`
+	EffectiveFloorTPS     float64 `json:"effective_floor_tps,omitempty"`
+	BestObservedDecodeTPS float64 `json:"best_observed_decode_tps,omitempty"`
+	Achieved              bool    `json:"achieved"`
+	Statement             string  `json:"statement,omitempty"`
 }
 
 // BackendCapsSection discloses what the installed backend supports and which
@@ -565,8 +571,12 @@ func (r *Report) writeObjective(b *strings.Builder) {
 		fmt.Fprintf(b, "- User floor: %.1f tok/s decode\n", o.UserFloorTPS)
 	}
 	if o.Retention > 0 {
-		fmt.Fprintf(b, "- Workload practicality: retain >= %.0f%% of best measured decode (%.1f tok/s baseline)\n",
-			o.Retention*100, o.BaselineDecodeTPS)
+		fmt.Fprintf(b, "- Workload practicality: retain >= %.0f%% of frozen reference baseline (%.1f tok/s) → floor %.1f tok/s\n",
+			o.Retention*100, o.BaselineDecodeTPS, o.EffectiveFloorTPS)
+	}
+	if o.BestObservedDecodeTPS > 0 && o.BestObservedDecodeTPS != o.BaselineDecodeTPS {
+		fmt.Fprintf(b, "- Best observed stable decode: %.1f tok/s (reported for transparency; does not redefine floor)\n",
+			o.BestObservedDecodeTPS)
 	}
 	if !o.Achieved {
 		b.WriteString("\n**TARGET NOT ACHIEVED.** The configurations verified on this machine did not\n")

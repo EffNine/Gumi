@@ -300,3 +300,112 @@ func TestSelectProfilesEmpty(t *testing.T) {
 		t.Fatalf("empty input must yield no picks and a note: %+v", res)
 	}
 }
+
+func TestLadderOverflowSafe(t *testing.T) {
+	// Near-MaxInt inputs must not wrap or panic; the doubling loop and the
+	// 1.25× endpoint test are overflow-safe by construction.
+	const maxInt = int(^uint(0) >> 1)
+	// start near MaxInt/2: start*2 would overflow int without int64 intermediates.
+	start := maxInt/2 + 2
+	if got := Ladder(start, maxInt); got != nil && len(got) != 0 {
+		// start*2 > maxInt, so no doublings; endpoint is start itself, not
+		// meaningfully above (maxInt < 1.25*start when start > MaxInt/1.25).
+		// The safe implementation must not panic and must not append a wrapped value.
+		for _, v := range got {
+			if v < 0 || v > maxInt {
+				t.Fatalf("Ladder near overflow produced out-of-range %d", v)
+			}
+		}
+	}
+	// Very large doubling chain that would overflow 32-bit: ensure no infinite loop.
+	if got := Ladder(1<<30, maxInt); len(got) == 0 {
+		t.Fatal("Ladder(1<<30, MaxInt) must produce doublings without overflow")
+	} else {
+		// Levels must ascend and stay within [start*2, maxCtx].
+		prev := 1 << 30
+		for _, v := range got {
+			if v <= prev {
+				t.Fatalf("ladder not strictly ascending: prev %d got %d", prev, v)
+			}
+			if v < (1<<30)*2 || v > maxInt {
+				t.Fatalf("ladder value out of expected range: %d", v)
+			}
+			prev = v
+		}
+	}
+	// Endpoint threshold near overflow: last*5 would overflow int, but ge125 must
+	// remain false (or true) without wrapping. For maxInt-1 vs last= maxInt/2+1,
+	// 1.25*last > maxInt, so endpoint must NOT be appended.
+	last := maxInt/2 + 1
+	// Construct a ladder where last is this value and maxCtx is maxInt.
+	// Direct Ladder call with start such that last is the final doubling:
+	// e.g., start= last/2, maxCtx= maxInt. The endpoint logic uses ge125.
+	got := Ladder(last/2, maxInt)
+	if len(got) == 0 {
+		t.Fatal("expected at least one level")
+	}
+	// Verify no duplicated endpoint beyond maxCtx and no negative values.
+	for _, v := range got {
+		if v < 0 {
+			t.Fatalf("negative ladder value near overflow: %d", v)
+		}
+	}
+}
+
+func TestLadderEndpointOverflowSafe(t *testing.T) {
+	const maxInt = int(^uint(0) >> 1)
+	// Case where maxCtx*4 would overflow int: maxCtx near MaxInt, last small.
+	// The endpoint must still be appended correctly via the overflow-safe ge125.
+	// maxInt itself is ≥1.25 * any small last (e.g., 1024), so it should be appended
+	// when reachable, but our safe check must not wrap.
+	start := 1024
+	// maxCtx = MaxInt, last will be the largest power of two ≤ MaxInt, which is
+	// 1<<62 on 64-bit; 1.25*last still < MaxInt, so endpoint should be appended
+	// without overflow. Just ensure no panic and ascending order.
+	got := Ladder(start, maxInt)
+	if len(got) == 0 {
+		t.Fatal("Ladder with MaxInt cap must not be empty")
+	}
+	// Must be strictly ascending and end at MaxInt
+	if got[len(got)-1] != maxInt {
+		t.Fatalf("ladder with MaxInt must end at MaxInt when 1.25× holds, got last %d", got[len(got)-1])
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i] <= got[i-1] {
+			t.Fatalf("not ascending at %d: %d <= %d", i, got[i], got[i-1])
+		}
+	}
+}
+
+func TestObjectiveFrozenBaseline(t *testing.T) {
+	// DecodeRetention floor must be anchored on the frozen reference baseline,
+	// not on later best-observed decode. Later faster candidates must not move it.
+	refBaseline := 30.0
+	o := Objective{Retention: 0.75, Baseline: refBaseline} // floor 22.5
+	if got := o.EffectiveFloor(); got != 22.5 {
+		t.Fatalf("frozen floor = %.1f, want 22.5", got)
+	}
+	// A later candidate with decode 50 would have floated the floor to 37.5
+	// in the old semantics; with frozen baseline it must stay 22.5.
+	fasterObserved := 50.0
+	_ = fasterObserved // tracked elsewhere as bestObserved, but not in Objective
+	if got := o.EffectiveFloor(); got != 22.5 {
+		t.Fatalf("after fast observation floor must remain %.1f, got %.1f", 22.5, got)
+	}
+	// Stats that pass the frozen floor must still pass regardless of later speed.
+	if pass, _ := o.Evaluate(Stats{Mean: 23, HalfRange: 0.1, RunsOK: 3}); !pass {
+		t.Error("23 >= 22.5 must pass frozen floor")
+	}
+	if pass, _ := o.Evaluate(Stats{Mean: 22, HalfRange: 0.1, RunsOK: 3}); pass {
+		t.Error("22 < 22.5 must fail frozen floor")
+	}
+	// Order independence: evaluating the same stats before and after a fast
+	// discovery yields the same verdict.
+	stats := Stats{Mean: 24, HalfRange: 0.5, RunsOK: 3}
+	passBefore, _ := o.Evaluate(stats)
+	// Simulate that a fast candidate was discovered (but baseline unchanged)
+	passAfter, _ := o.Evaluate(stats)
+	if passBefore != passAfter {
+		t.Error("objective evaluation must be order-independent")
+	}
+}

@@ -982,3 +982,86 @@ func (f *flakyRunner) Available(context.Context) error { return nil }
 func (f *flakyRunner) Run(_ context.Context, spec backend.RunSpec) (*backend.Result, error) {
 	return nil, fmt.Errorf("backend crashed unexpectedly")
 }
+
+// Frozen REFERENCE baseline: DecodeRetention is anchored on the reference
+// stable decode, not on later best-observed. Later faster discoveries must
+// not move the floor, making the objective path/order-independent.
+func TestFrozenReferenceBaseline(t *testing.T) {
+	model := setup(t)
+	outDir := t.TempDir()
+	restoreHW := swapHardware(fixedHardware())
+	defer restoreHW()
+	savedNewRunner := newRunner
+	newRunner = func(string) backend.Runner {
+		return &fakeRunner{
+			decodeTPS: map[string]float64{"f16": 30, "q8_0": 23, "q4_0": 30},
+			prefill:   map[string]float64{"f16": 300, "q8_0": 500, "q4_0": 600},
+			ctxBoost:  map[int]float64{24576: 27}, // q8_0 at 24576 => 50
+		}
+	}
+	defer func() { newRunner = savedNewRunner }()
+
+	rep, dir, err := Run(context.Background(), Options{
+		ModelPath:     model,
+		Workload:      "agentic_coding", // Retention 0.75
+		OutDir:        outDir,
+		Version:       "test",
+		BaselineSpecs: []string{"ngl=33,c=8192,kv=q8_0,fa", "ngl=33,c=24576,kv=q8_0,fa"},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// Reference at 16384 f16 => 30 tok/s. Frozen floor = 22.5, best observed = 50.
+	if rep.Objective == nil {
+		t.Fatal("missing objective section")
+	}
+	if rep.Objective.BaselineDecodeTPS != 30 {
+		t.Errorf("baseline_decode_tps = %.1f, want frozen reference 30", rep.Objective.BaselineDecodeTPS)
+	}
+	wantFloor := 30 * 0.75
+	if rep.Objective.EffectiveFloorTPS != wantFloor {
+		t.Errorf("effective_floor = %.1f, want %.1f (frozen)", rep.Objective.EffectiveFloorTPS, wantFloor)
+	}
+	if rep.Objective.BestObservedDecodeTPS != 50 {
+		t.Errorf("best_observed = %.1f, want 50 (reported separately, not redefining floor)", rep.Objective.BestObservedDecodeTPS)
+	}
+	// Both baselines must be gate-passing (capability) and not rejected for
+	// objective. Under old floating semantics the 23 would have been rejected
+	// after 50 raised the floor to 37.5, making the result order-dependent.
+	// Frozen baseline keeps it eligible: both baselines should be VERIFIED or
+	// RECOMMENDED, not REJECTED, and their decode must be recorded.
+	byID := map[string]report.CandidateReport{}
+	for i := range rep.Candidates {
+		byID[rep.Candidates[i].ID] = rep.Candidates[i]
+	}
+	for _, id := range []string{"baseline", "baseline-2"} {
+		c, ok := byID[id]
+		if !ok {
+			t.Fatalf("baseline %s missing", id)
+		}
+		if !c.GatePassed {
+			t.Errorf("%s gate failed: %s", id, c.GateReason)
+		}
+		if c.Error != "" {
+			t.Errorf("%s has error: %s", id, c.Error)
+		}
+		if c.DecodeTPS < 22.5-1e-9 {
+			t.Errorf("%s decode %.1f below frozen floor 22.5", id, c.DecodeTPS)
+		}
+		// Explicitly verify frozen-floor evaluation: 23 >=22.5 would have failed
+		// under floating floor 37.5. We re-evaluate with the frozen objective.
+		o := rep.Objective
+		floor := o.EffectiveFloorTPS
+		if c.DecodeTPS+1e-9 < floor {
+			t.Errorf("%s unexpectedly below frozen floor %.1f: %.1f", id, floor, c.DecodeTPS)
+		}
+	}
+	// Ensure markdown surfaces the frozen baseline and best-observed distinction.
+	md := readFile(t, filepath.Join(dir, "report.md"))
+	if !strings.Contains(md, "frozen reference baseline") {
+		t.Error("report.md must state frozen reference baseline")
+	}
+	if !strings.Contains(md, "Best observed") {
+		t.Error("report.md must surface best observed separately")
+	}
+}

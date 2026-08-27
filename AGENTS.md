@@ -2,8 +2,10 @@
 
 Gumi is a single product: a **Local Inference Auto-Tuner** — a CLI-first,
 local-first Go tool that experiments with inference configurations on the
-user's CUDA machine, measures real performance, verifies capability, and
-returns the best verified configurations it can prove.
+user's CUDA machine, measures real performance, screens and verifies
+capability against its evidence battery, and recommends configurations
+supported by measured evidence. It does not prove general model intelligence
+and does not guarantee global optimality.
 
 Core philosophy: *Don't guess the best local inference settings. Measure them
 on the user's actual machine.* Gumi is NOT a runtime, model server, dashboard,
@@ -51,7 +53,9 @@ measured evidence.
   are suppressed upstream with recorded reasons, never measured silently.
 - There is NO universal tok/s floor. Floors come from `--min-decode` or the
   workload's relative retention rule (`workload.Profile.DecodeRetention`),
-  anchored on the best decode measured in THIS run.
+  anchored on the **frozen REFERENCE baseline** (stable decode before
+  frontier exploration; best observed is tracked separately and never
+  redefines the floor, making the objective path/order-independent).
 - MAX PRACTICAL CONTEXT is capability-gated like any recommendation; on gate
   regression the frontier steps down through measured passing levels.
 - `go.work` includes `.`, `./runtime`, `./benchmark`. Root make/CI targets

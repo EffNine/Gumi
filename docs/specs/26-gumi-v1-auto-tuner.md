@@ -107,20 +107,27 @@ someone declares one:
   frontier AND profile eligibility exactly as stated.
 - Otherwise the workload's declared practicality rule applies
   (`Profile.DecodeRetention`): a larger context counts as practical only
-  while it retains the fraction of the BEST MEASURED decode on this machine:
-  - `agentic_coding`: retain ≥ 75% (prefill+depth bound; tolerates decode
-    loss in exchange for window),
-  - `chat`: retain ≥ 85% (decode-bound; responsiveness dominates).
+  while it retains the fraction of the **frozen REFERENCE baseline** decode
+  measured before frontier exploration:
+  - `agentic_coding`: retain ≥ 75% of the frozen reference (prefill+depth
+    bound; tolerates decode loss in exchange for window),
+  - `chat`: retain ≥ 85% of the frozen reference (decode-bound; responsiveness
+    dominates).
 - Neither declared → objective = stable execution; ranking orders by
   workload utility alone.
 
-Decisions use the conservative lower bound (mean − half-range of repeated
-probes): noise can never promote a point past the bar. OOM or timeout during
-probes fails regardless of throughput.
+The frozen baseline is the stable decode (`DecodeTPS`) of the REFERENCE
+configuration (the conservative control at `MinContext`, f16 where possible,
+greedy, seed 42). It is fixed for the entire run; later faster candidates are
+tracked as `best_observed_decode_tps` and may be recommended, but they **never
+redefine** the practicality floor. This makes the objective path/order-
+independent. Decisions use the conservative lower bound (mean − half-range of
+repeated probes): noise can never promote a point past the bar. OOM or timeout
+during probes fails regardless of throughput.
 
 These rules are hardware-relative by construction: an H100 and a laptop GPU
-are each judged against their own measured baseline. A datacenter card is not
-"successful" because it crossed some consumer threshold.
+are each judged against their own **frozen REFERENCE** baseline. A datacenter
+card is not "successful" because it crossed some consumer threshold.
 
 Workload emphasis (unchanged contracts): `agentic_coding` weights prefill
 efficiency, context sufficiency, late-window capability, stability;
@@ -309,9 +316,10 @@ Exit codes: `0` success · `1` TARGET NOT ACHIEVED or no verified winner ·
   "backend_capabilities": { "backend", "discovered", "flash_attention",
                 "kv_cache_types_supported[]", "expert_placement_supported",
                 "suppressed[]" },
-  "objective": { "user_floor_tps", "workload_retention",
-                "baseline_decode_tps", "effective_floor_tps",
-                "achieved", "statement" },
+   "objective": { "user_floor_tps", "workload_retention",
+                 "baseline_decode_tps", "effective_floor_tps",
+                 "best_observed_decode_tps",
+                 "achieved", "statement" },
   "reference": { "context_tokens", "kv_cache", "gpu_layers", "why[]" },
   "policy": { "decisions[]{axis,impact,source,choice}", "admitted_slots[]",
               "declined_slots[]" },
@@ -355,8 +363,15 @@ perf sample), `hardware.json`, `report.md`.
    profiles legitimately collapse onto near-identical operating points and
    are reported as tied rather than ranked.
 6. **Warmup depth.** One discarded generation absorbs file-cache/allocator
-   effects; deeper warmup (e.g. KV pre-fill) is future work.
+    effects; deeper warmup (e.g. KV pre-fill) is future work.
 7. **Windows/macOS.** Process management and RSS sampling have platform
-   files; CUDA probing assumes nvidia-smi. Untested platforms stay untested.
+    files; CUDA probing assumes nvidia-smi. Untested platforms stay untested.
 8. **Second-GPU-class validation.** V1 validated two MODEL shapes on one GPU
-   (RTX 5070). An A100/H100-class validation pass remains desirable.
+    (RTX 5070). An A100/H100-class validation pass remains desirable.
+9. **Frozen reference baseline.** The workload practicality threshold is anchored
+    on the frozen REFERENCE baseline (stable decode at the conservative control
+    before exploration); `best_observed_decode_tps` is reported separately and
+    never redefines the floor (path/order-independent by construction).
+10. **`lspci` fallback.** Without `nvidia-smi`, vendor entries may appear without
+    VRAM; duplicate suppression prevents corruption when VRAM data exists (fixed
+    in audit).

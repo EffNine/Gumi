@@ -113,26 +113,24 @@ Three independent mechanisms:
 | Mechanism | Source | Meaning |
 |---|---|---|
 | `Objective.Floor` | `--min-decode` | Absolute decode tok/s floor. Frontier AND profile eligibility respect it exactly. |
-| `Objective.Retention` | Workload profile (`DecodeRetention`) | Relative to **best stable decode measured anywhere in this run** (not just REFERENCE). Updated in `tuner.registerObs` whenever a new stable measurement beats `bestDecode`. |
-| `Objective.Baseline` | `search.Objective.Baseline` | Best stable decode observed; used by `EffectiveFloor()` when `Floor == 0`. |
+| `Objective.Retention` | Workload profile (`DecodeRetention`) | Relative to **frozen REFERENCE baseline** (stable decode at REFERENCE, fixed before frontier). `bestDecode` is tracked separately as best observed but never redefines the floor. |
+| `Objective.Baseline` | `search.Objective.Baseline` | Frozen REFERENCE baseline decode; used by `EffectiveFloor()` when `Floor == 0`. |
 | Conservative lower bound | `Mean - HalfRange` | Used in `Objective.Evaluate`. Zero observed variance means UNKNOWN noise floor — never claims separation from a single sample. |
 
-### 3.1 Floating retention baseline
+### 3.1 Frozen reference baseline (hardened post-audit)
 
-The retention baseline **floats upward** during the run as better decode is measured. This is intentional and documented in `tuner.go:239-244`:
+The retention baseline is **frozen at REFERENCE** (stable decode measured before frontier exploration). `tuner.go:239-244` now tracks `bestDecode` only for reporting:
 
 ```go
 if stable && m.DecodeTPS > s.bestDecode {
+    // Track best observed stable decode for reporting, but do NOT
+    // mutate the practicality floor: DecodeRetention is anchored on
+    // the frozen REFERENCE baseline (see pipeline.go).
     s.bestDecode = m.DecodeTPS
-    if s.opts.MinDecode <= 0 {
-        s.objective.Baseline = s.bestDecode
-    }
 }
 ```
 
-During Stage B/C (frontier sweep) the baseline only changes from frontier probes themselves (the exploration line), keeping the rule internally consistent. During Stage D (variant lines) variants may introduce higher decode, raising the bar for later candidates — which is conservative and correct.
-
-The report surface (`objective.BaselineDecodeTPS`) records the **final** baseline value, making the effective floor transparent. The statement is readable: `"decode >= 23.3 tok/s (75% of measured baseline 31.0)"`.
+The floor is thus path/order-independent: a later faster candidate is reported as `best_observed_decode_tps` but never raises the bar for other candidates. The report surfaces both `baseline_decode_tps` (frozen) and `best_observed_decode_tps` with `effective_floor_tps = Retention × Baseline`. The statement remains readable: `"decode >= 23.3 tok/s (75% of frozen reference baseline 31.0)"`.
 
 ### 3.2 --min-decode vs retention
 
@@ -140,13 +138,13 @@ They are mutually exclusive: `EffectiveFloor()` returns `Floor` when `Floor > 0`
 
 ### 3.3 Reference performance
 
-REFERENCE is always the first candidate. Its decode becomes the initial baseline, then the baseline may float upward. REFERENCE never dominates itself (domination requires strict improvement on at least one axis).
+REFERENCE is always the first candidate. Its stable decode freezes the baseline for the entire run. REFERENCE never dominates itself (domination requires strict improvement on at least one axis).
 
 ### 3.4 Candidate performance
 
 Profile eligibility (`passEligible`) requires: `Feasible && Measured != nil && Error == "" && Gate != nil && Gate.Passed`. Objective satisfaction is checked separately for non-reference candidates via `objectiveSatisfied`.
 
-**Verdict: OBJECTIVE SEMANTICS — PASS** (floating baseline is intentional, conservative, and transparently surfaced).
+**Verdict: OBJECTIVE SEMANTICS — PASS** (frozen reference baseline; path/order-independent, transparently surfaced with best-observed reported separately).
 
 ---
 
@@ -472,7 +470,7 @@ Exports never claim backend settings that the target cannot represent.
 
 ### No other correctness bugs found
 
-All other checked behaviors matched the spec or were intentional conservative choices (floating baseline, single-sample conservatism, etc.).
+All other checked behaviors matched the spec or were intentional conservative choices (frozen baseline, single-sample conservatism, etc.).
 
 ---
 
@@ -511,7 +509,7 @@ Rationale:
 - Reports (Markdown and JSON) are in agreement and contain sufficient evidence for post-hoc audit.
 - Exports correspond exactly to verified candidates with honest caveats about unexposed settings.
 
-The single bug found (lspci ghost GPU) has been fixed and verified. The floating retention baseline is intentional and conservative, not a defect.
+The single bug found (lspci ghost GPU) has been fixed and verified. The retention baseline is now frozen at REFERENCE (hardened post-audit for path/order-independence); best observed is reported separately.
 
 The product satisfies the V1 contract:
 

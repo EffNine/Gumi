@@ -22,15 +22,18 @@ type Stats struct {
 //   - Floor > 0: an absolute decode floor (user --min-decode). Frontier and
 //     eligibility respect it exactly as stated.
 //   - otherwise Retention in (0,1): the workload's declared practicality —
-//     a larger context must retain this fraction of the best measured decode
-//     (Baseline) to count as practical. Declared per workload profile, never
-//     per hardware generation.
+//     a larger context must retain this fraction of the REFERENCE baseline
+//     decode to count as practical. The baseline is the frozen stable decode
+//     measured at the REFERENCE operating point before frontier exploration;
+//     later faster candidates do NOT redefine it (see internal/optimize.
+//     pipeline.go and tuner.go). Declared per workload profile, never per
+//     hardware generation.
 //   - neither: the objective is stable execution; every stable point passes
 //     and ranking orders by workload utility alone.
 type Objective struct {
 	Floor     float64 // absolute decode tok/s floor; 0 = unset
 	Retention float64 // required fraction of Baseline decode; 0 = unset
-	Baseline  float64 // best measured decode at the reference operating point
+	Baseline  float64 // frozen REFERENCE baseline decode (stable) — never floats
 }
 
 // EffectiveFloor resolves the concrete decode tok/s a point must retain.
@@ -51,10 +54,10 @@ func (o Objective) Describe() string {
 	case o.Floor > 0:
 		return fmt.Sprintf("decode >= %.1f tok/s (user floor)", o.Floor)
 	case o.Retention > 0 && o.Baseline > 0:
-		return fmt.Sprintf("decode >= %.1f tok/s (%.0f%% of measured baseline %.1f)",
+		return fmt.Sprintf("decode >= %.1f tok/s (%.0f%% of frozen reference baseline %.1f)",
 			o.EffectiveFloor(), o.Retention*100, o.Baseline)
 	case o.Retention > 0:
-		return fmt.Sprintf("decode within %.0f%% of best measured (baseline pending)", o.Retention*100)
+		return fmt.Sprintf("decode within %.0f%% of frozen reference baseline (pending)", o.Retention*100)
 	default:
 		return "stable execution; rank by workload utility"
 	}

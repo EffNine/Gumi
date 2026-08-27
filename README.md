@@ -4,9 +4,10 @@ Gumi is a **local inference auto-tuner**: a CLI-first, local-first Go tool that
 experiments with inference configurations on *your* CUDA machine. Give it a GGUF
 model and a workload — Gumi inspects the model geometry, probes the hardware,
 discovers what the installed `llama.cpp` backend actually supports, measures real
-configurations, verifies capability, searches the practical context frontier, and
-returns the best **measured and verified** configurations it can prove. No cloud,
-no database, no guessing.
+configurations, screens and verifies capability against its defined evidence
+battery, and recommends the configurations supported by measured evidence. No cloud,
+no database, no guessing. Gumi does not prove general model intelligence and does
+not guarantee global optimality.
 
 ```bash
 gumi tune qwen3-30b-a3b-q4_k_m.gguf --workload agentic_coding
@@ -193,7 +194,7 @@ Theoretical arithmetic alone is never sufficient.
 
 ## Performance Objective
 
-Two modes (mutually exclusive):
+Two modes (mutually exclusive), both evaluated against a **frozen** baseline:
 
 **`--min-decode N`** — absolute minimum acceptable decode throughput (tok/s).
 Gates the frontier **and** profile eligibility exactly as stated. When set, the
@@ -201,15 +202,17 @@ frontier sweep is skipped entirely if the REFERENCE itself misses it (growing
 context cannot recover throughput).
 
 **`DecodeRetention` (workload-relative)** — minimum acceptable decode throughput
-*relative* to the best stable decode measured **anywhere in this run** (the
-baseline floats upward as better decode is observed; `EffectiveFloor()` =
-`Retention × Baseline`). This is hardware-relative by construction: an H100 and
-a laptop are each judged against their own measured baseline.
+*relative* to the **frozen REFERENCE baseline** measured before frontier
+exploration. `EffectiveFloor()` = `Retention × ReferenceBaseline`; the floor is
+fixed for the entire run. A later faster candidate is tracked as best-observed
+stable decode and may be recommended, but it **never redefines** the gate floor.
+This makes the objective path/order-independent and hardware-relative by
+construction: an H100 and a laptop are each judged against their own REFERENCE.
 
 | Workload | `MinContext` | `DecodeRetention` | Meaning |
 |---|---|---|---|
-| `agentic_coding` | 16384 | 0.75 | A larger window is practical while it retains ≥ 75% of the best measured decode (prefill+depth bound; tolerates some decode loss for window). |
-| `chat` | 4096 | 0.85 | A larger window is practical while it retains ≥ 85% of the best measured decode (decode-bound; responsiveness dominates). |
+| `agentic_coding` | 16384 | 0.75 | A larger window is practical while it retains ≥ 75% of the frozen reference baseline decode (prefill+depth bound; tolerates some decode loss for window). |
+| `chat` | 4096 | 0.85 | A larger window is practical while it retains ≥ 85% of the frozen reference baseline decode (decode-bound; responsiveness dominates). |
 
 Neither declared → ranking orders by workload utility alone (stable execution).
 
@@ -349,7 +352,7 @@ READY WITH DOCUMENTED LIMITATIONS**):
 6. One discarded generation warms up file-cache/allocator; deeper warmup (KV pre-fill) is future work.
 7. Windows/macOS: process management and RSS sampling have platform files; CUDA probing assumes `nvidia-smi`. Untested platforms stay untested.
 8. Second-GPU-class validation: V1 validated two model shapes on one GPU class (RTX 5070). An A100/H100-class pass remains desirable but is not a blocker.
-9. Floating retention baseline: the workload threshold anchors on the best measured decode anywhere in the run, surfaced as `baseline_decode_tps` in the report.
+9. Frozen reference baseline: the workload threshold is anchored on the **frozen REFERENCE baseline** (stable decode at the conservative control, measured before exploration); the best observed stable decode is reported separately as `best_observed_decode_tps` and never redefines the floor (path/order-independent by construction).
 10. `lspci` fallback: without `nvidia-smi`, vendor entries may appear without VRAM; duplicate suppression prevents corruption when VRAM data exists (fixed in audit).
 
 See §14 of the release audit for the full text.

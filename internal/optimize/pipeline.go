@@ -256,7 +256,10 @@ func Run(ctx context.Context, opts Options) (*report.Report, string, error) {
 
 	// ---- STAGE A: REFERENCE -------------------------------------------------
 	// Measure the conservative control first; it anchors every paired
-	// comparison and defines the machine's baseline decode.
+	// comparison and freezes the practicality baseline. DecodeRetention is
+	// thereafter evaluated against this frozen REFERENCE baseline, not against
+	// later faster discoveries (see tuner.go registerObs: best observed is
+	// tracked separately and never redefines the floor).
 	refIdx := indexOfKind(cands, candidate.KindReference)
 	if refIdx < 0 {
 		return nil, outDir, fmt.Errorf("internal: no reference candidate generated")
@@ -505,12 +508,15 @@ func Run(ctx context.Context, opts Options) (*report.Report, string, error) {
 	sess.confirmFinals(ctx, confirmIDs, cands, rep)
 
 	// ---- OBJECTIVE OUTCOME --------------------------------------------------
+	// The baseline is frozen at REFERENCE; best observed is reported separately
+	// and never moves the floor. See tuner.go registerObs and search.Objective.
 	effectiveFloor := sess.objective.EffectiveFloor()
 	obj := &report.ObjectiveSection{
-		UserFloorTPS:      opts.MinDecode,
-		Retention:         profile.DecodeRetention,
-		BaselineDecodeTPS: sess.objective.Baseline,
-		EffectiveFloorTPS: effectiveFloor,
+		UserFloorTPS:          opts.MinDecode,
+		Retention:             profile.DecodeRetention,
+		BaselineDecodeTPS:     sess.objective.Baseline,
+		EffectiveFloorTPS:     effectiveFloor,
+		BestObservedDecodeTPS: sess.bestDecode,
 	}
 	if effectiveFloor <= 0 {
 		obj.Achieved = winnerID != ""
@@ -565,7 +571,7 @@ func objectiveDescribe(floor, retention float64) string {
 	case floor > 0:
 		return fmt.Sprintf("user floor: decode >= %.1f tok/s", floor)
 	case retention > 0:
-		return fmt.Sprintf("workload practicality: retain >= %.0f%% of best measured decode", retention*100)
+		return fmt.Sprintf("workload practicality: retain >= %.0f%% of frozen reference baseline", retention*100)
 	default:
 		return "objective: stable execution ranked by workload utility"
 	}

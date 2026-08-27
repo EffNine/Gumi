@@ -38,7 +38,7 @@ Gumi is a **local inference auto-tuner**, not a runtime, model server, dashboard
 | `agentic_coding` | 16384 | 0.75 (prefill+depth bound; tolerates decode loss for window) | 1536 prompt / 160 gen | quality 0.65 |
 | `chat` | 4096 | 0.85 (decode-bound; responsiveness dominates) | 256 prompt / 128 gen | balanced 0.55/0.45 |
 
-There is **no universal tok/s floor**. Floors come from `--min-decode` (absolute) or the workload's relative retention rule anchored on the best decode measured in *this* run. See `26-gumi-v1-auto-tuner.md` §4 and `README.md` §Performance Objective.
+There is **no universal tok/s floor**. Floors come from `--min-decode` (absolute) or the workload's relative retention rule anchored on the **frozen REFERENCE baseline** (stable decode before exploration; best observed tracked separately as `best_observed_decode_tps` and never redefines the floor). See `26-gumi-v1-auto-tuner.md` §4 and `README.md` §Performance Objective.
 
 ## Validation provenance (not guarantees)
 

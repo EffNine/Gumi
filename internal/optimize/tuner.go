@@ -237,12 +237,11 @@ func (s *session) registerObs(c *candidate.Candidate) search.Observation {
 			o.CapRate = m.Capability.Rate
 		}
 		if stable && m.DecodeTPS > s.bestDecode {
-			// The relative practicality rule anchors on the best decode the
-			// machine actually demonstrated anywhere in this run.
+			// Track best observed stable decode for reporting, but do NOT
+			// mutate the practicality floor: DecodeRetention is anchored on
+			// the frozen REFERENCE baseline (see pipeline.go). A later faster
+			// candidate must not redefine the gate.
 			s.bestDecode = m.DecodeTPS
-			if s.opts.MinDecode <= 0 {
-				s.objective.Baseline = s.bestDecode
-			}
 		}
 	}
 	s.obs[c.ID] = o

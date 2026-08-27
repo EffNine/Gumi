@@ -38,12 +38,14 @@ type Profile struct {
 
 	// DecodeRetention declares this workload's practicality rule for the
 	// context frontier: a larger context counts as practical only while it
-	// retains this fraction of the BEST MEASURED decode throughput on the
-	// current machine. The rule is relative to what the hardware actually
-	// delivers, so it carries no assumption about GPU class or speed — a
-	// datacenter card and a laptop GPU are each judged against their own
-	// baseline. Users override it with an absolute floor via --min-decode.
-	// 0 disables the relative rule entirely.
+	// retains this fraction of the REFERENCE baseline decode measured before
+	// frontier exploration. The baseline is frozen at the stable REFERENCE
+	// operating point; later faster candidates are tracked as best-observed
+	// but never redefine the gate floor. The rule is thus hardware-relative
+	// yet path-independent (a datacenter card and a laptop are each judged
+	// against their own REFERENCE, not against later discoveries). Users
+	// override it with an absolute floor via --min-decode. 0 disables the
+	// relative rule entirely.
 	DecodeRetention float64
 
 	// Sensitivity classification (Phase 7 heuristic-policy input): which

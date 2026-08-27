@@ -23,9 +23,11 @@ import (
 
 const usage = `gumi — Local LLM Auto-Tuner
 
-Give Gumi a GGUF model; it experiments on this CUDA machine, verifies what
-works, and returns the best configurations it can prove. You do not need to
-know llama.cpp flags.
+Give Gumi a GGUF model; it experiments on this CUDA machine, measures real
+configurations, verifies them against its defined evidence battery, and
+recommends the configurations supported by measured evidence. You do not need to
+know llama.cpp flags. Gumi does not prove general model intelligence and does
+not guarantee global optimality.
 
 Usage:
   gumi tune <model.gguf> [--workload agentic_coding|chat] [--min-decode N] [flags]

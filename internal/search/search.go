@@ -12,7 +12,10 @@
 //	    →  capability gating  →  final verification
 package search
 
-import "sort"
+import (
+	"math"
+	"sort"
+)
 
 // MinRefineGranularity is the smallest context step worth probing during
 // boundary refinement. llama.cpp prefers context sizes divisible by small
@@ -25,24 +28,61 @@ const MinRefineGranularity = 1024
 // its own probe even though it is not a power of two. Levels ascend.
 //
 // Example: Ladder(16384, 131072) => [32768 65536 131072].
+//
+// Arithmetic is overflow-safe: doublings and the 1.25× endpoint test use
+// 64-bit intermediates and ceil-division so near-MaxInt inputs cannot wrap
+// or panic; behavior for normal token counts (≤1M) is unchanged.
 func Ladder(start, maxCtx int) []int {
 	if start <= 0 || maxCtx < start {
 		return nil
 	}
 	var out []int
-	for ctx := start * 2; ctx <= maxCtx; ctx *= 2 {
-		out = append(out, ctx)
+	// Overflow-safe doublings: work in int64 and break before wrapping.
+	for cur := int64(start) * 2; cur <= int64(maxCtx) && cur > 0; {
+		// cur is within [1, maxCtx] and fits in int (start and maxCtx are int).
+		out = append(out, int(cur))
+		if cur > int64(maxCtx)/2 {
+			break
+		}
+		cur *= 2
+		if cur < 0 || cur > int64(math.MaxInt) {
+			break
+		}
 	}
 	if maxCtx > start {
-		last := start
+		var last int64
 		if len(out) > 0 {
-			last = out[len(out)-1]
+			last = int64(out[len(out)-1])
+		} else {
+			last = int64(start)
 		}
-		if maxCtx*4 >= last*5 { // maxCtx >= 1.25 × last level
+		if ge125(int64(maxCtx), last) {
 			out = append(out, maxCtx)
 		}
 	}
 	return out
+}
+
+// ge125 reports whether a*4 >= b*5 without 32/64-bit overflow.
+// Equivalent to a >= ceil(5*b/4) == b + ceil(b/4).
+func ge125(a, b int64) bool {
+	if b <= 0 {
+		return true
+	}
+	if a < b {
+		return false
+	}
+	// ceil(b/4) without overflow: b/4 + (b%4 !=0 ?1:0)
+	ceilB4 := b / 4
+	if b%4 != 0 {
+		ceilB4++
+	}
+	// If b + ceilB4 would overflow MaxInt, no int a can satisfy it.
+	if b > int64(math.MaxInt)-ceilB4 {
+		return false
+	}
+	thresh := b + ceilB4
+	return a >= thresh
 }
 
 // Midpoint returns the next boundary-refinement probe between lo (highest
