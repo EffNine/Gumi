@@ -94,3 +94,5 @@ benchmark/cmd/benchmark_run
 
 # Optimizer run artifacts
 /reports/
+
+.codebro/
